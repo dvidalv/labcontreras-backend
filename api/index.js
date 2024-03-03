@@ -21,7 +21,7 @@ mongoose
   .catch((err) => console.error('MongoDB Atlas connection error:', err));
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.send('Hola Mundo!');
   console.log('Hello World!');
 });
 const PORT = process.env.PORT || 3001;
