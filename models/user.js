@@ -1,16 +1,19 @@
 // esquemas de usuarios
 const mongoose = require('mongoose');
-const validator = require('validator');
 const bcrypt = require('bcryptjs');
-const Joi = require('joi');
 
 const { Schema } = mongoose;
 
-const { celebrate, Segments } = require('celebrate'); // import celebrate
+const { celebrate, Joi, Segments } = require('celebrate'); // import celebrate
+
+
 
 const userSchemaValidation = Joi.object()
   .keys({
-    name: Joi.string().empty('').default('Jacques Cousteau').min(2).max(30),
+    name: Joi.string().required().min(2).max(30).messages({
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre debe tener como máximo 30 caracteres',
+    }),
     email: Joi.string()
       .required()
       .email({ tlds: { allow: true } }) // Habilita la validación de TLDs
@@ -20,21 +23,16 @@ const userSchemaValidation = Joi.object()
     password: Joi.string()
       .required()
       .min(6)
-      .custom((value, helpers) => {
-        if (value.length < 6) {
-          return helpers.message(
-            'La contraseña debe tener al menos 8 caracteres',
-          );
-        }
-        return value;
-      }, 'custom validation for password'),
+      .messages({
+        'string.min': 'La contraseña debe tener al menos 6 caracteres',
+      }),
   })
   .with('email', 'password'); // Si se proporciona un email, también debe proporcionarse una contraseña
 
 const userSchema = new Schema({
   name: {
     type: String,
-    default: 'Jacques Cousteau',
+    required: true,
     minlength: 2,
     maxlength: 30,
   },
@@ -42,6 +40,13 @@ const userSchema = new Schema({
     type: String,
     required: true,
     unique: true,
+    validate: {
+      validator: (v) => {
+        const emailRegex = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+        return emailRegex.test(v);
+      },
+      message: (props) => `${props.value} is not a valid email!`,
+    },
   },
   password: {
     type: String,
@@ -71,8 +76,9 @@ userSchema.statics.findUserByCredentials = function (email, password) {
     });
 };
 
+
 // exportar el modelo
 module.exports = {
-  User: mongoose.model('user', userSchema),
+  User: mongoose.model('user', userSchema, 'users'),
   validateUser: validateUser,
 };
