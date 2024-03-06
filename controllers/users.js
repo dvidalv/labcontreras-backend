@@ -25,11 +25,9 @@ const getCurrentUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { name, about, avatar, email, password } = req.body;
+    const { name, email, password } = req.body;
     const newUser = {
       name,
-      about,
-      avatar,
       email,
       password,
     };
@@ -64,45 +62,6 @@ const createUser = async (req, res) => {
     });
   }
 };
-
-// const createUser = async (req, res) => {
-//   // console.log('res:',req.body);
-//   try {
-//     const { name, email, password } = req.body;
-//     const newUser = {
-//       name,
-//       email,
-//       password,
-//     };
-//     const hash = await bcrypt.hash(newUser.password, 10); // Hash password
-//     newUser.password = hash; // Asignamos la contraseña hasheada al usuario
-//     const user = await insertUser(newUser); // Insertamos el usuario en la base de datos
-//     return res.status(httpStatus.CREATED).json({
-//       // Devolvemos el usuario creado
-//       status: 'success',
-//       message: 'User created',
-//       user,
-//     });
-//   } catch (err) {}
-// };
-
-// const insertUser = async (newUser) => {
-//   try {
-//     const myDB = clientDB.db('LPCR'); // Asume que clientDB ya está conectado
-//     const users = myDB.collection('users');
-//     const result = await users.insertOne(newUser);
-//     console.log('User created with ID:', result.insertedId);
-//     // Si solo necesitas el ID del usuario insertado
-//     return { _id: result.insertedId };
-
-//     // Si necesitas devolver el documento completo del usuario insertado, puedes hacer:
-//     // const user = await users.findOne({ _id: result.insertedId });
-//     // return user;
-//   } catch (err) {
-//     console.error('Error inserting user', err);
-//     throw err; // Es importante propagar el error para manejarlo más arriba en la cadena de promesas.
-//   }
-// };
 
 const generateAuthToken = async (user) => {
   const token = await jwt.sign(
