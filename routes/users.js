@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { validateUser } = require('../models/user');
-
+const authenticateToken  = require('../middlewares/auth');
 const {
   getAllUsers,
   getUserById,
@@ -18,6 +18,7 @@ const router = Router();
 
 // Rutas de autenticación
 router.post('/signin', login);
+router.get('/verifyToken', authenticateToken, getCurrentUser);
 router.post('/signup', validateUser, createUser);
 
 // Rutas de usuarios
