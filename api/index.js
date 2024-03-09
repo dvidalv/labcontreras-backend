@@ -4,6 +4,7 @@ const cors = require('cors');
 const usersRouter = require('../routes/users');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
+const sendMail = require('./api-mail');
 
 const app = express();
 app.use(express.json());
@@ -34,6 +35,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 // });
 
 app.use('/api/users', usersRouter);
+app.post('/api/contact', sendMail);
 
 app.use(errors());
 app.use((err, req, res, next) => {
