@@ -25,17 +25,17 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
   }
 })();
 
-app.get('/', (req, res) => {
-  // res.send('Hola Mundo!');
-  console.log('Hello World!');
-});
+// app.get('/', (req, res) => {
+//   res.send('Hola Mundo!');
+//   console.log('Hello World!');
+// });
 
 // app.use('/api/users',(req, res) => {
 //   console.log(req.body);
 // });
 
-app.use('/api/users', usersRouter);
-app.post('/api/contact', sendMail);
+app.use('/users', usersRouter);
+app.post('/contact', sendMail);
 
 app.use(errors());
 app.use((err, req, res, next) => {
