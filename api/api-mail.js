@@ -5,6 +5,7 @@ sgMail.setApiKey(key);
 
 const sendMail = async (req, res) => {
   const { email, subject, message } = req.body;
+  console.log(email, subject, message)
   const msg = {
     to: email, // Change to your recipient
     from: 'dvidalv@gmail.com', // Change to your verified sender
