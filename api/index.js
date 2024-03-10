@@ -35,7 +35,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 // });
 
 app.use('/users', usersRouter);
-app.post('/contact', sendMail);
+app.post('/api/contact', sendMail);
 
 app.use(errors());
 app.use((err, req, res, next) => {
