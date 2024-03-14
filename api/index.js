@@ -22,19 +22,12 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
   try {
     await mongoose.connect(uri, { useNewUrlParser: true });
     console.log('Conexión exitosa a MongoDB Atlas');
+    console.log(mongoose.connection.name);
   } catch (e) {
     console.error('Error al conectar a MongoDB Atlas', e);
   }
 })();
 
-// app.get('/', (req, res) => {
-// res.send('Hola Mundo!');
-//   console.log('Hello World!');
-// });
-
-// app.use('/api/users',(req, res) => {
-//   console.log(req.body);
-// });
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);

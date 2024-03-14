@@ -31,6 +31,7 @@ const createUser = async (req, res) => {
     };
     const hash = await bcrypt.hash(newUser.password, 10); // Hash password
     newUser.password = hash; // Asignamos la contraseña hasheada al usuario
+    
     const user = await User.create(newUser); // Creamos el usuario en la base de datos
 
     return res.status(httpStatus.CREATED).json({
