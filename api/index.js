@@ -2,6 +2,8 @@ const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
 const usersRouter = require('../routes/users');
+const medicosRouter = require('../routes/medicos');
+
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const sendMail = require('./api-mail');
@@ -36,6 +38,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
+app.use('/medicos', medicosRouter);
 
 app.use(errors());
 app.use((err, req, res, next) => {
