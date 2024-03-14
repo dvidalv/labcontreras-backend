@@ -3,8 +3,6 @@ const httpStatus = require('http-status'); // Importamos el módulo http-status
 const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
 
-const { clientDB } = require('../utils/db');
-
 const getCurrentUser = async (req, res) => {
   // console.log(req.user._id);
   try {
