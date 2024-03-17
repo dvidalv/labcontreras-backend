@@ -41,27 +41,25 @@ const getMedicoById = async (req, res) => {
 
 const createMedico = async (req, res) => {
   try {
-    const { email, nombre } = req.body;
-    const medico = new Medico({ email, nombre });
+    const { nombre, apellido, especialidad, telefono, celular, email, password } = req.body;
+    const medico = new Medico({ nombre, apellido, especialidad, telefono, celular, email, password });
     await medico.save();
-    return res.status(httpStatus.CREATED).json(medico);
+    return res.status(httpStatus.CREATED).json({ message: 'Medico creado correctamente', medico });
   } catch (error) {
-    console.error('Error al crear el médico:', error);
-    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error al crear el médico' });
+    console.log(error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message});
   }
 };
 
 const updateMedico = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, nombre } = req.body;
-    const medico = await Medico.findById(id);
+    const updateData = req.body;
+    const medico = await Medico.findByIdAndUpdate(id, updateData, { new: true });
+    console.log('Medico actualizado:', medico);
     if (!medico) {
       return res.status(httpStatus.NOT_FOUND).json({ message: 'Medico no encontrado' });
     }
-    medico.email = email;
-    medico.nombre = nombre;
-    await medico.save();
     return res.status(httpStatus.OK).json(medico);
   } catch (error) {
     console.error('Error al actualizar el médico:', error);
@@ -72,11 +70,10 @@ const updateMedico = async (req, res) => {
 const deleteMedico = async (req, res) => {
   try {
     const { id } = req.params;
-    const medico = await Medico.findById(id);
+    const medico = await Medico.findByIdAndDelete(id);
     if (!medico) {
       return res.status(httpStatus.NOT_FOUND).json({ message: 'Medico no encontrado' });
     }
-    await medico.remove();
     return res.status(httpStatus.OK).json({ message: 'Medico eliminado' });
   } catch (error) {
     console.error('Error al eliminar el médico:', error);

@@ -1,5 +1,6 @@
 const { Router } = require('express');
-const { getAllMedicosWhiteList, getAllMedicos, getMedicoById } = require('../controllers/medicos');
+const { getAllMedicosWhiteList, getAllMedicos, getMedicoById, createMedico, updateMedico, deleteMedico } = require('../controllers/medicos');
+const { validateMedico } = require('../models/medico');
 
 
 const router = Router();
@@ -7,6 +8,9 @@ const router = Router();
 router.get('/whitelist', getAllMedicosWhiteList);
 router.get('/', getAllMedicos);
 router.get('/:id', getMedicoById);
+router.put('/:id', updateMedico);
+router.delete('/:id', deleteMedico);
+router.post('/',validateMedico, createMedico);
 
 module.exports = router;
 
