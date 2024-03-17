@@ -8,8 +8,15 @@ const medicoSchemaValidation = Joi.object().keys({
     'string.min': 'El nombre debe tener al menos 2 caracteres',
     'string.max': 'El nombre debe tener como máximo 30 caracteres',
   }),
+  apellido: Joi.string().required().min(2).max(30).messages({
+    'string.min': 'El apellido debe tener al menos 2 caracteres',
+    'string.max': 'El apellido debe tener como máximo 30 caracteres',
+  }),
+  especialidad: Joi.string().required().min(2).max(30).messages({
+    'string.min': 'La especialidad debe tener al menos 2 caracteres',
+    'string.max': 'La especialidad debe tener como máximo 30 caracteres',
+  }),
   img: Joi.string(),
-  hospital: Joi.string(),
   telefono: Joi.string().required().min(6).max(30).messages({
     'string.min': 'El teléfono debe tener al menos 6 caracteres',
     'string.max': 'El teléfono debe tener como máximo 30 caracteres',
@@ -38,10 +45,19 @@ const medicoSchema = new Schema({
     minlength: 2,
     maxlength: 30,
   },
-  img: {
+  apellido: {
     type: String,
+    required: true,
+    minlength: 2,
+    maxlength: 30,
   },
-  hospital: {
+  especialidad: {
+    type: String,
+    required: true,
+    minlength: 2,
+    maxlength: 30,
+  },
+  img: {
     type: String,
   },
   telefono: {
