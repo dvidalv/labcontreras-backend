@@ -7,4 +7,40 @@ cloudinary.config({
   api_secret: process.env.API_SECRET
 });
 
-module.exports = cloudinary;
+
+const uploadCloudinary = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No se encontró el archivo para subir.');
+  }
+
+  // Crea un stream de carga hacia Cloudinary
+  const streamUpload = cloudinary.uploader.upload_stream(
+    {
+      folder: 'avatars',
+    },
+    (error, result) => {
+      if (error) {
+        console.error('Error al subir archivo a Cloudinary:', error);
+        return res
+          .status(500)
+          .json({ message: 'Error al subir imagen', error });
+      }
+      res
+        .status(200)
+        .json({ message: 'Imagen subida con éxito', url: result.secure_url });
+    },
+  );
+
+  // Utiliza el stream del archivo cargado y lo pasa al stream de Cloudinary
+  const readStream = bufferToStream(req.file.buffer);
+  readStream.pipe(streamUpload);
+}
+
+function bufferToStream(buffer) {
+  const stream = new require('stream').Readable();
+  stream.push(buffer);
+  stream.push(null); // Indica el fin del stream
+  return stream;
+}
+
+module.exports = uploadCloudinary;
