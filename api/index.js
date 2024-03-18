@@ -4,6 +4,12 @@ const cors = require('cors');
 const usersRouter = require('../routes/users');
 const medicosRouter = require('../routes/medicos');
 
+const { uploadSingleImage, uploadMultipleImages } =
+require('../utils/uploadImages');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const sendMail = require('./api-mail');
@@ -12,6 +18,39 @@ const app = express();
 app.use(express.json());
 
 app.use(cors());
+
+//subir una imagen
+app.post('/upload', upload.single('imagenPerfil'), uploadSingleImage);
+
+//subir varias imagenes
+app.post('/uploadMultiple', upload.array('imagenes', 10), uploadMultipleImages);
+
+
+
+// function handleUpload(file) {
+//   const cloudinary = require('cloudinary').v2;
+//   cloudinary.config({
+//     cloud_name: process.env.CLOUD_NAME,
+//     api_key: process
+//       .env.API_KEY,
+//     api_secret: process.env.API_SECRET,
+//   });
+//   return new Promise((resolve, reject) => {
+//     cloudinary.uploader.upload(file.path, (error, result) => {
+//       if (error) {
+//         reject(error);
+//       } else {
+//         resolve(result);
+//       }
+//     });
+//   });
+// }
+
+// app.post('/upload', upload.single('imagenPerfeil'), async (req, res) => {
+//   const file = req.file;
+//   const result = await handleUpload(file);
+//   res.json(result);
+// });
 app.options('*', cors()); //habilitar las solicitudes de todas las rutas
 
 // MongoDB Atlas connection string
@@ -27,7 +66,6 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
     console.error('Error al conectar a MongoDB Atlas', e);
   }
 })();
-
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
