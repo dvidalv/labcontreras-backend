@@ -6,8 +6,12 @@ const medicosRouter = require('../routes/medicos');
 
 const { uploadSingleImage, uploadMultipleImages } =
 require('../utils/uploadImages');
+
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: '/tmp/uploads/' });
+
+const cloudinary = require('./cloudinaryConfig');
+
 
 
 const mongoose = require('mongoose');
