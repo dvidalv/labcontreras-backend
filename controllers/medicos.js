@@ -41,8 +41,8 @@ const getMedicoById = async (req, res) => {
 
 const createMedico = async (req, res) => {
   try {
-    const { nombre, apellido, especialidad, telefono, celular, email, password } = req.body;
-    const medico = new Medico({ nombre, apellido, especialidad, telefono, celular, email, password });
+    const { nombre, apellido, especialidad, telefono, celular, email, password, url } = req.body;
+    const medico = new Medico({ nombre, apellido, especialidad, telefono, celular, email, password, url });
     await medico.save();
     return res.status(httpStatus.CREATED).json({ message: 'Medico creado correctamente', medico });
   } catch (error) {
@@ -55,6 +55,7 @@ const updateMedico = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    console.log('updateData:', updateData);
     const medico = await Medico.findByIdAndUpdate(id, updateData, { new: true });
     console.log('Medico actualizado:', medico);
     if (!medico) {
