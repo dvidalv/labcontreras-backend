@@ -17,6 +17,11 @@ const uploadCloudinary = async (req, res) => {
   const streamUpload = cloudinary.uploader.upload_stream(
     {
       folder: 'avatars',
+      use_filename: true,
+      background_removal: 'cloudinary_ai',
+      transformation: [
+        { width: 500, height: 500, crop: 'limit' },
+      ],
     },
     (error, result) => {
       if (error) {
