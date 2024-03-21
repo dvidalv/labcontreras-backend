@@ -18,6 +18,6 @@ router.get('/:id', getMedicoById);
 router.put('/:id', updateMedico);
 router.delete('/:id', deleteMedico);
 router.post('/', validateMedico, createMedico);
-router.post('/:id/update', verifyUser, updateMedico);
+router.put('/:id/update', verifyUser, updateMedico);
 
 module.exports = router;
