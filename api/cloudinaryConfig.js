@@ -13,33 +13,28 @@ const uploadCloudinary = async (req, res) => {
     return res.status(400).send('No se encontró el archivo para subir.');
   }
 
-  // Crea un stream de carga hacia Cloudinary
-  const streamUpload = cloudinary.uploader.upload_stream(
-    {
-      folder: 'avatars',
-      use_filename: true,
-      background_removal: 'cloudinary_ai',
-      transformation: [
-        { width: 500, height: 500, crop: 'limit' },
-      ],
-    },
-    (error, result) => {
-      if (error) {
-        console.error('Error al subir archivo a Cloudinary:', error);
-        return res
-          .status(500)
-          .json({ message: 'Error al subir imagen', error });
-      }
-      res
-        .status(200)
-        .json({ message: 'Imagen subida con éxito', url: result.secure_url });
-    },
-  );
+  try {
+    // Envuelve la carga en una promesa para usar async/await
+    const result = await new Promise((resolve, reject) => {
+      const streamUpload = cloudinary.uploader.upload_stream(
+        { folder: 'avatars' },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
 
-  // Utiliza el stream del archivo cargado y lo pasa al stream de Cloudinary
-  const readStream = bufferToStream(req.file.buffer);
-  readStream.pipe(streamUpload);
-}
+      const readStream = bufferToStream(req.file.buffer);
+      readStream.pipe(streamUpload);
+    });
+
+    // Si la carga es exitosa, envía la URL segura de la imagen
+    res.status(200).json({ message: 'Imagen subida con éxito', url: result.secure_url });
+  } catch (error) {
+    console.error('Error al subir archivo a Cloudinary:', error);
+    res.status(500).json({ message: 'Error al subir imagen', error });
+  }
+};
 
 function bufferToStream(buffer) {
   const stream = new require('stream').Readable();
