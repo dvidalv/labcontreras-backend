@@ -85,7 +85,7 @@ const createMedico = async (req, res) => {
     console.log(error);
     return res
       .status(httpStatus.INTERNAL_SERVER_ERROR)
-      .json({ message: error.message });
+      .json({ message: error.message, error: 'E11000' });
   }
 };
 
@@ -105,11 +105,16 @@ async function verifyIdentity(req, res, next) {
       return res.status(401).json({ message: 'Contraseña incorrecta' });
     }
 
-  //   // Si la contraseña coincide, procede al siguiente middleware
+    //   // Si la contraseña coincide, procede al siguiente middleware
     next();
   } catch (error) {
-     res.status(500).json({ message: 'Error al verificar la identidad del médico', error: error.message });
-   }
+    res
+      .status(500)
+      .json({
+        message: 'Error al verificar la identidad del médico',
+        error: error.message,
+      });
+  }
 }
 
 // Función para actualizar un médico
@@ -120,14 +125,18 @@ async function editMedico(req, res) {
     let updateData = { ...req.body };
     delete updateData.password; // Excluye la contraseña de los datos de actualización
 
-    const medico = await Medico.findByIdAndUpdate(id, updateData, { new: true });
+    const medico = await Medico.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
     console.log(medico);
     if (!medico) {
       return res.status(404).json({ message: 'Médico no encontrado' });
     }
     res.status(200).json({ message: 'Médico actualizado con éxito', medico });
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar el médico', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error al actualizar el médico', error: error.message });
   }
 }
 
