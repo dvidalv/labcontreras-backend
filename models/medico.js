@@ -96,35 +96,6 @@ const validateMedico = celebrate({
   [Segments.BODY]: medicoSchemaValidation,
 });
 
-// medicoSchema.statics.findMedicoByCredentials = function (email, password) {
-//   return this.findOne({ email })
-//     .select('+password')
-//     .then((medico) => {
-//       if (!medico) {
-//         return Promise.reject(new Error('Usuario o contraseña incorrectos'));
-//       }
-//       return bcrypt.compare(password, medico.password).then((matched) => {
-//         if (!matched) {
-//           return Promise.reject(new Error('Usuario o contraseña incorrectos'));
-//         }
-//         return medico;
-//       });
-//     });
-// };
-
-
-// medicoSchema.pre('save', function (next) {
-//   if (!this.isModified('password')) {
-//     return next();
-//   }
-//   bcrypt.hash(this.password, 10, (err, hash) => {
-//     if (err) {
-//       return next(err);
-//     }
-//     this.password = hash;
-//     next();
-//   });
-// });
 
 module.exports = {
   Medico: model('Medico', medicoSchema, 'medicos'),
