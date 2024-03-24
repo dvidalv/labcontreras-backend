@@ -6,7 +6,6 @@ const {
   createMedico,
   deleteMedico,
   editMedico,
-  verifyIdentity
 } = require('../controllers/medicos');
 const { validateMedico } = require('../models/medico');
 
@@ -17,6 +16,6 @@ router.get('/', getAllMedicos);
 router.get('/:id', getMedicoById);
 router.delete('/:id', deleteMedico);
 router.post('/', validateMedico, createMedico);
-router.put('/:id/edit', verifyIdentity, editMedico);
+router.put('/:id/edit',editMedico);
 
 module.exports = router;
