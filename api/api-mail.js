@@ -6,13 +6,13 @@ sgMail.setApiKey(key);
 const sendMail = async (req, res) => {
   const { email, subject, message } = req.body;
   const msg = {
-    to: email, // Change to your recipient
+    to: 'dvidalv@gmail.com', // Change to your recipient
     from: 'dvidalv@gmail.com', // Change to your verified sender
     subject: subject,
     content: [
       {
         type: 'text/html',
-        value: message, // Assuming 'email' variable contains the email body text.
+        value: `Email del usuario: ${email}<br>Mensaje: ${message}`,
       },
     ],
   };
