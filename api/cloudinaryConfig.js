@@ -1,4 +1,5 @@
 const sharp = require('sharp');
+const crypto = require('crypto');
 require('dotenv').config();
 const { v2: cloudinary } = require('cloudinary');
 
@@ -23,7 +24,10 @@ const imagen = async (req, res) => {
     // Convertir el buffer a Data URI
     const dataUri = `data:image/png;base64,${compressedImage.toString('base64')}`;
 
+    const hash = crypto.createHash('sha256').update(compressedImage).digest('hex');
+
     const result = await cloudinary.uploader.upload(dataUri, {
+      public_id: hash,
       folder: 'avatars',
       transformation: [
         { width: 200, height: 200, crop: 'thumb' },
