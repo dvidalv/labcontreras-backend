@@ -26,6 +26,7 @@ const userSchemaValidation = Joi.object()
       .messages({
         'string.min': 'La contraseña debe tener al menos 6 caracteres',
       }),
+    url: Joi.string().uri().allow(''),
   })
   .with('email', 'password'); // Si se proporciona un email, también debe proporcionarse una contraseña
 
@@ -52,6 +53,10 @@ const userSchema = new Schema({
     type: String,
     required: true,
     select: false,
+  },
+  url: {
+    type: String,
+    default: '',
   },
 });
 

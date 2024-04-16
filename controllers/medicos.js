@@ -11,7 +11,6 @@ const { cli } = require('winston/lib/winston/config');
 const getAllMedicosWhiteList = async (req, res) => {
   try {
     const medicos = await MedicosWhiteList.find({});
-    // console.log('Medicos:', medicos);
     return res.status(httpStatus.OK).json(medicos);
   } catch (error) {
     console.error('Error al obtener los médicos:', error);
@@ -24,7 +23,6 @@ const getAllMedicosWhiteList = async (req, res) => {
 const getAllMedicos = async (req, res) => {
   try {
     const medicos = await Medico.find({});
-    // console.log('Medicos:', medicos);
     return res.status(httpStatus.OK).json(medicos);
   } catch (error) {
     console.error('Error al obtener los médicos:', error);
@@ -61,12 +59,8 @@ const createMedico = async (req, res) => {
       telefono,
       celular,
       email,
-      password,
       url,
     } = req.body;
-    // Encriptar el password antes de guardarlo
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
     const medico = new Medico({
       nombre,
       apellido,
@@ -74,9 +68,10 @@ const createMedico = async (req, res) => {
       telefono,
       celular,
       email,
-      password: hashedPassword,
       url,
     });
+    console.log(medico);
+
     await medico.save();
     return res
       .status(httpStatus.CREATED)
@@ -121,14 +116,12 @@ async function verifyIdentity(req, res, next) {
 async function editMedico(req, res) {
   try {
     const { id } = req.params;
-    console.log(id);
     let updateData = { ...req.body };
     delete updateData.password; // Excluye la contraseña de los datos de actualización
 
     const medico = await Medico.findByIdAndUpdate(id, updateData, {
       new: true,
     });
-    console.log(medico);
     if (!medico) {
       return res.status(404).json({ message: 'Médico no encontrado' });
     }

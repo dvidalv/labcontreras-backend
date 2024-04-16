@@ -31,13 +31,7 @@ const medicoSchemaValidation = Joi.object().keys({
     .messages({
       'string.email': 'Debe ser un email válido',
     }),
-  password: Joi.string().required().min(6).max(30).messages({
-    'string.min': 'La contraseña debe tener al menos 6 caracteres',
-    'string.max': 'La contraseña debe tener como máximo 30 caracteres',
-  }),
 })
-  .with('email', 'password') // Si se proporciona un email, también debe proporcionarse una contraseña
-
 const medicoSchema = new Schema({
   nombre: {
     type: String,
@@ -83,11 +77,6 @@ const medicoSchema = new Schema({
       },
       message: (props) => `${props.value} is not a valid email!`,
     },
-  },
-  password: {
-    type: String,
-    required: true,
-    select: false,
   },
 });
 

@@ -4,10 +4,8 @@ const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
 
 const getCurrentUser = async (req, res) => {
-  // console.log(req.user._id);
   try {
     const user = await User.findById(req.user._id); // Buscamos el usuario por id
-    // console.log(user);
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'User found',
