@@ -30,7 +30,7 @@ const imagen = async (req, res) => {
       public_id: hash,
       folder: 'avatars',
       transformation: [
-        { width: 400, height: 400, crop: 'thumb' },
+        { width: 400, height: 400, crop: 'thumb' },   // Miniatura de 400x400
         { quality: 'auto', fetch_format: 'auto' }
       ]
     });
