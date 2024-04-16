@@ -11,18 +11,15 @@ module.exports = (req, res, next) => {
   }
 
   const token = authorization.replace('Bearer ', '');
-  // console.log('token', token);
   let payload;
 
   try {
     payload = jwt.verify(token, process.env.JWT_SECRET);
-    // console.log(payload);
   } catch (err) {
     return res.status(401).send({ message: 'Authorization required' });
   }
 
   req.user = payload;
-  // console.log(req.user._id);
 
   return next();
 };

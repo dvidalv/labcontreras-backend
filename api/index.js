@@ -8,7 +8,7 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-const uploadCloudinary = require('./cloudinaryConfig');
+const {imagen} = require('./cloudinaryConfig');
 
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
@@ -38,7 +38,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
 app.use('/medicos', medicosRouter);
-app.post('/upload', upload.single('image'),uploadCloudinary );
+app.post('/upload', upload.single('image'),imagen );
 
 
 
