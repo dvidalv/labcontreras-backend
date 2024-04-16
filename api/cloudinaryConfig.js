@@ -29,10 +29,10 @@ const imagen = async (req, res) => {
     const result = await cloudinary.uploader.upload(dataUri, {
       public_id: hash,
       folder: 'avatars',
-      transformation: [
-        { width: 200, height: 200, crop: 'thumb' },
-        { quality: 'auto', fetch_format: 'auto' }
-      ]
+      // transformation: [
+      //   { width: 200, height: 200, crop: 'thumb' },
+      //   { quality: 'auto', fetch_format: 'auto' }
+      // ]
     });
 
     res.status(200).json({ message: 'Imagen subida con éxito', url: result.secure_url });
