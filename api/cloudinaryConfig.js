@@ -18,7 +18,7 @@ const imagen = async (req, res) => {
 
     const compressedImage = await sharp(file.buffer)
       .resize({ width: 400, height: 400 })
-      .png()
+      .png({ quality: 80 })
       .toBuffer();
 
     // Convertir el buffer a Data URI
