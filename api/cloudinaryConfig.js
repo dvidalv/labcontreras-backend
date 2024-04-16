@@ -17,7 +17,7 @@ const imagen = async (req, res) => {
     }
 
     const compressedImage = await sharp(file.buffer)
-      .resize({ width: 400, height: 400 })
+      .resize({ width: 250, height: 250 })
       .png()
       .toBuffer();
 
