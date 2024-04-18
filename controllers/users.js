@@ -194,6 +194,31 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  // console.log(req.body);
+  try {
+    const { name, tel, role, _id, url} = req.body;
+    const user = await User.findByIdAndUpdate(_id, { name, tel, role, url }, { new: true, runValidators: true });
+  
+    if (!user) {
+      return res.status(httpStatus.NOT_FOUND).json({
+        status: 'error',
+        message: 'User not found',
+      });
+    }
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'User updated',
+      user,
+    });
+  } catch (err) {
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Unexpected error',
+    });
+  }
+}
+
 
 const updateAvatar = async (req, res) => {
   try {
@@ -238,4 +263,5 @@ module.exports = {
   login,
   generateAuthToken,
   getCurrentUser,
+  updateUser,
 };
