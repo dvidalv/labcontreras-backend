@@ -17,9 +17,18 @@ const sendMail = require('./api-mail');
 const app = express();
 app.use(express.json());
 
-app.use(cors());
+const corsOptions = {
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'https://www.contrerasrobledo.com'], // Permite solicitudes de cualquier origen
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Métodos HTTP permitidos
+  preflightContinue: false,
+  optionsSuccessStatus: 204 // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean en 204
+};
 
-app.options('*', cors()); //habilitar las solicitudes de todas las rutas
+app.use(cors(corsOptions));
+
+// Habilita pre-flight requests para todas las rutas
+app.options('*', cors(corsOptions));
 
 // MongoDB Atlas connection string
 const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu archivo .env
