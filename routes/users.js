@@ -24,7 +24,7 @@ router.post('/signup', validateUser, createUser);
 router.route('/').get(getAllUsers);
 
 router.route('/me').get(getCurrentUser).patch(updateProfile);
-router.put('/update', updateUser);
+router.put('/update', authenticateToken, updateUser);
 
 router.route('/me/avatar').patch(updateAvatar);
 

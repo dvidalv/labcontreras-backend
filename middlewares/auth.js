@@ -4,10 +4,9 @@ dotenv.config();
 
 module.exports = (req, res, next) => {
   const { authorization } = req.headers;
-  debugger;
 
   if (!authorization || !authorization.startsWith('Bearer ')) {
-    return res.status(401).send({ message: 'Authorization required' });
+    return res.status(401).send({ message: 'authorization required' });
   }
 
   const token = authorization.replace('Bearer ', '');
