@@ -8,7 +8,7 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-const {imagen} = require('./cloudinaryConfig');
+const { imagen } = require('./cloudinaryConfig');
 
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
@@ -19,10 +19,15 @@ app.use(express.json());
 
 const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'https://www.contrerasrobledo.com'], // Permite solicitudes de cualquier origen
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'https://www.contrerasrobledo.com',
+  ], // Permite solicitudes de cualquier origen
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Métodos HTTP permitidos
   preflightContinue: false,
-  optionsSuccessStatus: 204 // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean en 204
+  optionsSuccessStatus: 204, // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean en 204
 };
 
 app.use(cors(corsOptions));
@@ -47,9 +52,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
 app.use('/medicos', medicosRouter);
-app.post('/upload', upload.single('image'),imagen );
-
-
+app.post('/upload', upload.single('image'), imagen);
 
 app.use(errors());
 app.use((err, req, res, next) => {

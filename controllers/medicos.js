@@ -11,6 +11,7 @@ const { cli } = require('winston/lib/winston/config');
 const getAllMedicosWhiteList = async (req, res) => {
   try {
     const medicos = await MedicosWhiteList.find({});
+    console.log(medicos)
     return res.status(httpStatus.OK).json(medicos);
   } catch (error) {
     console.error('Error al obtener los médicos:', error);
