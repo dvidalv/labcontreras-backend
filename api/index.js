@@ -4,7 +4,6 @@ const cors = require('cors');
 const usersRouter = require('../routes/users');
 const medicosRouter = require('../routes/medicos');
 const filemakerRouter = require('../routes/fileMaker');
-const { getFilemakerToken } = require('../controllers/filemaker-server');
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
@@ -28,8 +27,8 @@ const corsOptions = {
     'https://www.contrerasrobledo.com',
     'https://contrerasrobledo.com',
     'https://www.server-lpcr.com.do',
-    'server-lpcr.local',
-  ], // Permite solicitudes de cualquier origen
+    'http://server-lpcr.local',
+  ],
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Métodos HTTP permitidos
   preflightContinue: false,
   optionsSuccessStatus: 204, // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean en 204
@@ -54,14 +53,14 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
   }
 })();
 
-const token = getFilemakerToken();
-console.log(token);
+// const token = getFilemakerToken();
+// console.log(token);
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
 app.use('/medicos', medicosRouter);
 app.post('/upload', upload.single('image'), imagen);
-app.use('/filemaker', filemakerRouter);
+app.use('/resultados', filemakerRouter);
 
 app.use(errors());
 app.use((err, req, res, next) => {
