@@ -1,8 +1,8 @@
 const { Router } = require('express');
-const { getFilemakerData } = require('../controllers/filemaker-server');
+const { getFilemakerToken } = require('../controllers/filemaker-server');
 
 const router = Router();
 
-router.post('/filemaker', getFilemakerData);
+router.get('/', getFilemakerToken);
 
 module.exports = router;
