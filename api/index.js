@@ -62,6 +62,7 @@ app.use('/medicos', medicosRouter);
 app.post('/upload', upload.single('image'), imagen);
 app.use('/resultados', filemakerRouter);
 
+
 app.use(errors());
 app.use((err, req, res, next) => {
   // Verifica si el error es un error de Celebrate
