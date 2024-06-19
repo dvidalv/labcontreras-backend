@@ -5,6 +5,7 @@ const {
   FILEMAKER_LAYOUT,
 } = require('../utils/constants');
 
+// Obtener token de acceso
 const getFilemakerToken = async (req, res) => {
   const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`, {
       method: 'POST',
@@ -20,6 +21,7 @@ const getFilemakerToken = async (req, res) => {
 
 }
 
+// Obtener registros
 const getRecords = async (req, res) => {
   const token = req.body.token;
   const limit = 50; // Cantidad de registros a obtener
@@ -39,5 +41,33 @@ const getRecords = async (req, res) => {
   return res.status(200).json(data);
 }
 
+// Obtener un registro por un nombre
+const getRecordByName = async (req, res) => {
+  const token = req.body.token;
+  const name = req.body.name;
+  const body = {
+    query: [
+      {
+        "Nombre_Completo": name
+      }
+    ],
+    "sort": [
+      {
+        "fieldName": "FECHA_ENTRADA",
+        "sortOrder": "descend"
+      }
+    ]
+  };
+  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_LAYOUT}/_find`, {
+      method: 'POST',
+      headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+  });
+  const data = await response.json();
+  return res.status(200).json(data);
+}
 
-module.exports = { getFilemakerToken, getRecords };
+module.exports = { getFilemakerToken, getRecords, getRecordByName };
