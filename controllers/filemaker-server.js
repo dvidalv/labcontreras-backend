@@ -16,7 +16,7 @@ const getFilemakerToken = async (req, res) => {
       body: JSON.stringify({})
   });
   const data = await response.json();
-  console.log('data', data);
+  // console.log('data', data);
   return res.status(200).json(data);
 
 }
