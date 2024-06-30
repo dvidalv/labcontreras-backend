@@ -2,35 +2,58 @@ const {
   FILEMAKER_URL,
   FILEMAKER_DATABASE,
   FILEMAKER_CREDENTIALS_BASE64,
-  FILEMAKER_LAYOUT,
+  FILEMAKER_RESULTADOSLAYOUT,
+  FILEMAKER_MEDICOSLAYOUT,
 } = require('../utils/constants');
 
+
 // Obtener token de acceso
-const getFilemakerToken = async (req, res) => {
-  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`, {
+const getFilemakerToken = async (req, res, useRes=true) => {
+  try {
+    // console.log('getFilemakerToken');
+    const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`, {
       method: 'POST',
       headers: {
-          'Authorization': `Basic ${FILEMAKER_CREDENTIALS_BASE64}`,
-          'Content-Type': 'application/json'
+        'Authorization': `Basic ${FILEMAKER_CREDENTIALS_BASE64}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({})
-  });
-  const data = await response.json();
-  console.log('data', data);
-  return res.status(200).json(data);
+    });
+    // console.log('response', response);
 
+    if (response.statusText === 'Service Unavailable') {
+      return res.json({ error: 'Service Unavailable' });
+    }
+
+    const data = await response.json();
+    // console.log('dataToken', data);
+    if (!data.response || !data.response.token) {
+      throw new Error('Token not found in response');
+    }
+    if (useRes) {
+      return res.json(data);
+    }
+    return data;
+  } catch (error) {
+    console.log('error', error);
+    if (useRes) {
+      return res.json({ error: error.message });
+    }
+    return { error: error.message };
+  }
 }
 
 // Obtener registros
 const getRecords = async (req, res) => {
   const token = req.body.token;
-  const limit = 50; // Cantidad de registros a obtener
+  // console.log('token2', token);
+  const limit = 10; // Cantidad de registros a obtener
   const offset = 1; // Nmero de registro desde el que se empieza a obtener
   const sort = JSON.stringify([{
     fieldName: "FECHA_ENTRADA",
     sortOrder: "descend"
   }]);
-  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_LAYOUT}/records?_sort=${encodeURIComponent(sort)}&_limit=${limit}&_offset=${offset}`, {
+  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/records?_sort=${encodeURIComponent(sort)}&_limit=${limit}&_offset=${offset}`, {
       method: 'GET',
       headers: {
           'Authorization': `Bearer ${token}`
@@ -45,9 +68,6 @@ const getRecords = async (req, res) => {
 const getRecordByName = async (req, res) => {
   const token = req.body.token;
   const name = req.body.name;
-  console.log('req.body', req.body);
-  console.log('name', name);
-  console.log('token', token);
   const body = {
     query: [
       {
@@ -61,7 +81,7 @@ const getRecordByName = async (req, res) => {
       }
     ]
   };
-  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_LAYOUT}/_find`, {
+  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`, {
       method: 'POST',
       headers: {
           'Authorization': `Bearer ${token}`,
@@ -74,35 +94,54 @@ const getRecordByName = async (req, res) => {
   return res.status(200).json(data);
 }
 
-// Descargar archivo PDF de un contenedor
-const downloadPDF = async (req, res) => {
-  const token = req.body.token; // Asegúrate de que el token es válido y está activo
-  const recordId = req.body.id; // ID del registro donde se encuentra el contenedor
-  const fieldName = "Url_Resultado"; // Nombre del campo contenedor
 
-  const url = `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_LAYOUT}/records/${recordId}/containers/${fieldName}/1`;
+
+const signinMedico = async (req, res) => {
+  const dataTokenResponse = await getFilemakerToken(req, res, false);
+  const token = dataTokenResponse.response.token;
+
+  const username = String(req.body.username).trim();
+  const password = String(req.body.password).trim();
+  const body = {
+    query: [
+      {
+        "usuario": username,
+        "password": password,
+        'ACCESSO_SISTEMA': 1,
+      }
+    ]
+  };
+
+
+  const url = `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_MEDICOSLAYOUT}/_find`;
 
   try {
     const response = await fetch(url, {
-      method: 'GET', // Usando GET para descargar
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
     });
-    console.log('response', response);
-    if (response.ok) {
-      const blob = await response.blob();
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="downloaded.pdf"');
-      blob.stream().pipe(res);
-    } else {
-      throw new Error(`Failed to download PDF: ${response.statusText}`);
-    }
+    const data = await response.json();
+    // console.log('data2', data);
+    return res.json({...data, token});
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ error: error.message });
   }
 }
 
-module.exports = { getFilemakerToken, getRecords, getRecordByName, downloadPDF };
+const logOutMedico = async (req, res) => {
+  const token = req.body.token;
+  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+}
+
+module.exports = { getFilemakerToken, getRecords, getRecordByName, signinMedico,  };
 
 // module.exports = { getFilemakerToken, getRecords, getRecordByName };
