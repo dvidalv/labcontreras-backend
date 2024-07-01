@@ -46,32 +46,47 @@ const getFilemakerToken = async (req, res, useRes=true) => {
 // Obtener registros
 const getRecords = async (req, res) => {
   const token = req.body.token;
-  // console.log('token2', token);
-  const limit = 10; // Cantidad de registros a obtener
-  const offset = 1; // Nmero de registro desde el que se empieza a obtener
-  const sort = JSON.stringify([{
-    fieldName: "FECHA_ENTRADA",
-    sortOrder: "descend"
-  }]);
-  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/records?_sort=${encodeURIComponent(sort)}&_limit=${limit}&_offset=${offset}`, {
-      method: 'GET',
-      headers: {
-          'Authorization': `Bearer ${token}`
+  const medicoId = req.body.medicoId;
+  // console.log('medicoId', medicoId);
+  const body = {
+    query: [
+      {
+        "MEDICO_ID_FK": medicoId
       }
+    ],
+    "sort": [
+      {
+        "fieldName": "FECHA_ENTRADA",
+        "sortOrder": "descend"
+      }
+    ]
+  };
+  const response = await fetch(`${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`, {
+      method: 'POST',
+      headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
   });
+  // console.log('response', response);
   const data = await response.json();
   // console.log('data', data);
   return res.status(200).json(data);
 }
 
+
 // Obtener un registro por un nombre
 const getRecordByName = async (req, res) => {
   const token = req.body.token;
   const name = req.body.name;
+  const medicoId = req.body.medicoId;
+  // console.log('medicoId', medicoId);
   const body = {
     query: [
       {
-        "Nombre_Completo": name
+        "Nombre_Completo": name,
+        "MEDICO_ID_FK": medicoId
       }
     ],
     "sort": [
