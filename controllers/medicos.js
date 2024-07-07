@@ -71,7 +71,7 @@ const createMedico = async (req, res) => {
       email,
       url,
     });
-    console.log(medico);
+    // console.log(medico);
 
     await medico.save();
     return res
