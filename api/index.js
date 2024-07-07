@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 require('dotenv').config();
 const cors = require('cors');
 const usersRouter = require('../routes/users');
@@ -45,7 +46,7 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
 // Conexión a MongoDB Atlas
 (async () => {
   try {
-    await mongoose.connect(uri, { useNewUrlParser: true });
+    await mongoose.connect(uri);
     console.log('Conexión exitosa a MongoDB Atlas');
     console.log(mongoose.connection.name);
   } catch (e) {
@@ -61,6 +62,23 @@ app.post('/api/contact', sendMail);
 app.use('/medicos', medicosRouter);
 app.post('/upload', upload.single('image'), imagen);
 app.use('/resultados', filemakerRouter);
+app.use('/publicaciones', filemakerRouter);
+
+// Ruta para cargar el PDF en memoria y enviarlo al frontend
+app.post('/api/pdf', async (req, res) => {
+
+  try {
+    const pdfUrl = req.body.url; // Reemplaza con la URL de tu PDF
+    const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+    const pdfBuffer = Buffer.from(response.data, 'binary');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdfBuffer); // Enviar el PDF en el cuerpo de la respuesta
+  } catch (error) {
+    console.error('Error al cargar el PDF:', error);
+    res.status(500).json({ status: 'error', message: 'Error al cargar el PDF' });
+  }
+});
 
 
 app.use(errors());

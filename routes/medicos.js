@@ -8,7 +8,10 @@ const {
   editMedico,
 } = require('../controllers/medicos');
 
-const { signinMedico, getFilemakerToken } = require('../controllers/filemaker-server');
+const {
+  signinMedico,
+  getFilemakerToken,
+} = require('../controllers/filemaker-server');
 
 const { validateMedico } = require('../models/medico');
 
@@ -19,7 +22,7 @@ router.get('/', getAllMedicos);
 router.get('/:id', getMedicoById);
 router.delete('/:id', deleteMedico);
 router.post('/', validateMedico, createMedico);
-router.put('/:id/edit',editMedico);
+router.put('/:id/edit', editMedico);
 router.post('/signin', signinMedico);
 router.get('/refreshToken', getFilemakerToken);
 
