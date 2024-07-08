@@ -223,25 +223,42 @@ const getPublicaciones = async (req, res) => {
 };
 
 const getAllPublicaciones = async (req, res) => {
-  const dataTokenResponse = await getFilemakerToken(req, res, false);
-  const token = dataTokenResponse.response.token;
-  const startingRecord = 1;
-  const _limit = 3;
-  // console.log('token3', token);
+  try {
+    const dataTokenResponse = await getFilemakerToken(req, res, false);
+    // console.log('dataTokenResponse', dataTokenResponse);
+    if (!dataTokenResponse.response) {
+      return res.status(500).json({ message: 'El servidor no está disponible' });
+    }
 
-  const response = await fetch(
-    `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_limit=${_limit}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+    const token = dataTokenResponse.response.token;
+    const startingRecord = 1;
+    const _limit = 3;
+    // console.log('token3', token);
+
+    const response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_limit=${_limit}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       },
-    },
-  );
-  const data = await response.json();
-  // console.log('data3', data);
-  return res.status(200).json(data);
+    );
+
+    if (!dataTokenResponse.response) {
+      throw new Error(`Error en la solicitud: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    // console.log('data3', data);
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Error al obtener publicaciones:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
 };
 
 module.exports = {
