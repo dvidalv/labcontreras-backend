@@ -1,3 +1,4 @@
+const axios = require('axios');
 const {
   FILEMAKER_URL,
   FILEMAKER_DATABASE,
@@ -261,6 +262,20 @@ const getAllPublicaciones = async (req, res) => {
   }
 };
 
+const getPdf = async (req, res) => {
+  try {
+    const pdfUrl = req.body.url; // Reemplaza con la URL de tu PDF
+    const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+    const pdfBuffer = Buffer.from(response.data, 'binary');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdfBuffer); //
+  } catch (error) {
+    console.error('Error al cargar el PDF:', error);
+    res.status(500).json({ status: 'error', message: 'Error al cargar el PDF' });
+  }
+};
+
 module.exports = {
   getFilemakerToken,
   getRecords,
@@ -269,6 +284,7 @@ module.exports = {
   getMail,
   getPublicaciones,
   getAllPublicaciones,
+  getPdf,
 };
 
 // module.exports = { getFilemakerToken, getRecords, getRecordByName };
