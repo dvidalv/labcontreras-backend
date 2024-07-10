@@ -180,48 +180,48 @@ const getMail = async (req, res) => {
   );
 };
 
-const getPublicaciones = async (req, res) => {
-  const dataTokenResponse = await getFilemakerToken(req, res, false);
-  const token = dataTokenResponse.response.token;
-  console.log('token3', token);
+// const getPublicaciones = async (req, res) => {
+//   const dataTokenResponse = await getFilemakerToken(req, res, false);
+//   const token = dataTokenResponse.response.token;
+//   console.log('token3', token);
 
-  const body = {
-    query: [{}], // Consulta vacía para coincidir con todos los registros
-    sort: [
-      {
-        sortOrder: 'descend',
-      },
-    ],
-    limit: 1, // Limitar los resultados a 3
-  };
+//   const body = {
+//     query: [{}], // Consulta vacía para coincidir con todos los registros
+//     sort: [
+//       {
+//         sortOrder: 'descend',
+//       },
+//     ],
+//     limit: 1, // Limitar los resultados a 3
+//   };
 
-  try {
-    const response = await fetch(
-      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      },
-    );
-    // console.log('response2', response);
+//   try {
+//     const response = await fetch(
+//       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
+//       {
+//         method: 'POST',
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//           'Content-Type': 'application/json',
+//         },
+//         body: JSON.stringify(body),
+//       },
+//     );
+//     // console.log('response2', response);
 
-    if (!response.ok) {
-      throw new Error(`Error en la solicitud: ${response.statusText}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`Error en la solicitud: ${response.statusText}`);
+//     }
 
-    const data = await response.json();
-    // console.log('data', data);
+//     const data = await response.json();
+//     // console.log('data', data);
 
-    return res.status(200).json(data);
-  } catch (error) {
-    console.error('Error al obtener publicaciones:', error);
-    return res.status(500).json({ error: error.message });
-  }
-};
+//     return res.status(200).json(data);
+//   } catch (error) {
+//     console.error('Error al obtener publicaciones:', error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// };
 
 const getAllPublicaciones = async (req, res) => {
   try {
@@ -262,6 +262,55 @@ const getAllPublicaciones = async (req, res) => {
   }
 };
 
+const getPublicacionById = async (req, res) => {
+  console.log('getPublicacionById');
+  const id = req.params.id;
+  console.log('id', id);
+  try {
+    const dataTokenResponse = await getFilemakerToken(req, res, false);
+    // console.log('dataTokenResponse', dataTokenResponse);
+
+    if (!dataTokenResponse.response) {
+      return res.status(500).json({ message: 'El servidor no está disponible' });
+    }
+
+    const token = dataTokenResponse.response.token;
+    // console.log('token3', token);
+
+    const response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/v2/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: [
+            {
+              primaryKey: id,
+            },
+          ],
+        }),
+      },
+    );
+    // console.log('response', response);
+
+    if(!dataTokenResponse.response) {
+      throw new Error(`Error en la solicitud: ${response.statusText}`);
+    }
+    const data = await response.json();
+    console.log('data', data);
+    return res.status(200).json(data);
+
+  } catch (error) {
+    console.error('Error al obtener publicaciones:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+};
+
 const getPdf = async (req, res) => {
   try {
     const pdfUrl = req.body.url; // Reemplaza con la URL de tu PDF
@@ -282,9 +331,9 @@ module.exports = {
   getRecordByName,
   signinMedico,
   getMail,
-  getPublicaciones,
   getAllPublicaciones,
   getPdf,
+  getPublicacionById,
 };
 
 // module.exports = { getFilemakerToken, getRecords, getRecordByName };

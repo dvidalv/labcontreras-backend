@@ -4,9 +4,9 @@ const {
   getRecords,
   getRecordByName,
   getMail,
-  getPublicaciones,
   getAllPublicaciones,
-  getPdf
+  getPdf,
+  getPublicacionById
 } = require('../controllers/filemaker-server');
 
 const router = Router();
@@ -17,5 +17,6 @@ router.post('/record', getRecordByName);
 router.post('/get-filemaker-data', getMail);
 router.post('/', getAllPublicaciones);
 router.post('/pdf', getPdf);
+router.post('/:id', getPublicacionById);
 
 module.exports = router;
