@@ -160,10 +160,14 @@ const logOutMedico = async (req, res) => {
     {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
     },
   );
+  if (response.messages[0].code === 0) {
+    return res.status(200).json({ message: 'Logout exitoso' });
+  }
+  return res.status(500).json({ message: 'Logout fallido' });
 };
 
 const getMail = async (req, res) => {
@@ -228,7 +232,9 @@ const getAllPublicaciones = async (req, res) => {
     const dataTokenResponse = await getFilemakerToken(req, res, false);
     // console.log('dataTokenResponse', dataTokenResponse);
     if (!dataTokenResponse.response) {
-      return res.status(500).json({ message: 'El servidor no está disponible' });
+      return res
+        .status(500)
+        .json({ message: 'El servidor no está disponible' });
     }
 
     const token = dataTokenResponse.response.token;
@@ -271,7 +277,9 @@ const getPublicacionById = async (req, res) => {
     // console.log('dataTokenResponse', dataTokenResponse);
 
     if (!dataTokenResponse.response) {
-      return res.status(500).json({ message: 'El servidor no está disponible' });
+      return res
+        .status(500)
+        .json({ message: 'El servidor no está disponible' });
     }
 
     const token = dataTokenResponse.response.token;
@@ -296,13 +304,12 @@ const getPublicacionById = async (req, res) => {
     );
     // console.log('response', response);
 
-    if(!dataTokenResponse.response) {
+    if (!dataTokenResponse.response) {
       throw new Error(`Error en la solicitud: ${response.statusText}`);
     }
     const data = await response.json();
-    console.log('data', data);
+    // console.log('data', data);
     return res.status(200).json(data);
-
   } catch (error) {
     console.error('Error al obtener publicaciones:', error);
     if (!res.headersSent) {
@@ -321,7 +328,40 @@ const getPdf = async (req, res) => {
     res.send(pdfBuffer); //
   } catch (error) {
     console.error('Error al cargar el PDF:', error);
-    res.status(500).json({ status: 'error', message: 'Error al cargar el PDF' });
+    res
+      .status(500)
+      .json({ status: 'error', message: 'Error al cargar el PDF' });
+  }
+};
+
+const runFilemakerScript = async (req, res) => {
+  try {
+    const scriptName = 'makePDF';
+    const token = await getFilemakerToken();
+
+    const response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/v2/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/script/${scriptName}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error en la solicitud: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    // console.log('data', data);
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Error al ejecutar el script:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message });
+    }
   }
 };
 
