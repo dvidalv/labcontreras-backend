@@ -25,6 +25,7 @@ const corsOptions = {
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5173',
+    'http://localhost:5174',
     'https://www.contrerasrobledo.com',
     'https://contrerasrobledo.com',
     'https://www.server-lpcr.com.do',
