@@ -49,22 +49,39 @@ const getFilemakerToken = async (req, res, useRes = true) => {
 
 // Obtener registros
 const getRecords = async (req, res) => {
+  let body;
   const token = req.body.token;
   const medicoId = req.body.medicoId;
-  // console.log('medicoId', medicoId);
-  const body = {
-    query: [
-      {
-        MEDICO_ID_FK: medicoId,
-      },
-    ],
-    sort: [
-      {
-        fieldName: 'FECHA_ENTRADA',
-        sortOrder: 'descend',
-      },
-    ],
-  };
+  const centroExterno = req.body.centroExterno;
+  if (centroExterno === 0) {
+    body = {
+      query: [
+        {
+          MEDICO_ID_FK: medicoId,
+        },
+      ],
+      sort: [
+        {
+          fieldName: 'FECHA_ENTRADA',
+          sortOrder: 'descend',
+        },
+      ],
+    };
+  } else {
+    body = {
+      query: [
+        {
+          centrosExternos_ID: medicoId,
+        },
+      ],
+      sort: [
+        {
+          fieldName: 'FECHA_ENTRADA',
+          sortOrder: 'descend',
+        },
+      ],
+    };
+  }
   const response = await fetch(
     `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`,
     {
@@ -76,32 +93,48 @@ const getRecords = async (req, res) => {
       body: JSON.stringify(body),
     },
   );
-  // console.log('response', response);
   const data = await response.json();
-  // console.log('data', data);
   return res.status(200).json(data);
 };
 
 // Obtener un registro por un nombre
 const getRecordByName = async (req, res) => {
+  let body;
   const token = req.body.token;
   const name = req.body.name;
   const medicoId = req.body.medicoId;
-  // console.log('medicoId', medicoId);
-  const body = {
-    query: [
-      {
-        Nombre_Completo: name,
-        MEDICO_ID_FK: medicoId,
-      },
-    ],
-    sort: [
-      {
-        fieldName: 'FECHA_ENTRADA',
-        sortOrder: 'descend',
-      },
-    ],
-  };
+  const centroExterno = req.body.centroExterno;
+   if(centroExterno === 0){
+    body = {
+      query: [
+        {
+          Nombre_Completo: name,
+          MEDICO_ID_FK: medicoId,
+        },
+      ],
+      sort: [
+        {
+          fieldName: 'FECHA_ENTRADA',
+          sortOrder: 'descend',
+        },
+      ],
+    };
+   }else{
+    body = {
+      query: [
+        {
+          Nombre_Completo: name,
+          centrosExternos_ID: medicoId,
+        },
+      ],
+      sort: [
+        {
+          fieldName: 'FECHA_ENTRADA',
+          sortOrder: 'descend',
+        },
+      ],
+    };
+   }
   const response = await fetch(
     `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`,
     {
