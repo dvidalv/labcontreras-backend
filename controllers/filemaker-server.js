@@ -272,11 +272,11 @@ const getAllPublicaciones = async (req, res) => {
 
     const token = dataTokenResponse.response.token;
     const startingRecord = 1;
-    const _limit = 3;
+    // const _limit = 6;
     // console.log('token3', token);
 
     const response = await fetch(
-      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_limit=${_limit}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
+      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
       {
         method: 'GET',
         headers: {
@@ -302,9 +302,9 @@ const getAllPublicaciones = async (req, res) => {
 };
 
 const getPublicacionById = async (req, res) => {
-  console.log('getPublicacionById');
+  // console.log('getPublicacionById');
   const id = req.params.id;
-  console.log('id', id);
+  // console.log('id', id);
   try {
     const dataTokenResponse = await getFilemakerToken(req, res, false);
     // console.log('dataTokenResponse', dataTokenResponse);
