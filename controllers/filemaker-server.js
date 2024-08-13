@@ -262,6 +262,9 @@ const getMail = async (req, res) => {
 
 const getAllPublicaciones = async (req, res) => {
   try {
+    let response;
+    const search = req.body.search;
+
     const dataTokenResponse = await getFilemakerToken(req, res, false);
     // console.log('dataTokenResponse', dataTokenResponse);
     if (!dataTokenResponse.response) {
@@ -275,7 +278,8 @@ const getAllPublicaciones = async (req, res) => {
     // const _limit = 6;
     // console.log('token3', token);
 
-    const response = await fetch(
+   if(!search){
+    response = await fetch(
       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
       {
         method: 'GET',
@@ -285,6 +289,27 @@ const getAllPublicaciones = async (req, res) => {
         },
       },
     );
+   }else{
+    console.log('search', search);
+    response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: [
+            {
+              titulo: search,
+            },
+          ],
+        }),
+      },
+    );
+   }
+  //  console.log('response', response);
 
     if (!dataTokenResponse.response) {
       throw new Error(`Error en la solicitud: ${response.statusText}`);
