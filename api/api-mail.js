@@ -6,8 +6,8 @@ sgMail.setApiKey(key);
 const sendMail = async (req, res) => {
   const { email, subject, message } = req.body;
   const msg = {
-    to: 'dvidalv@gmail.com', // Change to your recipient
-    from: 'dvidalv@gmail.com', // Change to your verified sender
+    to: 'servicios@contrerasrobledo.com.do', // Change to your recipient
+    from: 'servicios@contrerasrobledo.com.do', // Change to your verified sender
     subject: subject,
     content: [
       {
