@@ -38,10 +38,10 @@ const sendMail = async (req, res) => {
     });
   }
 
-  if (message.length > 1000) {
+  if (message.length > 500) {
     return res.status(400).json({
       status: 'error',
-      message: 'El mensaje no puede exceder los 1000 caracteres'
+      message: 'El mensaje no puede exceder los 500 caracteres'
     });
   }
 
@@ -89,10 +89,10 @@ const sendSugerencia = async (req, res) => {
     });
   }
 
-  if (mensaje.length > 1000) {
+  if (mensaje.length > 500) {
     return res.status(400).json({
       status: 'error',
-      mensaje: 'El mensaje no puede exceder los 1000 caracteres'
+      mensaje: 'El mensaje no puede exceder los 500 caracteres'
     });
   }
 
