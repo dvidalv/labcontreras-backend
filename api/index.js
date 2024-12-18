@@ -14,7 +14,7 @@ const { imagen } = require('./cloudinaryConfig');
 
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
-const sendMail = require('./api-mail');
+const { sendMail, sendSugerencia } = require('./api-mail');
 
 const app = express();
 app.use(express.json());
@@ -64,6 +64,8 @@ app.post('/upload', upload.single('image'), imagen);
 app.use('/resultados', filemakerRouter);
 app.use('/publicaciones', filemakerRouter);
 
+app.use('/api/sugerencias', sendSugerencia);
+app.use('/api/contact', sendMail);
 
 app.use(errors());
 app.use((err, req, res, next) => {

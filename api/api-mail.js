@@ -5,9 +5,49 @@ sgMail.setApiKey(key);
 
 const sendMail = async (req, res) => {
   const { email, subject, message } = req.body;
+
+  // Validaciones
+  if (!email || !subject || !message) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Email, asunto y mensaje son requeridos'
+    });
+  }
+
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Formato de email inválido'
+    });
+  }
+
+  // Validar tipos y longitudes
+  if (typeof subject !== 'string' || typeof message !== 'string') {
+    return res.status(400).json({
+      status: 'error',
+      message: 'El asunto y mensaje deben ser texto'
+    });
+  }
+
+  if (subject.length > 100) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'El asunto no puede exceder los 100 caracteres'
+    });
+  }
+
+  if (message.length > 1000) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'El mensaje no puede exceder los 1000 caracteres'
+    });
+  }
+
   const msg = {
-    to: 'servicios@contrerasrobledo.com.do', // Change to your recipient
-    from: 'servicios@contrerasrobledo.com.do', // Change to your verified sender
+    to: 'servicios@contrerasrobledo.com.do',
+    from: 'servicios@contrerasrobledo.com.do',
     subject: subject,
     content: [
       {
@@ -31,4 +71,48 @@ const sendMail = async (req, res) => {
     });
 };
 
-module.exports = sendMail;
+const sendSugerencia = async (req, res) => {
+  const { mensaje } = req.body;
+
+  // Validaciones
+  if (!mensaje) {
+    return res.status(400).json({
+      status: 'error',
+      mensaje: 'El mensaje es requerido'
+    });
+  }
+
+  if (typeof mensaje !== 'string') {
+    return res.status(400).json({
+      status: 'error',
+      mensaje: 'El mensaje debe ser texto'
+    });
+  }
+
+  if (mensaje.length > 1000) {
+    return res.status(400).json({
+      status: 'error',
+      mensaje: 'El mensaje no puede exceder los 1000 caracteres'
+    });
+  }
+
+  const msg = {
+    to: 'servicios@contrerasrobledo.com.do',
+    from: 'servicios@contrerasrobledo.com.do',
+    subject: 'Sugerencia',
+    content: [
+      { type: 'text/html', value: mensaje },
+    ],
+  };
+  sgMail
+    .send(msg)
+    .then(() => {
+      res.status(200).json({ status: 'success', mensaje: 'Sugerencia enviada' });
+    })
+    .catch((error) => {
+      console.error(error.response.body);
+      res.status(500).json({ status: 'error', mensaje: 'Error al enviar la sugerencia' });
+    });
+};
+
+module.exports = { sendMail, sendSugerencia };

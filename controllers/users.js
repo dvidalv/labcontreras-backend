@@ -199,7 +199,7 @@ const updateUser = async (req, res) => {
   try {
     const { name, tel, role, _id, url} = req.body;
     const user = await User.findByIdAndUpdate(_id, { name, tel, role, url }, { new: true, runValidators: true });
-  
+
     if (!user) {
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
