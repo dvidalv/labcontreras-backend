@@ -66,7 +66,9 @@ const logOut = async (token) => {
 // Obtener registros
 const getRecords = async (req, res) => {
   let body;
-  const { response: { token } } = await getFilemakerToken(req, res, false);
+  const {
+    response: { token },
+  } = await getFilemakerToken(req, res, false);
   const medicoId = req.body.medicoId;
   const centroExterno = req.body.centroExterno;
   if (centroExterno === 0) {
@@ -117,7 +119,9 @@ const getRecords = async (req, res) => {
 // Obtener un registro por un nombre
 const getRecordByName = async (req, res) => {
   let body;
-  const { response: { token } } = await getFilemakerToken(req, res, false);
+  const {
+    response: { token },
+  } = await getFilemakerToken(req, res, false);
   const name = req.body.name;
   const medicoId = req.body.medicoId;
   const centroExterno = req.body.centroExterno;
@@ -206,7 +210,9 @@ const signinMedico = async (req, res) => {
 };
 
 const logOutMedico = async (req, res) => {
-  const { response: { token } } = await getFilemakerToken(req, res, false);
+  const {
+    response: { token },
+  } = await getFilemakerToken(req, res, false);
   const response = await fetch(
     `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`,
     {
@@ -235,8 +241,6 @@ const getMail = async (req, res) => {
     },
   );
 };
-
-
 
 const getAllPublicaciones = async (req, res) => {
   try {
@@ -342,10 +346,11 @@ const getPublicacionById = async (req, res) => {
     );
     // console.log('response', response);
 
-    if (!dataTokenResponse.response) {
-      throw new Error(`Error en la solicitud: ${response.statusText}`);
-    }
+    // if (!dataTokenResponse.response) {
+    //   throw new Error(`Error en la solicitud: ${response.statusText}`);
+    // }
     const data = await response.json();
+    await logOut(token);
     // console.log('data', data);
     return res.status(200).json(data);
   } catch (error) {
