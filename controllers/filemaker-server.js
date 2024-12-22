@@ -47,10 +47,26 @@ const getFilemakerToken = async (req, res, useRes = true) => {
   }
 };
 
+const logOut = async (token) => {
+  try {
+    const response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  } catch (error) {
+    console.log('error', error);
+  }
+};
+
 // Obtener registros
 const getRecords = async (req, res) => {
   let body;
-  const token = req.body.token;
+  const { response: { token } } = await getFilemakerToken(req, res, false);
   const medicoId = req.body.medicoId;
   const centroExterno = req.body.centroExterno;
   if (centroExterno === 0) {
@@ -94,17 +110,18 @@ const getRecords = async (req, res) => {
     },
   );
   const data = await response.json();
+  await logOut(token);
   return res.status(200).json(data);
 };
 
 // Obtener un registro por un nombre
 const getRecordByName = async (req, res) => {
   let body;
-  const token = req.body.token;
+  const { response: { token } } = await getFilemakerToken(req, res, false);
   const name = req.body.name;
   const medicoId = req.body.medicoId;
   const centroExterno = req.body.centroExterno;
-   if(centroExterno === 0){
+  if (centroExterno === 0) {
     body = {
       query: [
         {
@@ -119,7 +136,7 @@ const getRecordByName = async (req, res) => {
         },
       ],
     };
-   }else{
+  } else {
     body = {
       query: [
         {
@@ -134,7 +151,7 @@ const getRecordByName = async (req, res) => {
         },
       ],
     };
-   }
+  }
   const response = await fetch(
     `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`,
     {
@@ -148,6 +165,7 @@ const getRecordByName = async (req, res) => {
   );
   // console.log('response', response);
   const data = await response.json();
+  await logOut(token);
   return res.status(200).json(data);
 };
 
@@ -179,6 +197,7 @@ const signinMedico = async (req, res) => {
       body: JSON.stringify(body),
     });
     const data = await response.json();
+    await logOut(token);
     // console.log('data2', data);
     return res.json({ ...data, token });
   } catch (error) {
@@ -187,7 +206,7 @@ const signinMedico = async (req, res) => {
 };
 
 const logOutMedico = async (req, res) => {
-  const token = req.body.token;
+  const { response: { token } } = await getFilemakerToken(req, res, false);
   const response = await fetch(
     `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`,
     {
@@ -217,48 +236,7 @@ const getMail = async (req, res) => {
   );
 };
 
-// const getPublicaciones = async (req, res) => {
-//   const dataTokenResponse = await getFilemakerToken(req, res, false);
-//   const token = dataTokenResponse.response.token;
-//   console.log('token3', token);
 
-//   const body = {
-//     query: [{}], // Consulta vacía para coincidir con todos los registros
-//     sort: [
-//       {
-//         sortOrder: 'descend',
-//       },
-//     ],
-//     limit: 1, // Limitar los resultados a 3
-//   };
-
-//   try {
-//     const response = await fetch(
-//       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
-//       {
-//         method: 'POST',
-//         headers: {
-//           Authorization: `Bearer ${token}`,
-//           'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify(body),
-//       },
-//     );
-//     // console.log('response2', response);
-
-//     if (!response.ok) {
-//       throw new Error(`Error en la solicitud: ${response.statusText}`);
-//     }
-
-//     const data = await response.json();
-//     // console.log('data', data);
-
-//     return res.status(200).json(data);
-//   } catch (error) {
-//     console.error('Error al obtener publicaciones:', error);
-//     return res.status(500).json({ error: error.message });
-//   }
-// };
 
 const getAllPublicaciones = async (req, res) => {
   try {
@@ -278,38 +256,40 @@ const getAllPublicaciones = async (req, res) => {
     // const _limit = 6;
     // console.log('token3', token);
 
-   if(!search){
-    response = await fetch(
-      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+    if (!search) {
+      response = await fetch(
+        `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/records?_offset=${startingRecord}&_sort=[{"fieldName":"CreationTimestamp","sortOrder":"descend"}]`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      },
-    );
-   }else{
-    console.log('search', search);
-    response = await fetch(
-      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      );
+      logOut(token);
+    } else {
+      console.log('search', search);
+      response = await fetch(
+        `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: [
+              {
+                titulo: search,
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          query: [
-            {
-              titulo: search,
-            },
-          ],
-        }),
-      },
-    );
-   }
-  //  console.log('response', response);
+      );
+      logOut(token);
+    }
+    //  console.log('response', response);
 
     if (!dataTokenResponse.response) {
       throw new Error(`Error en la solicitud: ${response.statusText}`);
