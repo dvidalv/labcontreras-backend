@@ -31,7 +31,16 @@ const corsOptions = {
     'Access-Control-Allow-Methods',
     'Access-Control-Allow-Credentials',
   ],
-  origin: '*', // Temporarily allow all origins for testing
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://www.contrerasrobledo.com',
+    'https://contrerasrobledo.com',
+    'https://www.server-lpcr.com.do',
+    'http://server-lpcr.local',
+  ],
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   preflightContinue: false,
   optionsSuccessStatus: 204,
