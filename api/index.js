@@ -20,7 +20,13 @@ const app = express();
 app.use(express.json());
 
 const corsOptions = {
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'Origin',
+    'X-Requested-With',
+  ],
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
@@ -31,9 +37,11 @@ const corsOptions = {
     'https://www.server-lpcr.com.do',
     'http://server-lpcr.local',
   ],
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Métodos HTTP permitidos
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   preflightContinue: false,
-  optionsSuccessStatus: 204, // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean en 204
+  optionsSuccessStatus: 204,
+  credentials: true,
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
 };
 
 app.use(cors(corsOptions));
@@ -54,8 +62,6 @@ const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu ar
     console.error('Error al conectar a MongoDB Atlas', e);
   }
 })();
-
-
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);
