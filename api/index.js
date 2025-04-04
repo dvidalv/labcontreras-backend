@@ -26,23 +26,34 @@ const corsOptions = {
     'Accept',
     'Origin',
     'X-Requested-With',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials',
   ],
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://www.contrerasrobledo.com',
-    'https://contrerasrobledo.com',
-    'https://www.server-lpcr.com.do',
-    'http://server-lpcr.local',
-  ],
+  origin: '*', // Temporarily allow all origins for testing
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   preflightContinue: false,
   optionsSuccessStatus: 204,
   credentials: true,
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  exposedHeaders: [
+    'Content-Range',
+    'X-Content-Range',
+    'Access-Control-Allow-Origin',
+  ],
 };
+
+// Add security headers middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+  );
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 app.use(cors(corsOptions));
 
