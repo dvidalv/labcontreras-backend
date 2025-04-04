@@ -11,7 +11,9 @@ const {
 // Obtener token de acceso
 const getFilemakerToken = async (req, res, useRes = true) => {
   try {
-    // console.log('getFilemakerToken');
+    console.log('getFilemakerToken');
+    console.log('Attempting to connect to:', FILEMAKER_URL);
+
     const response = await fetch(
       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`,
       {
@@ -23,27 +25,56 @@ const getFilemakerToken = async (req, res, useRes = true) => {
         body: JSON.stringify({}),
       },
     );
-    // console.log('response', response);
+    console.log('Response status:', response.status, response.statusText);
 
-    if (response.statusText === 'Service Unavailable') {
-      return res.json({ error: 'Service Unavailable' });
+    if (response.status === 503) {
+      const error = new Error('FileMaker Service Unavailable');
+      error.status = 503;
+      throw error;
+    }
+
+    if (!response.ok) {
+      const error = new Error(`HTTP error! status: ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json();
-    // console.log('dataToken', data);
     if (!data.response || !data.response.token) {
-      throw new Error('Token not found in response');
+      const error = new Error('Token not found in response');
+      error.status = 400;
+      throw error;
     }
+
     if (useRes) {
       return res.json(data);
     }
     return data;
   } catch (error) {
-    console.log('error', error);
+    console.error('FileMaker connection error:', {
+      message: error.message,
+      cause: error.cause?.message,
+      status: error.status || 500,
+      code: error.cause?.code,
+      syscall: error.cause?.syscall,
+      address: error.cause?.address,
+      port: error.cause?.port,
+    });
+
+    const errorResponse = {
+      error: error.message,
+      details: {
+        cause: error.cause?.message,
+        code: error.cause?.code,
+        syscall: error.cause?.syscall,
+      },
+      status: error.status || 500,
+    };
+
     if (useRes) {
-      return res.json({ error: error.message });
+      return res.status(errorResponse.status).json(errorResponse);
     }
-    return { error: error.message };
+    return errorResponse;
   }
 };
 
