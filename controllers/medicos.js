@@ -24,6 +24,7 @@ const getAllMedicosWhiteList = async (req, res) => {
 const getAllMedicos = async (req, res) => {
   try {
     const medicos = await Medico.find({});
+    res.setHeader('Cache-Control', 'no-store');
     return res.status(httpStatus.OK).json(medicos);
   } catch (error) {
     console.error('Error al obtener los médicos:', error);

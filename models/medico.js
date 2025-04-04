@@ -87,6 +87,6 @@ const validateMedico = celebrate({
 
 
 module.exports = {
-  Medico: model('Medico', medicoSchema, 'medicos'),
+  Medico: model('Medico', medicoSchema, 'medicos'), // Agregado el tercer argumento 'medicos' para especificar la colección en MongoDB
   validateMedico,
 };
