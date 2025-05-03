@@ -25,9 +25,9 @@ const getFilemakerToken = async (req, res, useRes = true) => {
         body: JSON.stringify({}),
       },
     );
-    console.log('Response status:', response.status, response.statusText);
+    console.log('Response statuse:', response.status, response.statusText);
 
-    if (response.status === 503) {
+    if (response.status === 404) {
       const error = new Error('FileMaker Service Unavailable');
       error.status = 503;
       throw error;
@@ -78,6 +78,98 @@ const getFilemakerToken = async (req, res, useRes = true) => {
   }
 };
 
+const signinMedico = async (req, res) => {
+  try {
+    const dataTokenResponse = await getFilemakerToken(req, res, false);
+
+    // Verificar si hay un error en la respuesta
+    if (dataTokenResponse.error) {
+      return res.status(dataTokenResponse.status || 500).json({
+        error: 'Error de autenticación',
+        details: dataTokenResponse.error,
+        message: 'No se pudo obtener el token de acceso',
+      });
+    }
+
+    // Verificar si la respuesta y el token existen
+    if (!dataTokenResponse.response || !dataTokenResponse.response.token) {
+      return res.status(500).json({
+        error: 'Error de servidor',
+        message: 'No se pudo obtener el token de acceso',
+      });
+    }
+
+    const token = dataTokenResponse.response.token;
+
+    // Validar datos de entrada
+    if (!req.body.username || !req.body.password) {
+      return res.status(400).json({
+        error: 'Datos inválidos',
+        message: 'Usuario y contraseña son requeridos',
+      });
+    }
+
+    const username = String(req.body.username).trim();
+    const password = String(req.body.password).trim();
+
+    const body = {
+      query: [
+        {
+          usuario: username,
+          password: password,
+          ACCESSO_SISTEMA: 1,
+        },
+      ],
+    };
+
+    const url = `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_MEDICOSLAYOUT}/_find`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error en la consulta: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    await logOut(token);
+
+    return res.json({ ...data, token });
+  } catch (error) {
+    console.error('Error en signinMedico:', error);
+    return res.status(500).json({
+      error: 'Error de servidor',
+      message: error.message,
+      details: error.cause?.message,
+    });
+  }
+};
+
+const logOutMedico = async (req, res) => {
+  const {
+    response: { token },
+  } = await getFilemakerToken(req, res, false);
+  const response = await fetch(
+    `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+  if (response.messages[0].code === 0) {
+    return res.status(200).json({ message: 'Logout exitoso' });
+  }
+  return res.status(500).json({ message: 'Logout fallido' });
+};
+
 const logOut = async (token) => {
   try {
     const response = await fetch(
@@ -96,17 +188,43 @@ const logOut = async (token) => {
 
 // Obtener registros
 const getRecords = async (req, res) => {
-  let body;
-  const {
-    response: { token },
-  } = await getFilemakerToken(req, res, false);
-  const medicoId = req.body.medicoId;
-  const centroExterno = req.body.centroExterno;
-  if (centroExterno === 0) {
-    body = {
+  try {
+    // Validar datos de entrada
+    if (!req.body.medicoId) {
+      return res.status(400).json({
+        error: 'Datos inválidos',
+        message: 'El ID del médico es requerido',
+      });
+    }
+
+    const dataTokenResponse = await getFilemakerToken(req, res, false);
+
+    // Verificar si hay un error en la respuesta
+    if (dataTokenResponse.error) {
+      return res.status(dataTokenResponse.status || 500).json({
+        error: 'Error de autenticación',
+        details: dataTokenResponse.error,
+        message: 'No se pudo obtener el token de acceso',
+      });
+    }
+
+    // Verificar si la respuesta y el token existen
+    if (!dataTokenResponse.response || !dataTokenResponse.response.token) {
+      return res.status(500).json({
+        error: 'Error de servidor',
+        message: 'No se pudo obtener el token de acceso',
+      });
+    }
+
+    const { token } = dataTokenResponse.response;
+    const medicoId = req.body.medicoId;
+    const centroExterno = req.body.centroExterno || 0;
+
+    const body = {
       query: [
         {
-          MEDICO_ID_FK: medicoId,
+          [centroExterno === 0 ? 'MEDICO_ID_FK' : 'centrosExternos_ID']:
+            medicoId,
         },
       ],
       sort: [
@@ -116,35 +234,35 @@ const getRecords = async (req, res) => {
         },
       ],
     };
-  } else {
-    body = {
-      query: [
-        {
-          centrosExternos_ID: medicoId,
+
+    const response = await fetch(
+      `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      ],
-      sort: [
-        {
-          fieldName: 'FECHA_ENTRADA',
-          sortOrder: 'descend',
-        },
-      ],
-    };
-  }
-  const response = await fetch(
-    `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_RESULTADOSLAYOUT}/_find`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    },
-  );
-  const data = await response.json();
-  await logOut(token);
-  return res.status(200).json(data);
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error en la consulta: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    await logOut(token);
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Error en getRecords:', error);
+    return res.status(500).json({
+      error: 'Error de servidor',
+      message: error.message,
+      details: error.cause?.message,
+    });
+  }
 };
 
 // Obtener un registro por un nombre
@@ -202,61 +320,6 @@ const getRecordByName = async (req, res) => {
   const data = await response.json();
   await logOut(token);
   return res.status(200).json(data);
-};
-
-const signinMedico = async (req, res) => {
-  const dataTokenResponse = await getFilemakerToken(req, res, false);
-  const token = dataTokenResponse.response.token;
-
-  const username = String(req.body.username).trim();
-  const password = String(req.body.password).trim();
-  const body = {
-    query: [
-      {
-        usuario: username,
-        password: password,
-        ACCESSO_SISTEMA: 1,
-      },
-    ],
-  };
-
-  const url = `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_MEDICOSLAYOUT}/_find`;
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    await logOut(token);
-    // console.log('data2', data);
-    return res.json({ ...data, token });
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-};
-
-const logOutMedico = async (req, res) => {
-  const {
-    response: { token },
-  } = await getFilemakerToken(req, res, false);
-  const response = await fetch(
-    `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions/${token}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
-  if (response.messages[0].code === 0) {
-    return res.status(200).json({ message: 'Logout exitoso' });
-  }
-  return res.status(500).json({ message: 'Logout fallido' });
 };
 
 const getMail = async (req, res) => {
