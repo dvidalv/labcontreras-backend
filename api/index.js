@@ -30,6 +30,7 @@ const corsOptions = {
     'Access-Control-Allow-Headers',
     'Access-Control-Allow-Methods',
     'Access-Control-Allow-Credentials',
+    
   ],
   origin: [
     'http://localhost:3000',
@@ -54,7 +55,7 @@ const corsOptions = {
 
 // Add security headers middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', '*'); //
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header(
     'Access-Control-Allow-Headers',
