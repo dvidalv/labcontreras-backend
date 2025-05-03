@@ -14,56 +14,36 @@ const { imagen } = require('./cloudinaryConfig');
 
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
-const { sendMail, sendSugerencia } = require('./api-mail');
+const { sendMail } = require('./api-mail');
+const { createPacienteSugerencia } = require('../lib/pacientesDB');
 
 const app = express();
 app.use(express.json());
 
 const corsOptions = {
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Accept',
-    'Origin',
-    'X-Requested-With',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods',
-    'Access-Control-Allow-Credentials',
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://www.contrerasrobledo.com',
+      'https://contrerasrobledo.com',
+      'https://www.server-lpcr.com.do',
+      'http://server-lpcr.local'
+    ];
     
-  ],
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://www.contrerasrobledo.com',
-    'https://contrerasrobledo.com',
-    'https://www.server-lpcr.com.do',
-    'http://server-lpcr.local',
-  ],
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
+    // Permitir solicitudes sin origen (como las aplicaciones móviles o postman)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  exposedHeaders: [
-    'Content-Range',
-    'X-Content-Range',
-    'Access-Control-Allow-Origin',
-  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
-
-// Add security headers middleware
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*'); //
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization',
-  );
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
 
 app.use(cors(corsOptions));
 
@@ -91,7 +71,7 @@ app.post('/upload', upload.single('image'), imagen);
 app.use('/resultados', filemakerRouter);
 app.use('/publicaciones', filemakerRouter);
 
-app.use('/api/sugerencias', sendSugerencia);
+app.use('/api/sugerencias/pacientes', createPacienteSugerencia);
 app.use('/api/contact', sendMail);
 
 app.use(errors());
