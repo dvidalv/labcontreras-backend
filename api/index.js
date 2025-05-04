@@ -15,13 +15,13 @@ const { imagen } = require('./cloudinaryConfig');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const { sendMail } = require('./api-mail');
-const { createPacienteSugerencia } = require('../lib/pacientesDB');
-
+// const { createPacienteSugerencia } = require('../lib/pacientesDB');
+const sugerenciasRouter = require('../routes/sugerencias');
 const app = express();
 app.use(express.json());
 
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
@@ -30,9 +30,9 @@ const corsOptions = {
       'https://www.contrerasrobledo.com',
       'https://contrerasrobledo.com',
       'https://www.server-lpcr.com.do',
-      'http://server-lpcr.local'
+      'http://server-lpcr.local',
     ];
-    
+
     // Permitir solicitudes sin origen (como las aplicaciones móviles o postman)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -71,7 +71,7 @@ app.post('/upload', upload.single('image'), imagen);
 app.use('/resultados', filemakerRouter);
 app.use('/publicaciones', filemakerRouter);
 
-app.use('/api/sugerencias/pacientes', createPacienteSugerencia);
+app.use('/api/sugerencias', sugerenciasRouter);
 app.use('/api/contact', sendMail);
 
 app.use(errors());
