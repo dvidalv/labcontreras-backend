@@ -19,7 +19,7 @@ const createSugerenciaPaciente = async (req, res) => {
       return res.status(429).json({
         error: 'RATE_LIMIT_EXCEEDED',
         message:
-          'Por favor, espere una hora antes de enviar otra sugerencia de paciente.',
+          'Por favor, espere una hora antes de responder otra encuesta de satisfacción.',
       });
     }
 
@@ -59,7 +59,7 @@ const createSugerenciaMedico = async (req, res) => {
       return res.status(429).json({
         error: 'RATE_LIMIT_EXCEEDED',
         message:
-          'Por favor, espere una hora antes de enviar otra sugerencia de médico.',
+          'Por favor, espere una hora antes de responder otra encuesta de satisfacción.',
       });
     }
 
@@ -90,7 +90,7 @@ const createSugerenciaEmpresa = async (req, res) => {
       return res.status(429).json({
         error: 'RATE_LIMIT_EXCEEDED',
         message:
-          'Por favor, espere una hora antes de enviar otra sugerencia de empresa.',
+          'Por favor, espere una hora antes de responder otra encuesta de satisfacción.',
       });
     }
 
