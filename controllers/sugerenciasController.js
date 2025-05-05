@@ -6,9 +6,6 @@ const Fingerprint = require('../models/fingerprints');
 // Controlador para sugerencias de pacientes
 const createSugerenciaPaciente = async (req, res) => {
   try {
-    console.log('Recibiendo sugerencia de paciente:', req.body);
-    console.log('Fingerprint:', req.body.fingerprint);
-
     // Verificar si existe un fingerprint reciente para pacientes
     const existingFingerprint = await Fingerprint.findOne({
       fingerprint: req.body.fingerprint,
@@ -33,7 +30,6 @@ const createSugerenciaPaciente = async (req, res) => {
     const { fingerprint, ...sugerenciaData } = req.body;
     const sugerencia = await SugerenciasPacientes.create(sugerenciaData);
 
-    console.log('Sugerencia creada:', sugerencia);
     res.status(201).json({
       mensaje: '¡Sugerencia enviada con éxito!',
       sugerencia,
