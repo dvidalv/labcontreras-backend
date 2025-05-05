@@ -71,48 +71,5 @@ const sendMail = async (req, res) => {
     });
 };
 
-const sendSugerencia = async (req, res) => {
-  const { mensaje } = req.body;
 
-  // Validaciones
-  if (!mensaje) {
-    return res.status(400).json({
-      status: 'error',
-      mensaje: 'El mensaje es requerido'
-    });
-  }
-
-  if (typeof mensaje !== 'string') {
-    return res.status(400).json({
-      status: 'error',
-      mensaje: 'El mensaje debe ser texto'
-    });
-  }
-
-  if (mensaje.length > 500) {
-    return res.status(400).json({
-      status: 'error',
-      mensaje: 'El mensaje no puede exceder los 500 caracteres'
-    });
-  }
-
-  const msg = {
-    to: 'servicios@contrerasrobledo.com.do',
-    from: 'servicios@contrerasrobledo.com.do',
-    subject: 'Sugerencia',
-    content: [
-      { type: 'text/html', value: mensaje },
-    ],
-  };
-  sgMail
-    .send(msg)
-    .then(() => {
-      res.status(200).json({ status: 'success', mensaje: 'Sugerencia enviada' });
-    })
-    .catch((error) => {
-      console.error(error.response.body);
-      res.status(500).json({ status: 'error', mensaje: 'Error al enviar la sugerencia' });
-    });
-};
-
-module.exports = { sendMail, sendSugerencia };
+module.exports = { sendMail };
