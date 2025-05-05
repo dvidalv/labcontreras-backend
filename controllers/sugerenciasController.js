@@ -37,6 +37,7 @@ const createSugerenciaPaciente = async (req, res) => {
   } catch (error) {
     console.error('Error al crear sugerencia:', error);
     res.status(400).json({
+      error: 'BAD_REQUEST',
       message: error.message || 'Error al crear la sugerencia',
     });
   }
@@ -69,7 +70,10 @@ const createSugerenciaMedico = async (req, res) => {
     const sugerencia = await SugerenciasMedicos.create(sugerenciaData);
     res.status(201).json(sugerencia);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      error: 'BAD_REQUEST',
+      message: error.message || 'Error al crear la sugerencia',
+    });
   }
 };
 
@@ -100,7 +104,10 @@ const createSugerenciaEmpresa = async (req, res) => {
     const sugerencia = await SugerenciasEmpresas.create(sugerenciaData);
     res.status(201).json(sugerencia);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      error: 'BAD_REQUEST',
+      message: error.message || 'Error al crear la sugerencia',
+    });
   }
 };
 
