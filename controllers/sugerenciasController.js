@@ -68,7 +68,10 @@ const createSugerenciaMedico = async (req, res) => {
 
     const { fingerprint, ...sugerenciaData } = req.body;
     const sugerencia = await SugerenciasMedicos.create(sugerenciaData);
-    res.status(201).json(sugerencia);
+    res.status(201).json({
+      mensaje: '¡Sugerencia enviada con éxito!',
+      sugerencia,
+    });
   } catch (error) {
     res.status(400).json({
       error: 'BAD_REQUEST',
