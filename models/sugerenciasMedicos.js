@@ -18,7 +18,12 @@ const sugerenciasMedicosSchema = new Schema({
   satisfaccion: {
     type: String,
     required: true,
-    enum: ['nada', 'poco', 'satisfecho', 'muy'],
+    enum: [
+      'muy-satisfecho',
+      'satisfecho',
+      'poco-satisfecho',
+      'nada-satisfecho',
+    ],
     validate: {
       validator: (v) => {
         return v && v.trim().length > 0;
@@ -26,7 +31,51 @@ const sugerenciasMedicosSchema = new Schema({
       message: 'Debe seleccionar un nivel de satisfacción',
     },
   },
-  discrepancias: {
+  entregaOportuna: {
+    type: String,
+    required: true,
+    enum: ['si', 'no'],
+    validate: {
+      validator: (v) => {
+        return v && v.trim().length > 0;
+      },
+      message: 'Debe seleccionar una opción',
+    },
+  },
+  informesClaros: {
+    type: String,
+    required: true,
+    enum: ['si', 'no'],
+    validate: {
+      validator: (v) => {
+        return v && v.trim().length > 0;
+      },
+      message: 'Debe seleccionar una opción',
+    },
+  },
+  utilidadDiagnosticos: {
+    type: String,
+    required: true,
+    enum: ['utiles', 'no-concluyentes', 'sin-beneficio'],
+    validate: {
+      validator: (v) => {
+        return v && v.trim().length > 0;
+      },
+      message: 'Debe seleccionar una opción',
+    },
+  },
+  metodosTecnicos: {
+    type: String,
+    required: true,
+    enum: ['obsoletos', 'modernos', 'excesivos'],
+    validate: {
+      validator: (v) => {
+        return v && v.trim().length > 0;
+      },
+      message: 'Debe seleccionar una opción',
+    },
+  },
+  sugerencias: {
     type: String,
     required: true,
     minlength: [10, 'El mensaje debe tener al menos 10 caracteres'],
@@ -35,7 +84,7 @@ const sugerenciasMedicosSchema = new Schema({
       validator: (v) => {
         return v && v.trim().length >= 10 && v.trim().length <= 500;
       },
-      message: 'La descripción debe tener entre 10 y 500 caracteres',
+      message: 'La sugerencia debe tener entre 10 y 500 caracteres',
     },
   },
   fecha: {
