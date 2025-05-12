@@ -77,7 +77,7 @@ const sugerenciasMedicosSchema = new Schema({
   },
   sugerencias: {
     type: String,
-    required: true,
+    required: false,
     minlength: [10, 'El mensaje debe tener al menos 10 caracteres'],
     maxlength: [500, 'El mensaje no puede exceder los 500 caracteres'],
     validate: {
