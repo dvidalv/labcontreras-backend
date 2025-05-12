@@ -18,7 +18,7 @@ const sugerenciasPacientesSchema = new Schema({
   satisfaccion: {
     type: String,
     required: true,
-    enum: ['nada', 'poco', 'satisfecho', 'muy'],
+    enum: ['nada-satisfecho', 'poco-satisfecho', 'satisfecho', 'muy-satisfecho'],
     validate: {
       validator: (v) => {
         return v && v.trim().length > 0;
