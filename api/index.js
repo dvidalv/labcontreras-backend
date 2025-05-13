@@ -1,10 +1,13 @@
 const express = require('express');
+const connectDB = require('../lib/db');
+const dotenv = require('dotenv');
+dotenv.config();
 
-require('dotenv').config();
 const cors = require('cors');
 const usersRouter = require('../routes/users');
 const medicosRouter = require('../routes/medicos');
 const filemakerRouter = require('../routes/fileMaker');
+const sugerenciasRouter = require('../routes/sugerencias');
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
@@ -12,11 +15,9 @@ const upload = multer({ storage: storage });
 
 const { imagen } = require('./cloudinaryConfig');
 
-const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const { sendMail } = require('./api-mail');
-// const { createPacienteSugerencia } = require('../lib/pacientesDB');
-const sugerenciasRouter = require('../routes/sugerencias');
+
 const app = express();
 app.use(express.json());
 
@@ -50,19 +51,9 @@ app.use(cors(corsOptions));
 // Habilita pre-flight requests para todas las rutas
 app.options('*', cors(corsOptions));
 
-// MongoDB Atlas connection string
-const uri = process.env.ATLAS_URI; // Asegúrate de tener esta variable en tu archivo .env
 
 // Conexión a MongoDB Atlas
-(async () => {
-  try {
-    await mongoose.connect(uri);
-    console.log('Conexión exitosa a MongoDB Atlas');
-    console.log(mongoose.connection.name);
-  } catch (e) {
-    console.error('Error al conectar a MongoDB Atlas', e);
-  }
-})();
+connectDB();
 
 app.use('/users', usersRouter);
 app.post('/api/contact', sendMail);

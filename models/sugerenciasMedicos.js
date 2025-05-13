@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
-const connection = require('../config/databaseSugerencias');
 
 const sugerenciasMedicosSchema = new Schema({
   nombre: {
@@ -93,7 +92,7 @@ sugerenciasMedicosSchema.pre('save', function (next) {
   next();
 });
 
-const SugerenciasMedicos = connection.model(
+const SugerenciasMedicos = mongoose.model(
   'SugerenciasMedicos',
   sugerenciasMedicosSchema,
   'sugerencias_medicos',

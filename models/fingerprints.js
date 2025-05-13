@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
-const connection = require('../config/databaseSugerencias');
 
 const fingerprintSchema = new Schema({
   fingerprint: {
@@ -23,7 +22,7 @@ const fingerprintSchema = new Schema({
 // Crear índice compuesto para fingerprint y type
 fingerprintSchema.index({ fingerprint: 1, type: 1 }, { unique: true });
 
-const Fingerprint = connection.model(
+const Fingerprint = mongoose.model(
   'Fingerprint',
   fingerprintSchema,
   'fingerprints',
