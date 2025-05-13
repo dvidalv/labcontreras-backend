@@ -93,9 +93,9 @@ sugerenciasMedicosSchema.pre('save', function (next) {
 });
 
 const SugerenciasMedicos = mongoose.model(
-  'SugerenciasMedicos',
-  sugerenciasMedicosSchema,
-  'sugerencias_medicos',
+  'SugerenciasMedicos', // Nombre del modelo
+  sugerenciasMedicosSchema, // Esquema del modelo
+  'sugerencias_medicos', // Nombre de la colección
 );
 
 module.exports = SugerenciasMedicos;

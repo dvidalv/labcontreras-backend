@@ -49,9 +49,9 @@ sugerenciasEmpresasSchema.pre('save', function (next) {
 });
 
 const SugerenciasEmpresas = mongoose.model(
-  'SugerenciasEmpresas',
-  sugerenciasEmpresasSchema,
-  'sugerencias_empresas',
+  'SugerenciasEmpresas', // Nombre del modelo
+  sugerenciasEmpresasSchema, // Esquema del modelo
+  'sugerencias_empresas', // Nombre de la colección
 );
 
 module.exports = SugerenciasEmpresas;

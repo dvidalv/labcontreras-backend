@@ -44,9 +44,9 @@ sugerenciasPacientesSchema.pre('save', function (next) {
 });
 
 const SugerenciasPacientes = mongoose.model(
-  'SugerenciasPacientes',
-  sugerenciasPacientesSchema,
-  'sugerencias_pacientes',
+  'SugerenciasPacientes', // Nombre del modelo
+  sugerenciasPacientesSchema, // Esquema del modelo
+  'sugerencias_pacientes', // Nombre de la colección
 );
 
 module.exports = SugerenciasPacientes;
