@@ -23,7 +23,7 @@ const fingerprintSchema = new Schema({
 fingerprintSchema.index({ fingerprint: 1, type: 1 }, { unique: true });
 
 const Fingerprint = mongoose.model(
-  'Fingerprint',
+  'Fingerprint', // Nombre del modelo
   fingerprintSchema,
   'fingerprints',
 );
