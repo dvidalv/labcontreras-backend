@@ -332,7 +332,7 @@ const forgotPassword = async (req, res) => {
     // Enviar email con el link de recuperación (asegurando que no haya doble slash)
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
-    console.log('URL de recuperación generada:', resetUrl);
+    // console.log('URL de recuperación generada:', resetUrl);
 
     const msg = {
       to: email,
@@ -381,6 +381,8 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
+    console.log('token', token);
+    console.log('newPassword', newPassword);
 
     // Verificar token y obtener id del usuario
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
