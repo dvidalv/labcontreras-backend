@@ -328,11 +328,12 @@ const forgotPassword = async (req, res) => {
       process.env.NODE_ENV === 'production'
         ? process.env.FRONTEND_URL_PROD
         : process.env.FRONTEND_URL_DEV;
+    console.log('baseUrl', baseUrl);
 
     // Enviar email con el link de recuperación (asegurando que no haya doble slash)
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
-    // console.log('URL de recuperación generada:', resetUrl);
+    console.log('URL de recuperación final:', resetUrl);
 
     const msg = {
       to: email,
