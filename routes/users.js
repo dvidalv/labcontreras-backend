@@ -11,6 +11,8 @@ const {
   login,
   getCurrentUser,
   updateUser,
+  deleteImage,
+  hasAdmin,
 } = require('../controllers/users');
 
 const router = Router();
@@ -22,11 +24,13 @@ router.post('/signup', validateUser, createUser);
 
 // Rutas de usuarios
 router.route('/').get(getAllUsers);
+router.route('/check-admin').get(hasAdmin);
 
 router.route('/me').get(getCurrentUser).patch(updateProfile);
 router.put('/update', authenticateToken, updateUser);
 
 router.route('/me/avatar').patch(updateAvatar);
+router.route('/me/image/delete').delete(deleteImage);
 
 // Rutas para operaciones específicas de usuario
 router.route('/:id').get(getUserById).delete(deleteUser);
