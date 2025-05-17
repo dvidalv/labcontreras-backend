@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const httpStatus = require('http-status'); // Importamos el módulo http-status
 const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
+const { v2: cloudinary } = require('cloudinary'); // Importamos cloudinary v2
 
 const getCurrentUser = async (req, res) => {
   try {
@@ -20,12 +21,15 @@ const getCurrentUser = async (req, res) => {
 };
 
 const createUser = async (req, res) => {
+  // console.log(req.body);
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, url } = req.body;
     const newUser = {
       name,
       email,
       password,
+      role,
+      url,
     };
     const hash = await bcrypt.hash(newUser.password, 10); // Hash password
     newUser.password = hash; // Asignamos la contraseña hasheada al usuario
@@ -136,6 +140,21 @@ const getUserById = async (req, res) => {
   }
 };
 
+const hasAdmin = async (req, res) => {
+  try {
+    const adminExists = await User.exists({ role: 'admin' });
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      hasAdmin: !!adminExists,
+    });
+  } catch (err) {
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error checking admin existence',
+    });
+  }
+};
+
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -197,8 +216,12 @@ const updateProfile = async (req, res) => {
 const updateUser = async (req, res) => {
   // console.log(req.body);
   try {
-    const { name, tel, role, _id, url} = req.body;
-    const user = await User.findByIdAndUpdate(_id, { name, tel, role, url }, { new: true, runValidators: true });
+    const { name, tel, role, _id, url } = req.body;
+    const user = await User.findByIdAndUpdate(
+      _id,
+      { name, tel, role, url },
+      { new: true, runValidators: true },
+    );
 
     if (!user) {
       return res.status(httpStatus.NOT_FOUND).json({
@@ -217,8 +240,7 @@ const updateUser = async (req, res) => {
       message: 'Unexpected error',
     });
   }
-}
-
+};
 
 const updateAvatar = async (req, res) => {
   try {
@@ -253,6 +275,30 @@ const updateAvatar = async (req, res) => {
   }
 };
 
+const deleteImage = async (req, res) => {
+  try {
+    const { public_id } = req.body;
+
+    // Asegúrate de que el public_id incluya el prefijo 'avatars/'
+    const fullPublicId = public_id.includes('avatars/')
+      ? public_id
+      : `avatars/${public_id}`;
+
+    const result = await cloudinary.uploader.destroy(fullPublicId);
+    console.log(result);
+    if (result.result === 'ok') {
+      res.json({ message: 'Imagen eliminada exitosamente' });
+    } else {
+      throw new Error('No se pudo eliminar la imagen');
+    }
+  } catch (error) {
+    console.error('Error al eliminar imagen de Cloudinary:', error);
+    res
+      .status(500)
+      .json({ message: 'Error al eliminar imagen', error: error.message });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -264,4 +310,6 @@ module.exports = {
   generateAuthToken,
   getCurrentUser,
   updateUser,
+  deleteImage,
+  hasAdmin,
 };

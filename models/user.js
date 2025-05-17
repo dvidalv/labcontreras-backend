@@ -12,10 +12,6 @@ const userSchemaValidation = Joi.object()
       'string.min': 'El nombre debe tener al menos 2 caracteres',
       'string.max': 'El nombre debe tener como máximo 30 caracteres',
     }),
-    tel: Joi.string().required().min(10).max(12).messages({
-      'string.min': 'El teléfono debe tener 10 dígitos',
-      'string.max': 'El teléfono debe tener 12 dígitos',
-    }),
     email: Joi.string()
       .required()
       .email({ tlds: { allow: true } }) // Habilita la validación de TLDs
@@ -38,12 +34,6 @@ const userSchema = new Schema({
     required: true,
     minlength: 2,
     maxlength: 30,
-  },
-  tel: {
-    type: String,
-    required: true,
-    minlength: 10,
-    maxlength: 12,
   },
   email: {
     type: String,
