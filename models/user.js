@@ -18,15 +18,39 @@ const userSchemaValidation = Joi.object()
       .messages({
         'string.email': 'Debe ser un email válido',
       }),
-    role: Joi.string().required().valid('admin', 'user', 'medico', 'guest').messages({
-      'any.only': 'El rol debe ser uno de los siguientes: admin, user, medico, guest',
-    }),
+    role: Joi.string()
+      .required()
+      .valid('admin', 'user', 'medico', 'guest')
+      .messages({
+        'any.only':
+          'El rol debe ser uno de los siguientes: admin, user, medico, guest',
+      }),
     password: Joi.string().required().min(6).messages({
       'string.min': 'La contraseña debe tener al menos 6 caracteres',
     }),
     url: Joi.string().uri().allow(''),
   })
   .with('email', 'password'); // Si se proporciona un email, también debe proporcionarse una contraseña
+
+const forgotPasswordValidation = Joi.object().keys({
+  email: Joi.string()
+    .required()
+    .email({ tlds: { allow: true } })
+    .messages({
+      'string.email': 'Debe ser un email válido',
+      'any.required': 'El email es requerido',
+    }),
+});
+
+const resetPasswordValidation = Joi.object().keys({
+  token: Joi.string().required().messages({
+    'any.required': 'El token es requerido',
+  }),
+  newPassword: Joi.string().required().min(6).messages({
+    'string.min': 'La contraseña debe tener al menos 6 caracteres',
+    'any.required': 'La nueva contraseña es requerida',
+  }),
+});
 
 const userSchema = new Schema({
   name: {
@@ -69,6 +93,14 @@ const validateUser = celebrate({
   [Segments.BODY]: userSchemaValidation,
 });
 
+const validateForgotPassword = celebrate({
+  [Segments.BODY]: forgotPasswordValidation,
+});
+
+const validateResetPassword = celebrate({
+  [Segments.BODY]: resetPasswordValidation,
+});
+
 userSchema.statics.findUserByCredentials = function (email, password) {
   return this.findOne({ email })
     .select('+password')
@@ -88,5 +120,7 @@ userSchema.statics.findUserByCredentials = function (email, password) {
 // exportar el modelo
 module.exports = {
   User: mongoose.model('user', userSchema, 'users'),
-  validateUser: validateUser,
+  validateUser,
+  validateForgotPassword,
+  validateResetPassword,
 };

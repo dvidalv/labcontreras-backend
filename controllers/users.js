@@ -3,6 +3,10 @@ const httpStatus = require('http-status'); // Importamos el módulo http-status
 const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
 const { v2: cloudinary } = require('cloudinary'); // Importamos cloudinary v2
+const sgMail = require('@sendgrid/mail');
+require('dotenv').config();
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const getCurrentUser = async (req, res) => {
   try {
@@ -299,6 +303,132 @@ const deleteImage = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validar que el email existe
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(httpStatus.NOT_FOUND).json({
+        status: 'error',
+        message: 'No existe un usuario con ese correo electrónico',
+      });
+    }
+
+    // Generar token de recuperación (expira en 1 hora)
+    const resetToken = jwt.sign(
+      { _id: user._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' },
+    );
+
+    console.log(process.env.NODE_ENV);
+    console.log(process.env.FRONTEND_URL_PROD);
+    console.log(process.env.FRONTEND_URL_DEV);
+
+    // Determinar la URL base según el entorno
+    const baseUrl =
+      process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL_PROD
+        : process.env.FRONTEND_URL_DEV;
+
+    console.log('baseUrl', baseUrl);
+
+    // Enviar email con el link de recuperación
+    const resetUrl = `${baseUrl}/reset-password/${resetToken}`;
+    const msg = {
+      to: email,
+      from: 'servicios@contrerasrobledo.com.do',
+      subject: 'Recuperación de Contraseña',
+      content: [
+        {
+          type: 'text/html',
+          value: `
+          <h1>Recuperación de Contraseña</h1>
+          <p>Has solicitado restablecer tu contraseña.</p>
+          <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
+          <a href="${resetUrl}">Restablecer Contraseña</a>
+          <p>Este enlace expirará en 1 hora.</p>
+          <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+        `,
+        },
+      ],
+    };
+
+    await sgMail.send(msg);
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message:
+        'Se ha enviado un correo con las instrucciones para recuperar tu contraseña',
+      data: {
+        email: user.email,
+        expiresIn: '1h',
+        emailSent: true,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error en forgotPassword:', error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error al procesar la solicitud de recuperación de contraseña',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Verificar token y obtener id del usuario
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded._id;
+
+    // Hashear nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar contraseña
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { password: hashedPassword },
+      { new: true },
+    );
+
+    if (!user) {
+      return res.status(httpStatus.NOT_FOUND).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Contraseña actualizada correctamente',
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(httpStatus.UNAUTHORIZED).json({
+        status: 'error',
+        message: 'El enlace de recuperación ha expirado',
+      });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(httpStatus.UNAUTHORIZED).json({
+        status: 'error',
+        message: 'Token inválido',
+      });
+    }
+    console.error('Error en resetPassword:', error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error al restablecer la contraseña',
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -312,4 +442,6 @@ module.exports = {
   updateUser,
   deleteImage,
   hasAdmin,
+  forgotPassword,
+  resetPassword,
 };

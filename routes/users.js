@@ -1,5 +1,9 @@
 const { Router } = require('express');
-const { validateUser } = require('../models/user');
+const {
+  validateUser,
+  validateForgotPassword,
+  validateResetPassword,
+} = require('../models/user');
 const authenticateToken = require('../middlewares/auth');
 const {
   getAllUsers,
@@ -13,6 +17,8 @@ const {
   updateUser,
   deleteImage,
   hasAdmin,
+  forgotPassword,
+  resetPassword,
 } = require('../controllers/users');
 
 const router = Router();
@@ -21,6 +27,10 @@ const router = Router();
 router.post('/signin', login);
 router.get('/verifyToken', authenticateToken, getCurrentUser);
 router.post('/signup', validateUser, createUser);
+
+// Rutas de recuperación de contraseña
+router.post('/forgot-password', validateForgotPassword, forgotPassword);
+router.post('/reset-password', validateResetPassword, resetPassword);
 
 // Rutas de usuarios
 router.route('/').get(getAllUsers);

@@ -1,7 +1,11 @@
 const express = require('express');
 const connectDB = require('../lib/db');
 const dotenv = require('dotenv');
-dotenv.config();
+const path = require('path');
+
+// Cargar variables de entorno
+dotenv.config(); // Carga .env
+dotenv.config({ path: '.env.local' }); // Carga .env.local (sobrescribe valores de .env)
 
 const cors = require('cors');
 const usersRouter = require('../routes/users');
@@ -50,7 +54,6 @@ app.use(cors(corsOptions));
 
 // Habilita pre-flight requests para todas las rutas
 app.options('*', cors(corsOptions));
-
 
 // Conexión a MongoDB Atlas
 connectDB();
