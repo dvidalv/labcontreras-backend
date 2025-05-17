@@ -323,20 +323,17 @@ const forgotPassword = async (req, res) => {
       { expiresIn: '1h' },
     );
 
-    console.log(process.env.NODE_ENV);
-    console.log(process.env.FRONTEND_URL_PROD);
-    console.log(process.env.FRONTEND_URL_DEV);
-
     // Determinar la URL base según el entorno
     const baseUrl =
       process.env.NODE_ENV === 'production'
         ? process.env.FRONTEND_URL_PROD
         : process.env.FRONTEND_URL_DEV;
 
-    console.log('baseUrl', baseUrl);
+    // Enviar email con el link de recuperación (asegurando que no haya doble slash)
+    const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
-    // Enviar email con el link de recuperación
-    const resetUrl = `${baseUrl}/reset-password/${resetToken}`;
+    console.log('URL de recuperación generada:', resetUrl);
+
     const msg = {
       to: email,
       from: 'servicios@contrerasrobledo.com.do',
@@ -348,9 +345,10 @@ const forgotPassword = async (req, res) => {
           <h1>Recuperación de Contraseña</h1>
           <p>Has solicitado restablecer tu contraseña.</p>
           <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
-          <a href="${resetUrl}">Restablecer Contraseña</a>
+          <a href="${resetUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Restablecer Contraseña</a>
           <p>Este enlace expirará en 1 hora.</p>
           <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+          <p><small>URL alternativa: ${resetUrl}</small></p>
         `,
         },
       ],
@@ -366,6 +364,7 @@ const forgotPassword = async (req, res) => {
         email: user.email,
         expiresIn: '1h',
         emailSent: true,
+        resetUrl: resetUrl, // Incluimos la URL en la respuesta para debugging
         timestamp: new Date().toISOString(),
       },
     });
