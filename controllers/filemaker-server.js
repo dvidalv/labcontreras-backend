@@ -11,8 +11,6 @@ const {
 // Obtener token de acceso
 const getFilemakerToken = async (req, res, useRes = true) => {
   try {
-    console.log('getFilemakerToken');
-    console.log('Attempting to connect to:', FILEMAKER_URL);
 
     const response = await fetch(
       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`,
@@ -25,7 +23,6 @@ const getFilemakerToken = async (req, res, useRes = true) => {
         body: JSON.stringify({}),
       },
     );
-    console.log('Response statuse:', response.status, response.statusText);
 
     if (response.status === 404) {
       const error = new Error('FileMaker Service Unavailable');
@@ -367,7 +364,7 @@ const getAllPublicaciones = async (req, res) => {
       );
       logOut(token);
     } else {
-      console.log('search', search);
+
       response = await fetch(
         `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
         {
