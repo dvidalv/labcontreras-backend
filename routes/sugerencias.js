@@ -6,6 +6,7 @@ const {
   getSugerenciasPacientes,
   getSugerenciasMedicos,
   getSugerenciasEmpresas,
+  getSugerenciasCount,
 } = require('../controllers/sugerenciasController');
 
 // Rutas para sugerencias de pacientes
@@ -19,5 +20,8 @@ router.get('/medicos', getSugerenciasMedicos);
 // Rutas para sugerencias de empresas
 router.post('/empresas', createSugerenciaEmpresa);
 router.get('/empresas', getSugerenciasEmpresas);
+
+// Ruta para obtener el conteo de todas las sugerencias
+router.get('/count', getSugerenciasCount);
 
 module.exports = router;
