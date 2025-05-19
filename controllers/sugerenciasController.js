@@ -159,10 +159,6 @@ const getSugerenciasCount = async (req, res) => {
       medicos: await SugerenciasMedicos.countDocuments(query),
       empresas: await SugerenciasEmpresas.countDocuments(query),
     };
-    console.log(counts);
-    console.log('pacientes', counts.pacientes);
-    console.log('medicos', counts.medicos);
-    console.log('empresas', counts.empresas);
 
     res.json(counts);
   } catch (error) {
