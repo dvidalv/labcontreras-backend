@@ -145,11 +145,24 @@ const getSugerenciasEmpresas = async (req, res) => {
 // Obtener el conteo de todas las sugerencias
 const getSugerenciasCount = async (req, res) => {
   try {
+    const { fechaDesde, fechaHasta } = req.query;
+    const query = {};
+
+    if (fechaDesde || fechaHasta) {
+      query.fecha = {};
+      if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
+      if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+    }
+
     const counts = {
-      pacientes: await SugerenciasPacientes.countDocuments(),
-      medicos: await SugerenciasMedicos.countDocuments(),
-      empresas: await SugerenciasEmpresas.countDocuments(),
+      pacientes: await SugerenciasPacientes.countDocuments(query),
+      medicos: await SugerenciasMedicos.countDocuments(query),
+      empresas: await SugerenciasEmpresas.countDocuments(query),
     };
+    console.log(counts);
+    console.log('pacientes', counts.pacientes);
+    console.log('medicos', counts.medicos);
+    console.log('empresas', counts.empresas);
 
     res.json(counts);
   } catch (error) {
@@ -157,6 +170,24 @@ const getSugerenciasCount = async (req, res) => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'Error al obtener el conteo de sugerencias',
     });
+  }
+};
+
+const getSugerenciasPacientesDetalles = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta } = req.query;
+    const query = {};
+
+    if (fechaDesde || fechaHasta) {
+      query.fecha = {};
+      if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
+      if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+    }
+
+    const sugerencias = await SugerenciasPacientes.find(query);
+    res.json(sugerencias);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -168,4 +199,5 @@ module.exports = {
   getSugerenciasMedicos,
   getSugerenciasEmpresas,
   getSugerenciasCount,
+  getSugerenciasPacientesDetalles,
 };
