@@ -142,6 +142,24 @@ const getSugerenciasEmpresas = async (req, res) => {
   }
 };
 
+// Obtener el conteo de todas las sugerencias
+const getSugerenciasCount = async (req, res) => {
+  try {
+    const counts = {
+      pacientes: await SugerenciasPacientes.countDocuments(),
+      medicos: await SugerenciasMedicos.countDocuments(),
+      empresas: await SugerenciasEmpresas.countDocuments(),
+    };
+
+    res.json(counts);
+  } catch (error) {
+    res.status(500).json({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Error al obtener el conteo de sugerencias',
+    });
+  }
+};
+
 module.exports = {
   createSugerenciaPaciente,
   createSugerenciaMedico,
@@ -149,4 +167,5 @@ module.exports = {
   getSugerenciasPacientes,
   getSugerenciasMedicos,
   getSugerenciasEmpresas,
+  getSugerenciasCount,
 };
