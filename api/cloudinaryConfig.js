@@ -29,6 +29,7 @@ const imagen = async (req, res) => {
     const result = await cloudinary.uploader.upload(dataUri, {
       public_id: hash,
       folder: 'avatars',
+      overwrite: true,
       transformation: [
         { width: 400, height: 400, crop: 'thumb' },   // Miniatura de 400x400
         { quality: 'auto', fetch_format: 'auto' }
@@ -38,9 +39,13 @@ const imagen = async (req, res) => {
     res.status(200).json({ message: 'Imagen subida con éxito', url: result.secure_url });
   } catch (error) {
     console.error('Error al subir archivo a Cloudinary:', error);
-    res.status(500).json({ message: 'Error al subir imagen', error });
+    res.status(500).json({ 
+      message: 'Error al subir imagen', 
+      error: error.message || error,
+      stack: error.stack // <-- agrega esto para ver el stacktrace
+    });
   }
-}
+};
 
 
 

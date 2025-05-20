@@ -43,6 +43,6 @@ router.route('/me/avatar').patch(updateAvatar);
 router.route('/me/image/delete').delete(deleteImage);
 
 // Rutas para operaciones específicas de usuario
-router.route('/:id').get(getUserById).delete(deleteUser);
+router.route('/:id').get(getUserById).delete(authenticateToken, deleteUser);
 
 module.exports = router;
