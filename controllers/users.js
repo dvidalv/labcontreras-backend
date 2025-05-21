@@ -34,6 +34,11 @@ const createUser = async (req, res) => {
       password,
       role,
       url,
+      isDisabled: false,
+      isVerified: false,
+      isAdmin: false,
+      token: null,
+      tokenExpires: null,
     };
     const hash = await bcrypt.hash(newUser.password, 10); // Hash password
     newUser.password = hash; // Asignamos la contraseña hasheada al usuario
@@ -66,6 +71,26 @@ const createUser = async (req, res) => {
       message: 'Unexpected error',
     });
   }
+};  
+
+const updateStatus = async (req, res) => {
+  try {
+
+    const { userId, status } = req.body;
+
+    const user = await User.findByIdAndUpdate(userId, { isDisabled: status }, { new: true });
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'User updated',
+      user,
+    });
+  } catch (err) {
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Unexpected error',
+    });
+  }
 };
 
 const generateAuthToken = async (user) => {
@@ -87,6 +112,7 @@ const login = async (req, res) => {
       status: 'success',
       message: 'User logged in',
       token,
+      user,
     });
   } catch (err) {
     return res.status(httpStatus.UNAUTHORIZED).json({
@@ -442,4 +468,5 @@ module.exports = {
   hasAdmin,
   forgotPassword,
   resetPassword,
+  updateStatus,
 };

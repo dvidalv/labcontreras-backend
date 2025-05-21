@@ -1,24 +1,20 @@
-const { MongoClient } = require('mongodb');
-// require('dotenv').config();
+const mongoose = require('mongoose');
+require('dotenv').config();
+
 const uri = process.env.ATLAS_URI;
-
-
-
-const clientDB = new MongoClient(uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+if (!uri) {
+  throw new Error('Please define ATLAS_URI in your .env file');
+}
 
 const connectDB = async () => {
   try {
-    await clientDB.connect();
+    await mongoose.connect(uri);
     console.log('Connected to MongoDB');
-    const db = clientDB.db('LPCR');
-    const users = db.collection('users');
-    return { db, users };
+    return mongoose.connection;
   } catch (error) {
-    console.error('Error connecting to the database', error);
+    console.error('Error connecting to the database:', error);
+    throw error;
   }
 };
 
-module.exports = { clientDB };
+module.exports = { connectDB };

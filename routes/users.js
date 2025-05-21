@@ -19,6 +19,7 @@ const {
   hasAdmin,
   forgotPassword,
   resetPassword,
+  updateStatus,
 } = require('../controllers/users');
 
 const router = Router();
@@ -35,6 +36,7 @@ router.post('/reset-password', validateResetPassword, resetPassword);
 // Rutas de usuarios
 router.route('/').get(getAllUsers);
 router.route('/check-admin').get(hasAdmin);
+router.patch('/:id/status', authenticateToken, updateStatus);
 
 router.route('/me').get(getCurrentUser).patch(updateProfile);
 router.put('/update', authenticateToken, updateUser);

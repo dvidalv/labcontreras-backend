@@ -46,11 +46,23 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 app.use(cors(corsOptions));
+
+// Agregar después de app.use(cors(corsOptions))
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'CORS Error: Origin not allowed',
+      origin: req.headers.origin
+    });
+  }
+  next(err);
+});
 
 // Habilita pre-flight requests para todas las rutas
 app.options('*', cors(corsOptions));
