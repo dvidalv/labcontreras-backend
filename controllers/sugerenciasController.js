@@ -176,9 +176,14 @@ const getSugerenciasPacientesDetalles = async (req, res) => {
     const query = {};
 
     if (fechaDesde || fechaHasta) {
-      query.fecha = {};
-      if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
-      if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+      const desde = new Date(fechaDesde);
+      const hasta = new Date(fechaHasta);
+      hasta.setDate(hasta.getDate() + 1);
+
+      query.fecha = {
+        $gte: desde,
+        $lt: hasta,
+      };
     }
 
     const sugerencias = await SugerenciasPacientes.find(query);
@@ -194,9 +199,14 @@ const getSugerenciasMedicosDetalles = async (req, res) => {
     const query = {};
 
     if (fechaDesde || fechaHasta) {
-      query.fecha = {};
-      if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
-      if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+      const desde = new Date(fechaDesde);
+      const hasta = new Date(fechaHasta);
+      hasta.setDate(hasta.getDate() + 1);
+
+      query.fecha = {
+        $gte: desde,
+        $lt: hasta,
+      };
     }
 
     const sugerencias = await SugerenciasMedicos.find(query);
