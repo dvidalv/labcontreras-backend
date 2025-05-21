@@ -78,6 +78,10 @@ const sugerenciasMedicosSchema = new Schema({
     type: String,
     required: false,
   },
+  comentarios: {
+    type: String,
+    required: false,
+  },
   fecha: {
     type: Date,
     default: Date.now,
