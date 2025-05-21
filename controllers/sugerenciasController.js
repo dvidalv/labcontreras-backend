@@ -188,6 +188,24 @@ const getSugerenciasPacientesDetalles = async (req, res) => {
   }
 };
 
+const getSugerenciasMedicosDetalles = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta } = req.query;
+    const query = {};
+
+    if (fechaDesde || fechaHasta) {
+      query.fecha = {};
+      if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
+      if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+    }
+
+    const sugerencias = await SugerenciasMedicos.find(query);
+    res.json(sugerencias);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createSugerenciaPaciente,
   createSugerenciaMedico,
@@ -197,4 +215,5 @@ module.exports = {
   getSugerenciasEmpresas,
   getSugerenciasCount,
   getSugerenciasPacientesDetalles,
+  getSugerenciasMedicosDetalles,
 };
