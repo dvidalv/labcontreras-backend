@@ -71,14 +71,17 @@ const createUser = async (req, res) => {
       message: 'Unexpected error',
     });
   }
-};  
+};
 
 const updateStatus = async (req, res) => {
   try {
-
     const { userId, status } = req.body;
 
-    const user = await User.findByIdAndUpdate(userId, { isDisabled: status }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isDisabled: status },
+      { new: true },
+    );
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -355,7 +358,6 @@ const forgotPassword = async (req, res) => {
         ? process.env.FRONTEND_URL_PROD
         : process.env.FRONTEND_URL_DEV;
 
-
     // Enviar email con el link de recuperación (asegurando que no haya doble slash)
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
@@ -453,6 +455,77 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const sendInvitationEmail = async (req, res) => {
+  try {
+    const { email, name, password, isExistingUser } = req.body;
+
+    // Si es un usuario existente, no necesitamos verificar si existe
+    if (!isExistingUser) {
+      // Validar que el email existe solo para nuevos usuarios
+      const user = await User.findOne({ email });
+      if (user) {
+        return res.status(httpStatus.CONFLICT).json({
+          status: 'error',
+          message: 'El correo electrónico ya está registrado',
+        });
+      }
+    }
+
+    // Determinar la URL base según el entorno
+    const baseUrl =
+      process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL_PROD
+        : process.env.FRONTEND_URL_DEV;
+
+    const loginUrl = `${baseUrl.replace(/\/$/, '')}/signin`;
+
+    const msg = {
+      to: email,
+      from: 'servicios@contrerasrobledo.com.do',
+      subject: 'Invitación a Laboratorio Contreras',
+      content: [
+        {
+          type: 'text/html',
+          value: `
+          <h1>Bienvenido a Laboratorio Contreras</h1>
+          <p>Hola ${name},</p>
+          <p>Has sido invitado a unirte a Laboratorio Contreras.</p>
+          <p>Aquí están tus credenciales de acceso:</p>
+          <ul>
+            <li><strong>Email:</strong> ${email}</li>
+            <li><strong>Contraseña:</strong> ${password}</li>
+          </ul>
+          <p>Por favor, inicia sesión en el siguiente enlace:</p>
+          <a href="${loginUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Iniciar Sesión</a>
+          <p>Por razones de seguridad, te recomendamos cambiar tu contraseña después de iniciar sesión por primera vez.</p>
+          <p><small>URL alternativa: ${loginUrl}</small></p>
+        `,
+        },
+      ],
+    };
+
+    await sgMail.send(msg);
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Invitación enviada exitosamente',
+      data: {
+        email,
+        name,
+        emailSent: true,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error en sendInvitationEmail:', error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error al enviar la invitación',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -469,4 +542,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   updateStatus,
+  sendInvitationEmail,
 };
