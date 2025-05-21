@@ -20,6 +20,7 @@ const {
   forgotPassword,
   resetPassword,
   updateStatus,
+  sendInvitationEmail,
 } = require('../controllers/users');
 
 const router = Router();
@@ -46,5 +47,8 @@ router.route('/me/image/delete').delete(deleteImage);
 
 // Rutas para operaciones específicas de usuario
 router.route('/:id').get(getUserById).delete(authenticateToken, deleteUser);
+
+// Ruta para enviar invitaciones
+router.post('/send-invitation', authenticateToken, sendInvitationEmail);
 
 module.exports = router;
