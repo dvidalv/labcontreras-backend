@@ -216,6 +216,35 @@ const getSugerenciasMedicosDetalles = async (req, res) => {
   }
 };
 
+const getSugerenciasStats = async (req, res) => {
+  try {
+    const stats = await SugerenciasPacientes.aggregate([
+      {
+        $match: { satisfaccion: { $eq: 'muy-satisfecho' } },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: stats,
+    });
+  } catch (error) {
+    res.status(404).json({
+      status: 'fail',
+      message: error,
+    });
+  }
+};
+
 module.exports = {
   createSugerenciaPaciente,
   createSugerenciaMedico,
@@ -226,4 +255,5 @@ module.exports = {
   getSugerenciasCount,
   getSugerenciasPacientesDetalles,
   getSugerenciasMedicosDetalles,
+  getSugerenciasStats,
 };
