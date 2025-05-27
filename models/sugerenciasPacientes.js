@@ -57,9 +57,10 @@ sugerenciasPacientesSchema.post('save', async function (doc) {
 
   const msg = {
     to: [
-      'servicios@contrerasrobledo.com.do',
       'soporte@contrerasrobledo.com.do',
+      'servicios@contrerasrobledo.com.do',
       'gestiondecalidad@contrerasrobledo.com.do',
+      'asistentedecalidad@contrerasrobledo.com.do',
     ],
     from: 'servicios@contrerasrobledo.com.do',
     subject: 'Nueva Sugerencia de Paciente Recibida',

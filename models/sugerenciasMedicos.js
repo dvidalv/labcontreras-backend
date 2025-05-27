@@ -129,6 +129,7 @@ sugerenciasMedicosSchema.post('save', async function (doc) {
       'soporte@contrerasrobledo.com.do',
       'servicios@contrerasrobledo.com.do',
       'gestiondecalidad@contrerasrobledo.com.do',
+      'asistentedecalidad@contrerasrobledo.com.do',
     ],
     from: 'servicios@contrerasrobledo.com.do',
     subject: 'Nueva Sugerencia de Médico Recibida',
