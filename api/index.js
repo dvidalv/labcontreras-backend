@@ -58,7 +58,7 @@ app.use((err, req, res, next) => {
     return res.status(403).json({
       status: 'error',
       message: 'CORS Error: Origin not allowed',
-      origin: req.headers.origin
+      origin: req.headers.origin,
     });
   }
   next(err);
@@ -105,6 +105,7 @@ app.use((req, res) => {
   });
 });
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log('Server ready on port 3001.'));
+console.log(process.env.PORT);
+app.listen(PORT, () => console.log(`Server ready on port ${PORT}.`));
 
 module.exports = app;
