@@ -25,13 +25,43 @@ const { sendMail } = require('./api-mail');
 const app = express();
 app.use(express.json());
 
-// Reemplazo temporal de la configuración de CORS para permitir todos los orígenes
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  }),
-);
+const allowedOrigins = [
+  'https://www.contrerasrobledo.com',
+  'https://contrerasrobledo.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (como las aplicaciones móviles o postman)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+app.use(cors(corsOptions));
+
+// Agregar después de app.use(cors(corsOptions))
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'CORS Error: Origin not allowed',
+      origin: req.headers.origin,
+    });
+  }
+  next(err);
+});
+
+// Habilita pre-flight requests para todas las rutas
+app.options('*', cors(corsOptions));
 
 // Conexión a MongoDB Atlas
 connectDB();
