@@ -2,11 +2,11 @@
   "name": "web_project_around_express",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
+  "main": "api/index.js",
   "scripts": {
     "lint": "npx eslint .",
     "dev": "nodemon api/index.js",
-    "start": "node app.js",
+    "start": "node api/index.js",
     "test": "jest"
   },
   "author": "David Vidal V.",
