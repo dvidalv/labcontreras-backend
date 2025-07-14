@@ -12,6 +12,7 @@ const usersRouter = require('../routes/users');
 const medicosRouter = require('../routes/medicos');
 const filemakerRouter = require('../routes/fileMaker');
 const sugerenciasRouter = require('../routes/sugerencias');
+const comprobantesRouter = require('../routes/comprobantes');
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
@@ -25,7 +26,7 @@ const { sendMail } = require('./api-mail');
 const app = express();
 app.use(express.json());
 
-// CORS abierto para todos los orígenes
+// Reemplazo temporal de la configuración de CORS para permitir todos los orígenes
 app.use(
   cors({
     origin: true,
@@ -44,6 +45,7 @@ app.use('/resultados', filemakerRouter);
 app.use('/publicaciones', filemakerRouter);
 
 app.use('/api/sugerencias', sugerenciasRouter);
+app.use('/comprobantes', comprobantesRouter);
 app.use('/api/contact', sendMail);
 
 app.use(errors());
