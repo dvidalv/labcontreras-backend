@@ -414,6 +414,80 @@ const consumirNumero = async (req, res) => {
   }
 };
 
+// Consumir un número por RNC y tipo de comprobante
+const consumirNumeroPorRnc = async (req, res) => {
+  try {
+    const { rnc, tipo_comprobante } = req.body;
+
+    // Validar que se proporcionen los datos requeridos
+    if (!rnc || !tipo_comprobante) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'RNC y tipo de comprobante son requeridos',
+      });
+    }
+
+    // Buscar un rango activo y válido para este usuario, RNC y tipo de comprobante
+    const rango = await Comprobante.findOne({
+      rnc: rnc,
+      tipo_comprobante: tipo_comprobante,
+      usuario: req.user._id,
+      estado: 'activo',
+      numeros_disponibles: { $gt: 0 },
+      fecha_vencimiento: { $gte: new Date() },
+    }).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
+
+    if (!rango) {
+      return res.status(httpStatus.NOT_FOUND).json({
+        status: 'error',
+        message:
+          'No se encontró un rango activo disponible para este RNC y tipo de comprobante',
+      });
+    }
+
+    // Verificar que el rango sea válido
+    if (!rango.esValido()) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El rango no está disponible (vencido, agotado o inactivo)',
+      });
+    }
+
+    await rango.consumirNumero();
+
+    // Calcular el próximo número a usar
+    const proximoNumero = rango.numero_inicial + rango.numeros_utilizados - 1;
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Número consumido exitosamente',
+      data: {
+        numeroConsumido: proximoNumero,
+        numerosDisponibles: rango.numeros_disponibles,
+        estadoRango: rango.estado,
+        rnc: rango.rnc,
+        tipoComprobante: rango.tipo_comprobante,
+        prefijo: rango.prefijo || '',
+        rangoId: rango._id,
+      },
+    });
+  } catch (err) {
+    console.error('Error al consumir número por RNC:', err);
+
+    if (err.message === 'No hay números disponibles en este rango') {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'No hay números disponibles en el rango',
+      });
+    }
+
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -423,4 +497,5 @@ module.exports = {
   deleteComprobante,
   getComprobantesStats,
   consumirNumero,
+  consumirNumeroPorRnc,
 };
