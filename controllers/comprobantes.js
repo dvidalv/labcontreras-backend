@@ -189,11 +189,15 @@ const updateComprobante = async (req, res) => {
       }
     }
 
-    const rango = await Comprobante.findByIdAndUpdate(
-      id,
-      { ...req.body, fechaActualizacion: Date.now() },
-      { new: true, runValidators: true },
-    ).populate('usuario', 'name email');
+    // Para evitar problemas con validaciones en findByIdAndUpdate,
+    // actualizamos campo por campo en el documento existente
+    Object.assign(existingRango, req.body);
+    existingRango.fechaActualizacion = Date.now();
+
+    const rango = await existingRango.save();
+
+    // Populate el usuario para mantener la consistencia con otras respuestas
+    await rango.populate('usuario', 'name email');
 
     return res.status(httpStatus.OK).json({
       status: 'success',
