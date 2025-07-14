@@ -9,6 +9,7 @@ const {
   deleteComprobante,
   getComprobantesStats,
   consumirNumero,
+  consumirNumeroPorRnc,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -25,6 +26,9 @@ router
 // Ruta para estadísticas
 router.get('/stats', getComprobantesStats); // GET /comprobantes/stats - Obtener estadísticas de rangos
 
+// Ruta para consumir número por RNC y tipo de comprobante
+router.post('/consumir', consumirNumeroPorRnc); // POST /comprobantes/consumir - Consumir número por RNC y tipo
+
 // Rutas específicas por ID
 router
   .route('/:id')
@@ -35,7 +39,7 @@ router
 // Ruta para cambiar solo el estado
 router.patch('/:id/estado', updateComprobanteEstado); // PATCH /comprobantes/:id/estado - Cambiar estado del rango
 
-// Ruta para consumir un número del rango
+// Ruta para consumir un número del rango (usando ID)
 router.post('/:id/consumir', consumirNumero); // POST /comprobantes/:id/consumir - Consumir número
 
 module.exports = router;
