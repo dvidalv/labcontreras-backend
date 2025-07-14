@@ -385,14 +385,14 @@ const consumirNumero = async (req, res) => {
 
     await rango.consumirNumero();
 
-    // Calcular el próximo número a usar
-    const proximoNumero = rango.numero_inicial + rango.numeros_utilizados - 1;
+    // Calcular el número que se acaba de consumir
+    const numeroConsumido = rango.numero_inicial + rango.numeros_utilizados - 1;
 
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
       data: {
-        numeroConsumido: proximoNumero,
+        numeroConsumido: numeroConsumido,
         numerosDisponibles: rango.numeros_disponibles,
         estadoRango: rango.estado,
       },
@@ -455,14 +455,14 @@ const consumirNumeroPorRnc = async (req, res) => {
 
     await rango.consumirNumero();
 
-    // Calcular el próximo número a usar
-    const proximoNumero = rango.numero_inicial + rango.numeros_utilizados - 1;
+    // Calcular el número que se acaba de consumir
+    const numeroConsumido = rango.numero_inicial + rango.numeros_utilizados - 1;
 
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
       data: {
-        numeroConsumido: proximoNumero,
+        numeroConsumido: numeroConsumido,
         numerosDisponibles: rango.numeros_disponibles,
         estadoRango: rango.estado,
         rnc: rango.rnc,
