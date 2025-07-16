@@ -388,11 +388,15 @@ const consumirNumero = async (req, res) => {
     // Calcular el número que se acaba de consumir
     const numeroConsumido = rango.numero_inicial + rango.numeros_utilizados - 1;
 
+    // Formatear el número según estructura e-CF
+    const numeroFormateado = rango.formatearNumeroECF(numeroConsumido);
+
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
       data: {
         numeroConsumido: numeroConsumido,
+        numeroFormateado: numeroFormateado,
         numerosDisponibles: rango.numeros_disponibles,
         estadoRango: rango.estado,
       },
@@ -427,14 +431,16 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
+    console.log(rnc, tipo_comprobante);
+
     // Buscar un rango activo y válido para este usuario, RNC y tipo de comprobante
     const rango = await Comprobante.findOne({
       rnc: rnc,
       tipo_comprobante: tipo_comprobante,
       usuario: req.user._id,
       estado: 'activo',
-      numeros_disponibles: { $gt: 0 },
-      fecha_vencimiento: { $gte: new Date() },
+      numeros_disponibles: { $gt: 0 }, // Agregado para verificar que haya números disponibles
+      fecha_vencimiento: { $gte: new Date() }, // Agregado para verificar que el rango no haya vencido
     }).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
 
     if (!rango) {
@@ -453,16 +459,20 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
-    await rango.consumirNumero();
+    await rango.consumirNumero(); // Consumir el número
 
     // Calcular el número que se acaba de consumir
     const numeroConsumido = rango.numero_inicial + rango.numeros_utilizados - 1;
+
+    // Formatear el número según estructura e-CF
+    const numeroFormateado = rango.formatearNumeroECF(numeroConsumido);
 
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
       data: {
         numeroConsumido: numeroConsumido,
+        numeroFormateado: numeroFormateado,
         numerosDisponibles: rango.numeros_disponibles,
         estadoRango: rango.estado,
         rnc: rango.rnc,
