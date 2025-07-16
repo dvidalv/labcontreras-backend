@@ -309,6 +309,34 @@ comprobanteSchema.virtual('proximoNumero').get(function () {
   return null;
 });
 
+// Virtual para obtener el próximo número formateado según estructura e-CF
+comprobanteSchema.virtual('proximoNumeroFormateado').get(function () {
+  if (this.numeros_disponibles > 0) {
+    const secuencial = this.numero_inicial + this.numeros_utilizados;
+    return this.formatearNumeroECF(secuencial);
+  }
+  return null;
+});
+
+// Método para formatear cualquier número secuencial al formato e-CF
+comprobanteSchema.methods.formatearNumeroECF = function (numeroSecuencial) {
+  // Formatear secuencial a 11 dígitos con ceros a la izquierda
+  const secuencialFormateado = numeroSecuencial.toString().padStart(11, '0');
+
+  // Estructura: [Serie][TipoComprobante][Secuencial]
+  return `${this.prefijo}${this.tipo_comprobante}${secuencialFormateado}`;
+};
+
+// Método estático para formatear número e-CF desde componentes
+comprobanteSchema.statics.formatearECF = function (
+  prefijo,
+  tipoComprobante,
+  numeroSecuencial,
+) {
+  const secuencialFormateado = numeroSecuencial.toString().padStart(11, '0');
+  return `${prefijo}${tipoComprobante}${secuencialFormateado}`;
+};
+
 // Asegurar que los virtuals se incluyan en JSON
 // Asegurar que los virtuals se incluyan en JSON
 comprobanteSchema.set('toJSON', {
