@@ -320,8 +320,8 @@ comprobanteSchema.virtual('proximoNumeroFormateado').get(function () {
 
 // Método para formatear cualquier número secuencial al formato e-CF
 comprobanteSchema.methods.formatearNumeroECF = function (numeroSecuencial) {
-  // Formatear secuencial a 11 dígitos con ceros a la izquierda
-  const secuencialFormateado = numeroSecuencial.toString().padStart(11, '0');
+  // Formatear secuencial a 10 dígitos con ceros a la izquierda
+  const secuencialFormateado = numeroSecuencial.toString().padStart(10, '0');
 
   // Estructura: [Serie][TipoComprobante][Secuencial]
   return `${this.prefijo}${this.tipo_comprobante}${secuencialFormateado}`;
@@ -333,7 +333,7 @@ comprobanteSchema.statics.formatearECF = function (
   tipoComprobante,
   numeroSecuencial,
 ) {
-  const secuencialFormateado = numeroSecuencial.toString().padStart(11, '0');
+  const secuencialFormateado = numeroSecuencial.toString().padStart(10, '0');
   return `${prefijo}${tipoComprobante}${secuencialFormateado}`;
 };
 

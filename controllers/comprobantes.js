@@ -431,7 +431,7 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
-    console.log(rnc, tipo_comprobante);
+    // console.log(rnc, tipo_comprobante);
 
     // Buscar un rango activo y válido para este usuario, RNC y tipo de comprobante
     const rango = await Comprobante.findOne({
@@ -474,6 +474,7 @@ const consumirNumeroPorRnc = async (req, res) => {
         numeroConsumido: numeroConsumido,
         numeroFormateado: numeroFormateado,
         numerosDisponibles: rango.numeros_disponibles,
+        fechaVencimiento: rango.fecha_vencimiento,
         estadoRango: rango.estado,
         rnc: rango.rnc,
         tipoComprobante: rango.tipo_comprobante,
