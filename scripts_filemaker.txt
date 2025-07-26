@@ -1,0 +1,26 @@
+# 8.5. CONSTRUIR SECCIÓN INFORMACIONES ADICIONALES (COMPLETA)
+Set Variable [ $informacionesAdicionales ; Value: 
+"\"informacionesAdicionales\": {
+    \"fechaEmbarque\": " & Case(IsEmpty(YourTable::FechaEmbarque); "null"; "\"" & YourTable::FechaEmbarque & "\"") & ",
+    \"numeroEmbarque\": " & Case(IsEmpty(YourTable::NumeroEmbarque); "null"; "\"" & YourTable::NumeroEmbarque & "\"") & ",
+    \"numeroContenedor\": " & Case(IsEmpty(YourTable::NumeroContenedor); "null"; "\"" & YourTable::NumeroContenedor & "\"") & ",
+    \"numeroReferencia\": " & Case(IsEmpty(YourTable::NumeroReferencia); "null"; "\"" & YourTable::NumeroReferencia & "\"") & ",
+    \"pesoBruto\": " & Case(IsEmpty(YourTable::PesoBruto); "null"; "\"" & YourTable::PesoBruto & "\"") & ",
+    \"pesoNeto\": " & Case(IsEmpty(YourTable::PesoNeto); "null"; "\"" & YourTable::PesoNeto & "\"") & ",
+    \"unidadPesoBruto\": " & Case(IsEmpty(YourTable::UnidadPesoBruto); "null"; "\"" & YourTable::UnidadPesoBruto & "\"") & ",
+    \"unidadPesoNeto\": " & Case(IsEmpty(YourTable::UnidadPesoNeto); "null"; "\"" & YourTable::UnidadPesoNeto & "\"") & ",
+    \"cantidadBulto\": " & Case(IsEmpty(YourTable::CantidadBulto); "null"; "\"" & YourTable::CantidadBulto & "\"") & ",
+    \"unidadBulto\": " & Case(IsEmpty(YourTable::UnidadBulto); "null"; "\"" & YourTable::UnidadBulto & "\"") & ",
+    \"volumenBulto\": " & Case(IsEmpty(YourTable::VolumenBulto); "null"; "\"" & YourTable::VolumenBulto & "\"") & ",
+    \"unidadVolumen\": " & Case(IsEmpty(YourTable::UnidadVolumen); "null"; "\"" & YourTable::UnidadVolumen & "\"") & ",
+    \"nombrePuertoEmbarque\": " & Case(IsEmpty(YourTable::NombrePuertoEmbarque); "null"; "\"" & YourTable::NombrePuertoEmbarque & "\"") & ",
+    \"condicionesEntrega\": " & Case(IsEmpty(YourTable::CondicionesEntrega); "null"; "\"" & YourTable::CondicionesEntrega & "\"") & ",
+    \"totalFob\": " & Case(IsEmpty(YourTable::TotalFob); "null"; "\"" & YourTable::TotalFob & "\"") & ",
+    \"seguro\": " & Case(IsEmpty(YourTable::Seguro); "null"; "\"" & YourTable::Seguro & "\"") & ",
+    \"flete\": " & Case(IsEmpty(YourTable::Flete); "null"; "\"" & YourTable::Flete & "\"") & ",
+    \"otrosGastos\": " & Case(IsEmpty(YourTable::OtrosGastos); "null"; "\"" & YourTable::OtrosGastos & "\"") & ",
+    \"totalCif\": " & Case(IsEmpty(YourTable::TotalCif); "null"; "\"" & YourTable::TotalCif & "\"") & ",
+    \"regimenAduanero\": " & Case(IsEmpty(YourTable::RegimenAduanero); "null"; "\"" & YourTable::RegimenAduanero & "\"") & ",
+    \"nombrePuertoSalida\": " & Case(IsEmpty(YourTable::NombrePuertoSalida); "null"; "\"" & YourTable::NombrePuertoSalida & "\"") & ",
+    \"nombrePuertoDesembarque\": " & Case(IsEmpty(YourTable::NombrePuertoDesembarque); "null"; "\"" & YourTable::NombrePuertoDesembarque & "\"") & "
+}" ] 
