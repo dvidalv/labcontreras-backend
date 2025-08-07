@@ -10,6 +10,7 @@ const {
   getComprobantesStats,
   consumirNumero,
   consumirNumeroPorRnc,
+  enviarFacturaElectronica,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -28,6 +29,9 @@ router.get('/stats', getComprobantesStats); // GET /comprobantes/stats - Obtener
 
 // Ruta para consumir número por RNC y tipo de comprobante
 router.post('/consumir', consumirNumeroPorRnc); // POST /comprobantes/consumir - Consumir número por RNC y tipo
+
+// Ruta para enviar factura electrónica a TheFactoryHKA
+router.post('/enviar-electronica', enviarFacturaElectronica); // POST /comprobantes/enviar-electronica - Enviar factura a TheFactoryHKA
 
 // Rutas específicas por ID
 router
