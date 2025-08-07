@@ -1,5 +1,88 @@
 const httpStatus = require('http-status');
 const { Comprobante } = require('../models/comprobante');
+const axios = require('axios');
+const {
+  THEFACTORY_AUTH_URL,
+  THEFACTORY_ENVIAR_URL,
+  THEFACTORY_USUARIO,
+  THEFACTORY_CLAVE,
+  THEFACTORY_RNC,
+} = require('../utils/constants');
+
+// Cache del token de TheFactoryHKA
+let tokenCache = {
+  token: null,
+  fechaExpiracion: null,
+};
+
+// Función para obtener token de autenticación de TheFactoryHKA
+const obtenerTokenTheFactory = async () => {
+  try {
+    // Verificar si tenemos un token válido en cache
+    if (tokenCache.token && tokenCache.fechaExpiracion) {
+      const ahora = new Date();
+      const expiracion = new Date(tokenCache.fechaExpiracion);
+
+      // Si el token expira en menos de 5 minutos, renovarlo
+      const cincoMinutos = 5 * 60 * 1000; // 5 minutos en ms
+      if (expiracion.getTime() - ahora.getTime() > cincoMinutos) {
+        console.log(
+          'Usando token desde cache:',
+          tokenCache.token.substring(0, 20) + '...',
+        );
+        return tokenCache.token;
+      }
+    }
+
+    console.log('Obteniendo nuevo token de TheFactoryHKA...');
+
+    // Realizar petición de autenticación
+    const authRequest = {
+      usuario: THEFACTORY_USUARIO,
+      clave: THEFACTORY_CLAVE,
+      rnc: THEFACTORY_RNC,
+    };
+
+    const response = await axios.post(THEFACTORY_AUTH_URL, authRequest, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000, // 15 segundos para auth
+    });
+
+    console.log('Respuesta de autenticación:', response.data);
+
+    // Verificar que la autenticación fue exitosa
+    if (response.data.codigo !== 0) {
+      throw new Error(`Error de autenticación: ${response.data.mensaje}`);
+    }
+
+    // Actualizar cache
+    tokenCache.token = response.data.token;
+    tokenCache.fechaExpiracion = response.data.fechaExpiracion;
+
+    console.log(
+      'Token obtenido exitosamente, expira:',
+      tokenCache.fechaExpiracion,
+    );
+
+    return tokenCache.token;
+  } catch (error) {
+    console.error('Error al obtener token de TheFactoryHKA:', error);
+
+    if (error.response) {
+      throw new Error(
+        `Error ${error.response.status}: ${JSON.stringify(error.response.data)}`,
+      );
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Timeout al conectar con el servicio de autenticación');
+    }
+
+    throw new Error(`Error de autenticación: ${error.message}`);
+  }
+};
 
 // Crear un nuevo rango de numeración de e-CF
 const createComprobante = async (req, res) => {
@@ -499,6 +582,340 @@ const consumirNumeroPorRnc = async (req, res) => {
   }
 };
 
+// Función para convertir strings vacíos a null (requerido por TheFactoryHKA)
+const stringVacioANull = (valor) => {
+  if (valor === '' || valor === undefined || valor === null) {
+    return null;
+  }
+  return typeof valor === 'string' ? valor.trim() || null : valor;
+};
+
+// Función para transformar JSON simplificado al formato de TheFactoryHKA
+const transformarFacturaParaTheFactory = (facturaSimple, token) => {
+  const { comprador, emisor, factura, items } = facturaSimple;
+
+  // Validar que tenemos los datos básicos necesarios
+  if (
+    !comprador?.rnc ||
+    !emisor?.rnc ||
+    !factura?.ncf ||
+    !factura?.tipo ||
+    !items?.length
+  ) {
+    throw new Error('Faltan datos obligatorios en la factura');
+  }
+
+  // Construir los detalles de items
+  const detallesItems = items.map((item, index) => ({
+    numeroLinea: (index + 1).toString(),
+    tablaCodigos: null,
+    indicadorFacturacion: '4', // Servicios
+    retencion: null,
+    nombre: stringVacioANull(item.nombre),
+    indicadorBienoServicio: '1', // Servicio
+    descripcion: item.descripcion || null,
+    cantidad: '1.00', // Cantidad por defecto
+    unidadMedida: '47', // Unidad (servicios)
+    cantidadReferencia: null,
+    unidadReferencia: null,
+    tablaSubcantidad: null,
+    gradosAlcohol: null,
+    precioUnitarioReferencia: null,
+    fechaElaboracion: null,
+    fechaVencimiento: null,
+    mineria: null,
+    precioUnitario: parseFloat(item.precio).toFixed(2),
+    descuentoMonto: null,
+    tablaSubDescuento: null,
+    recargoMonto: null,
+    tablaSubRecargo: null,
+    tablaImpuestoAdicional: null,
+    otraMonedaDetalle: null,
+    monto: parseFloat(item.precio).toFixed(2),
+  }));
+
+  // Calcular totales
+  const montoTotal = parseFloat(factura.total).toFixed(2);
+
+  // Formatear fecha (DD-MM-YYYY)
+  const formatearFecha = (fecha) => {
+    if (!fecha) return null;
+    // Si viene en formato DD-MM-YYYY, lo mantenemos
+    if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      return fecha;
+    }
+    // Si viene en otro formato, lo convertimos
+    const date = new Date(fecha);
+    return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+  };
+
+  // Estructura completa para TheFactoryHKA
+  const documentoCompleto = {
+    Token: token,
+    documentoElectronico: {
+      encabezado: {
+        identificacionDocumento: {
+          tipoDocumento: factura.tipo,
+          ncf: factura.ncf,
+          fechaVencimientoSecuencia: '31-12-2025',
+          indicadorEnvioDiferido: '1',
+          indicadorMontoGravado: '1',
+          indicadorNotaCredito: null,
+          tipoIngresos: '01',
+          tipoPago: '1',
+          fechaLimitePago: null,
+          terminoPago: null,
+          tablaFormasPago: [
+            {
+              forma: '1', // Efectivo
+              monto: montoTotal,
+            },
+          ],
+          tipoCuentaPago: null,
+          numeroCuentaPago: null,
+          bancoPago: null,
+          fechaDesde: null,
+          fechaHasta: null,
+        },
+        emisor: {
+          rnc: emisor.rnc,
+          razonSocial: stringVacioANull(emisor.razonSocial),
+          nombreComercial: stringVacioANull(emisor.razonSocial),
+          sucursal: 'Principal',
+          direccion: stringVacioANull(emisor.direccion),
+          tablaTelefono: emisor.telefono || [],
+          correo: stringVacioANull(emisor.correo),
+          webSite: null,
+          actividadEconomica: null,
+          codigoVendedor: factura.id || 'VEND001',
+          numeroFacturaInterna: stringVacioANull(factura.id),
+          numeroPedidoInterno: stringVacioANull(factura.id),
+          zonaVenta: 'PRINCIPAL',
+          rutaVenta: null,
+          informacionAdicional: null,
+          fechaEmision: formatearFecha(factura.fecha),
+        },
+        comprador: {
+          rnc: comprador.rnc,
+          identificacionExtranjero: null,
+          razonSocial: stringVacioANull(comprador.nombre),
+          contacto: stringVacioANull(comprador.nombre),
+          correo: stringVacioANull(comprador.correo),
+          envioMail: stringVacioANull(comprador.correo) ? 'SI' : 'NO',
+          direccion: stringVacioANull(comprador.direccion),
+          fechaEntrega: null,
+          fechaOrdenCompra: null,
+          contactoEntrega: null,
+          direccionEntrega: null,
+          telefonoAdicional: null,
+          fechaOrden: null,
+          numeroOrden: null,
+          codigoInterno: comprador.rnc,
+          responsablePago: null,
+          informacionAdicional: null,
+        },
+        informacionesAdicionales: {
+          fechaEmbarque: null,
+          numeroEmbarque: null,
+          numeroContenedor: null,
+          numeroReferencia: stringVacioANull(factura.id),
+          pesoBruto: null,
+          pesoNeto: null,
+          unidadPesoBruto: null,
+          unidadPesoNeto: null,
+          cantidadBulto: null,
+          unidadBulto: null,
+          volumenBulto: null,
+          unidadVolumen: null,
+          nombrePuertoEmbarque: null,
+          condicionesEntrega: null,
+          totalFob: null,
+          seguro: null,
+          flete: null,
+          otrosGastos: null,
+          totalCif: null,
+          regimenAduanero: null,
+          nombrePuertoSalida: null,
+          nombrePuertoDesembarque: null,
+        },
+        transporte: null,
+        totales: {
+          montoGravadoTotal: null,
+          montoGravadoI1: null,
+          montoGravadoI2: null,
+          montoGravadoI3: null,
+          montoExento: montoTotal, // Asumiendo que es exento de ITBIS
+          itbiS1: null,
+          itbiS2: null,
+          itbiS3: null,
+          totalITBIS: null,
+          totalITBIS1: null,
+          totalITBIS2: null,
+          totalITBIS3: null,
+          montoImpuestoAdicional: null,
+          impuestosAdicionales: null,
+          montoTotal: montoTotal,
+          montoNoFacturable: null,
+          montoPeriodo: null,
+          saldoAnterior: null,
+          montoAvancePago: null,
+          valorPagar: null,
+          totalITBISRetenido: null,
+          totalISRRetencion: null,
+          totalITBISPercepcion: null,
+          totalISRPercepcion: null,
+        },
+        otraMoneda: null,
+      },
+      detallesItems: detallesItems,
+      observaciones: [
+        {
+          valor: 'FACTURA ELECTRONICA',
+          campo: 'Factura generada electrónicamente',
+        },
+      ],
+      cuotas: null,
+      subtotales: null,
+      descuentosORecargos: null,
+      informacionReferencia: null,
+    },
+  };
+
+  return documentoCompleto;
+};
+
+// Controlador para enviar factura a TheFactoryHKA
+const enviarFacturaElectronica = async (req, res) => {
+  try {
+    console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
+
+    // Obtener token de autenticación
+    const token = await obtenerTokenTheFactory();
+
+    // Transformar el JSON simplificado al formato completo
+    const facturaCompleta = transformarFacturaParaTheFactory(req.body, token);
+
+    console.log(
+      'Factura transformada:',
+      JSON.stringify(facturaCompleta, null, 2),
+    );
+
+    // Enviar a TheFactoryHKA
+    const response = await axios.post(THEFACTORY_ENVIAR_URL, facturaCompleta, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000, // 30 segundos de timeout
+    });
+
+    console.log('Respuesta de TheFactoryHKA:', response.data);
+
+    // 🔧 VALIDAR RESPUESTA ANTES DE ACCEDER A PROPIEDADES
+    if (!response.data.procesado || response.data.codigo !== 0) {
+      // Error de negocio de TheFactoryHKA
+      const errorMessages = {
+        108: 'NCF ya fue presentado anteriormente',
+        109: 'NCF vencido o inválido',
+        110: 'RNC no autorizado para este tipo de comprobante',
+        111: 'Datos de la factura inválidos',
+      };
+
+      const mensajeError =
+        errorMessages[response.data.codigo] ||
+        response.data.mensaje ||
+        'Error desconocido';
+
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: `Error de TheFactoryHKA: ${mensajeError}`,
+        details: {
+          codigo: response.data.codigo,
+          mensajeOriginal: response.data.mensaje,
+          procesado: response.data.procesado,
+          codigoSeguridad: response.data.codigoSeguridad || null,
+          respuestaCompleta: response.data,
+        },
+      });
+    }
+
+    // ✅ Si llegamos aquí, la factura fue procesada exitosamente
+    const ncfGenerado = req.body.factura.ncf; // Usar el NCF que enviamos
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Factura electrónica enviada exitosamente',
+      data: {
+        facturaOriginal: req.body,
+        respuestaTheFactory: response.data,
+        ncfGenerado: ncfGenerado,
+        codigoSeguridad: response.data.codigoSeguridad,
+        fechaFirma: response.data.fechaFirma,
+        xmlBase64: response.data.xmlBase64,
+      },
+    });
+  } catch (error) {
+    console.error('Error al enviar factura electrónica:', error);
+
+    // Error de autenticación - limpiar cache y reintentar una vez
+    if (
+      error.message.includes('Error de autenticación') ||
+      (error.response &&
+        (error.response.status === 401 || error.response.status === 403))
+    ) {
+      // Limpiar cache del token
+      tokenCache.token = null;
+      tokenCache.fechaExpiracion = null;
+
+      return res.status(httpStatus.UNAUTHORIZED).json({
+        status: 'error',
+        message: 'Error de autenticación con TheFactoryHKA',
+        details: error.message,
+      });
+    }
+
+    if (error.response) {
+      // Error de la API de TheFactoryHKA
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'Error en el envío a TheFactoryHKA',
+        details: error.response.data,
+        statusCode: error.response.status,
+      });
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      return res.status(httpStatus.REQUEST_TIMEOUT).json({
+        status: 'error',
+        message: 'Timeout al conectar con TheFactoryHKA',
+      });
+    }
+
+    if (error.message.includes('Faltan datos obligatorios')) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+
+    if (
+      error.message.includes(
+        'Timeout al conectar con el servicio de autenticación',
+      )
+    ) {
+      return res.status(httpStatus.REQUEST_TIMEOUT).json({
+        status: 'error',
+        message: 'Timeout en la autenticación con TheFactoryHKA',
+      });
+    }
+
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno del servidor al procesar la factura electrónica',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -509,4 +926,6 @@ module.exports = {
   getComprobantesStats,
   consumirNumero,
   consumirNumeroPorRnc,
+  enviarFacturaElectronica,
+  obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
 };
