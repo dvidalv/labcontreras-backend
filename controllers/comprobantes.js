@@ -4,6 +4,7 @@ const axios = require('axios');
 const {
   THEFACTORY_AUTH_URL,
   THEFACTORY_ENVIAR_URL,
+  THEFACTORY_ESTATUS_URL,
   THEFACTORY_USUARIO,
   THEFACTORY_CLAVE,
   THEFACTORY_RNC,
@@ -81,6 +82,254 @@ const obtenerTokenTheFactory = async () => {
     }
 
     throw new Error(`Error de autenticación: ${error.message}`);
+  }
+};
+
+// Función para determinar si la fecha de vencimiento es obligatoria según el tipo de NCF
+const esFechaVencimientoObligatoria = (tipoDocumento) => {
+  // Según la documentación de la DGII, estos tipos requieren fecha de vencimiento:
+  const tiposObligatorios = ['31', '33', '34', '41', '44', '45', '46', '47'];
+
+  // Tipos opcionales: '32' (Factura de Consumo), '43' (Gastos Menores)
+  const esObligatorio = tiposObligatorios.includes(tipoDocumento);
+
+  console.log(
+    `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
+  );
+
+  return esObligatorio;
+};
+
+// Función para generar URL del QR Code para la DGII
+const generarUrlQR = (responseData, facturaOriginal) => {
+  try {
+    const baseUrl = 'https://dgii.gov.do/ecf/consulta/';
+
+    const params = new URLSearchParams({
+      rnc: facturaOriginal.emisor.rnc, // RNC del emisor
+      ncf: facturaOriginal.factura.ncf, // NCF del documento
+      codigo: responseData.codigoSeguridad, // Código de seguridad de TheFactoryHKA
+      fecha: responseData.fechaEmision, // Fecha de emisión
+    });
+
+    const urlCompleta = `${baseUrl}?${params.toString()}`;
+
+    console.log(`📱 URL generada para QR Code: ${urlCompleta}`);
+
+    return urlCompleta;
+  } catch (error) {
+    console.error('❌ Error al generar URL del QR:', error);
+    return null;
+  }
+};
+
+// Función para normalizar el estado de la factura devuelto por TheFactoryHKA
+const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
+  // Convertir a mayúsculas para comparación
+  const estado = (estadoOriginal || '').toString().toUpperCase();
+
+  // PRIORIDAD 1: Verificar campo 'procesado' y código numérico primero
+  if (datosCompletos.procesado === true) {
+    // Si está procesado y tiene código exitoso
+    if (datosCompletos.codigo === 0 || datosCompletos.codigo === 1) {
+      return 'APROBADA';
+    }
+    // Si está procesado pero tiene código de error o estado especial
+    if (datosCompletos.codigo !== undefined && datosCompletos.codigo > 1) {
+      switch (datosCompletos.codigo) {
+        // ⏳ Estados en proceso
+        case 2:
+        case 10:
+        case 15:
+        case 95:
+          return 'EN_PROCESO';
+
+        // ❌ Errores de NCF
+        case 108:
+          return 'NCF_INVALIDO'; // NCF ya presentado
+        case 109:
+          return 'NCF_VENCIDO'; // NCF vencido o fuera de rango
+
+        // ❌ Errores de autorización
+        case 110:
+          return 'RNC_NO_AUTORIZADO'; // RNC no autorizado
+
+        // ❌ Errores de validación de datos
+        case 111:
+        case 112:
+        case 113:
+        case 114:
+          return 'DATOS_INVALIDOS'; // Datos/estructura/totales inválidos
+
+        // ❌ Estados de rechazo DGII
+        case 200:
+        case 201:
+        case 202:
+        case 203:
+          return 'RECHAZADA'; // Rechazado por DGII
+
+        // 🚫 Estados de cancelación
+        case 300:
+        case 301:
+          return 'ANULADA'; // Documento anulado/cancelado
+
+        default:
+          console.warn(
+            `⚠️ Código de TheFactoryHKA no mapeado: ${datosCompletos.codigo}`,
+          );
+          return 'ERROR';
+      }
+    }
+  }
+
+  // PRIORIDAD 2: Estados exitosos por mensaje/texto
+  if (
+    estado.includes('APROBADA') ||
+    estado.includes('ACEPTADA') ||
+    estado.includes('ACEPTADO') ||
+    estado.includes('PROCESADA') ||
+    estado.includes('EXITOSA') ||
+    estado.includes('SUCCESS') ||
+    estado === 'OK'
+  ) {
+    return 'APROBADA';
+  }
+
+  // Estados de procesamiento
+  if (
+    estado.includes('PROCESO') ||
+    estado.includes('PROCESANDO') ||
+    estado.includes('VALIDANDO') ||
+    estado.includes('PENDING')
+  ) {
+    return 'EN_PROCESO';
+  }
+
+  // Estados de error específicos
+  if (
+    estado.includes('NCF') &&
+    (estado.includes('INVALIDO') || estado.includes('USADO'))
+  ) {
+    return 'NCF_INVALIDO';
+  }
+
+  if (estado.includes('RNC') && estado.includes('NO_AUTORIZADO')) {
+    return 'RNC_NO_AUTORIZADO';
+  }
+
+  // Estados de error generales
+  if (
+    estado.includes('RECHAZADA') ||
+    estado.includes('ERROR') ||
+    estado.includes('FAILED') ||
+    estado.includes('INVALID')
+  ) {
+    return 'RECHAZADA';
+  }
+
+  // Estados de cancelación
+  if (
+    estado.includes('ANULADA') ||
+    estado.includes('CANCELADA') ||
+    estado.includes('CANCELLED')
+  ) {
+    return 'ANULADA';
+  }
+
+  // PRIORIDAD 3: Verificar código numérico independiente (si no se verificó arriba)
+  if (datosCompletos.codigo !== undefined) {
+    switch (datosCompletos.codigo) {
+      // ✅ Estados exitosos
+      case 0:
+      case 1:
+        return 'APROBADA';
+
+      // ⏳ Estados en proceso
+      case 2:
+      case 10:
+      case 15:
+      case 95:
+        return 'EN_PROCESO';
+
+      // ❌ Errores de NCF
+      case 108:
+        return 'NCF_INVALIDO';
+      case 109:
+        return 'NCF_VENCIDO';
+
+      // ❌ Errores de autorización
+      case 110:
+        return 'RNC_NO_AUTORIZADO';
+
+      // ❌ Errores de validación de datos
+      case 111:
+      case 112:
+      case 113:
+      case 114:
+        return 'DATOS_INVALIDOS';
+
+      // ❌ Estados de rechazo DGII
+      case 200:
+      case 201:
+      case 202:
+      case 203:
+        return 'RECHAZADA';
+
+      // 🚫 Estados de cancelación
+      case 300:
+      case 301:
+        return 'ANULADA';
+
+      default:
+        console.warn(
+          `⚠️ Código de TheFactoryHKA no mapeado: ${datosCompletos.codigo}`,
+        );
+        return 'ERROR';
+    }
+  }
+
+  // Si no coincide con ningún patrón conocido
+  return estado || 'DESCONOCIDO';
+};
+
+// Función para consultar el estatus de un documento en TheFactoryHKA
+const consultarEstatusInmediato = async (ncf) => {
+  try {
+    console.log(`🔍 Consultando estatus inmediato para NCF: ${ncf}`);
+
+    const token = await obtenerTokenTheFactory();
+
+    const payload = {
+      token: token,
+      rnc: THEFACTORY_RNC,
+      documento: ncf,
+    };
+
+    console.log('Payload para consulta de estatus:', payload);
+
+    const response = await axios.post(THEFACTORY_ESTATUS_URL, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000, // 10 segundos
+    });
+
+    console.log('Respuesta de estatus TheFactoryHKA:', response.data);
+
+    return {
+      consultaExitosa: true,
+      datosEstatus: response.data,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Error al consultar estatus (no crítico):', error.message);
+
+    // No lanzamos error, solo devolvemos información de que falló
+    return {
+      consultaExitosa: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    };
   }
 };
 
@@ -605,6 +854,44 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     throw new Error('Faltan datos obligatorios en la factura');
   }
 
+  // 📅 Formatear y validar fecha de vencimiento del NCF
+  // Calcular dinámicamente una fecha de vencimiento segura como fallback
+  const fechaActual = new Date();
+  const añoActual = fechaActual.getFullYear();
+  const mesActual = fechaActual.getMonth() + 1; // getMonth() retorna 0-11
+
+  // Si estamos en diciembre, usar el próximo año para evitar vencimiento inmediato
+  const añoVencimiento = mesActual === 12 ? añoActual + 1 : añoActual;
+  let fechaVencimientoFormateada = `31-12-${añoVencimiento}`; // Fecha segura y dinámica
+  if (factura.fechaVencNCF) {
+    try {
+      // Validar formato de fecha (puede venir como DD-MM-YYYY o YYYY-MM-DD)
+      const fecha = factura.fechaVencNCF;
+      if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+        // Ya está en formato DD-MM-YYYY
+        fechaVencimientoFormateada = fecha;
+      } else if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Convertir de YYYY-MM-DD a DD-MM-YYYY
+        const [year, month, day] = fecha.split('-');
+        fechaVencimientoFormateada = `${day}-${month}-${year}`;
+      } else {
+        console.warn(
+          `⚠️ Formato de fecha NCF no reconocido: ${fecha}, usando fecha calculada: ${fechaVencimientoFormateada}`,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `⚠️ Error al procesar fecha de vencimiento NCF: ${error.message}, usando fecha calculada: ${fechaVencimientoFormateada}`,
+      );
+    }
+  } else {
+    console.log(
+      `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
+    );
+  }
+
+  console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
+
   // Construir los detalles de items
   const detallesItems = items.map((item, index) => ({
     numeroLinea: (index + 1).toString(),
@@ -637,6 +924,48 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // Calcular totales
   const montoTotal = parseFloat(factura.total).toFixed(2);
 
+  // 🧮 Calcular montoExento basado en los items
+  // Para servicios médicos en República Dominicana, generalmente son exentos de ITBIS
+  // Si un item tiene .itbis = false o .exento = true, se considera exento
+  // Si no tiene esas propiedades, asumimos que es exento (servicios médicos)
+  const montoExentoCalculado = items
+    .reduce((suma, item) => {
+      const precio = parseFloat(item.precio || 0);
+      // Si específicamente se marca como gravado, no lo incluimos en exento
+      if (item.itbis === true || item.gravado === true) {
+        return suma; // No sumarlo al exento
+      }
+      // Por defecto, servicios médicos son exentos
+      return suma + precio;
+    }, 0)
+    .toFixed(2);
+
+  // Calcular monto gravado (lo que no es exento)
+  const montoGravadoCalculado = items
+    .reduce((suma, item) => {
+      const precio = parseFloat(item.precio || 0);
+      // Solo si específicamente se marca como gravado
+      if (item.itbis === true || item.gravado === true) {
+        return suma + precio;
+      }
+      return suma;
+    }, 0)
+    .toFixed(2);
+
+  console.log(`💰 Cálculo de totales:`, {
+    montoTotalFactura: montoTotal,
+    montoExentoCalculado: montoExentoCalculado,
+    montoGravadoCalculado: montoGravadoCalculado,
+    sumaCalculada: (
+      parseFloat(montoExentoCalculado) + parseFloat(montoGravadoCalculado)
+    ).toFixed(2),
+    diferencia: (
+      parseFloat(montoTotal) -
+      parseFloat(montoExentoCalculado) -
+      parseFloat(montoGravadoCalculado)
+    ).toFixed(2),
+  });
+
   // Formatear fecha (DD-MM-YYYY)
   const formatearFecha = (fecha) => {
     if (!fecha) return null;
@@ -657,7 +986,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         identificacionDocumento: {
           tipoDocumento: factura.tipo,
           ncf: factura.ncf,
-          fechaVencimientoSecuencia: '31-12-2025',
+          fechaVencimientoSecuencia: esFechaVencimientoObligatoria(factura.tipo)
+            ? fechaVencimientoFormateada
+            : null, // Solo incluir si es obligatorio según el tipo
           indicadorEnvioDiferido: '1',
           indicadorMontoGravado: '1',
           indicadorNotaCredito: null,
@@ -740,16 +1071,32 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         },
         transporte: null,
         totales: {
-          montoGravadoTotal: null,
-          montoGravadoI1: null,
+          montoGravadoTotal:
+            parseFloat(montoGravadoCalculado) > 0
+              ? montoGravadoCalculado
+              : null,
+          montoGravadoI1:
+            parseFloat(montoGravadoCalculado) > 0
+              ? montoGravadoCalculado
+              : null,
           montoGravadoI2: null,
           montoGravadoI3: null,
-          montoExento: montoTotal, // Asumiendo que es exento de ITBIS
-          itbiS1: null,
+          montoExento:
+            parseFloat(montoExentoCalculado) > 0 ? montoExentoCalculado : null,
+          itbiS1:
+            parseFloat(montoGravadoCalculado) > 0
+              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              : null,
           itbiS2: null,
           itbiS3: null,
-          totalITBIS: null,
-          totalITBIS1: null,
+          totalITBIS:
+            parseFloat(montoGravadoCalculado) > 0
+              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              : null,
+          totalITBIS1:
+            parseFloat(montoGravadoCalculado) > 0
+              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              : null,
           totalITBIS2: null,
           totalITBIS3: null,
           montoImpuestoAdicional: null,
@@ -841,6 +1188,13 @@ const enviarFacturaElectronica = async (req, res) => {
     // ✅ Si llegamos aquí, la factura fue procesada exitosamente
     const ncfGenerado = req.body.factura.ncf; // Usar el NCF que enviamos
 
+    // 🔍 Consultar estatus inmediatamente (no crítico si falla)
+    console.log('📋 Consultando estatus inmediato post-envío...');
+    const estatusConsulta = await consultarEstatusInmediato(ncfGenerado);
+
+    // 📱 Generar URL para QR Code de la DGII
+    const urlQR = generarUrlQR(response.data, req.body);
+
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Factura electrónica enviada exitosamente',
@@ -851,6 +1205,8 @@ const enviarFacturaElectronica = async (req, res) => {
         codigoSeguridad: response.data.codigoSeguridad,
         fechaFirma: response.data.fechaFirma,
         xmlBase64: response.data.xmlBase64,
+        urlQR: urlQR, // ✅ NUEVO: URL para generar QR Code
+        estatusInicial: estatusConsulta,
       },
     });
   } catch (error) {
@@ -916,6 +1272,74 @@ const enviarFacturaElectronica = async (req, res) => {
   }
 };
 
+// 🔍 Endpoint independiente para consultar estatus de documento
+const consultarEstatusDocumento = async (req, res) => {
+  try {
+    const { ncf } = req.body;
+
+    // Validar que se proporcione el NCF
+    if (!ncf) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El campo NCF es requerido',
+        details: 'Debe proporcionar el NCF del documento a consultar',
+      });
+    }
+
+    console.log(`🔍 Consulta de estatus solicitada para NCF: ${ncf}`);
+
+    // Consultar estatus en TheFactoryHKA
+    const estatusConsulta = await consultarEstatusInmediato(ncf);
+
+    if (estatusConsulta.consultaExitosa) {
+      // Interpretar el estado devuelto por TheFactoryHKA
+      const estadoOriginal =
+        estatusConsulta.datosEstatus.estado ||
+        estatusConsulta.datosEstatus.status ||
+        estatusConsulta.datosEstatus.mensaje ||
+        'DESCONOCIDO';
+      const estadoNormalizado = normalizarEstadoFactura(
+        estadoOriginal,
+        estatusConsulta.datosEstatus,
+      );
+
+      return res.status(httpStatus.OK).json({
+        status: 'success',
+        message: 'Consulta de estatus realizada exitosamente',
+        data: {
+          ncf: ncf,
+          estado: estadoNormalizado,
+          estadoOriginal: estadoOriginal,
+          mensaje:
+            estatusConsulta.datosEstatus.mensaje ||
+            estatusConsulta.datosEstatus.description ||
+            'Sin mensaje',
+          fechaConsulta: estatusConsulta.timestamp,
+          datosCompletos: estatusConsulta.datosEstatus,
+        },
+      });
+    } else {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'No se pudo consultar el estatus del documento',
+        details: estatusConsulta.error,
+        data: {
+          ncf: ncf,
+          timestamp: estatusConsulta.timestamp,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error en consulta de estatus:', error);
+
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno del servidor al consultar estatus',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -927,5 +1351,7 @@ module.exports = {
   consumirNumero,
   consumirNumeroPorRnc,
   enviarFacturaElectronica,
+  consultarEstatusDocumento,
+  generarUrlQR,
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
 };
