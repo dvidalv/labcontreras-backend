@@ -1,0 +1,221 @@
+#####################################################################
+# SCRIPT FILEMAKER: Configuración Inicial
+# Descripción: Configurar conexión y probar endpoint de QR
+# Versión: 1.0
+#####################################################################
+
+# ===============================
+# CONFIGURACIÓN DE VARIABLES
+# ===============================
+
+# Mostrar diálogo de configuración
+Show Custom Dialog [ "Configuración API - Facturación Electrónica" ; 
+    "Configure la conexión al servidor de facturación electrónica¶¶" &
+    "📋 Información requerida:¶" &
+    "• URL del servidor (https://...)¶" &
+    "• Token de autenticación Bearer¶¶" &
+    "⚠️ Asegúrese de tener los datos correctos" ; 
+    "Configurar" ; "Cancelar" 
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Configuración cancelada" ]
+End If
+
+# ===============================
+# SOLICITAR DATOS DE CONEXIÓN
+# ===============================
+
+# Solicitar URL del servidor
+Show Custom Dialog [ "URL del Servidor" ; 
+    "Ingrese la URL completa del servidor:¶¶" &
+    "Ejemplo: https://api.labcontreras.com¶" &
+    "⚠️ Debe empezar con https://" ; 
+    "URL:" ; "https://" 
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Configuración cancelada" ]
+End If
+
+Set Variable [ $servidor ; Value: Get ( ScriptParameter ) ]
+
+# Validar URL
+If [ Left ( $servidor ; 8 ) ≠ "https://" ]
+    Show Custom Dialog [ "URL Inválida" ; 
+        "❌ La URL debe empezar con https://¶¶" &
+        "Ejemplo correcto: https://api.labcontreras.com"
+    ]
+    Exit Script [ Text Result: "Error: URL inválida" ]
+End If
+
+# Solicitar token
+Show Custom Dialog [ "Token de Autenticación" ; 
+    "Ingrese su token Bearer:¶¶" &
+    "💡 Este token lo proporciona el administrador¶" &
+    "⚠️ Manténgalo seguro" ; 
+    "Token:" ; "" 
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Configuración cancelada" ]
+End If
+
+Set Variable [ $token ; Value: Get ( ScriptResult ) ]
+
+# Validar token
+If [ IsEmpty ( $token ) or Length ( $token ) < 20 ]
+    Show Custom Dialog [ "Token Inválido" ; 
+        "❌ El token parece ser inválido¶¶" &
+        "• No puede estar vacío¶" &
+        "• Debe tener al menos 20 caracteres"
+    ]
+    Exit Script [ Text Result: "Error: Token inválido" ]
+End If
+
+# ===============================
+# PROBAR CONEXIÓN
+# ===============================
+
+Show Custom Dialog [ "Probando Conexión" ; 
+    "🔄 Probando conexión al servidor...¶¶" &
+    "Servidor: " & $servidor & "¶" &
+    "Token: " & Left ( $token ; 10 ) & "..." ; 
+    "Continuar" 
+]
+
+# Preparar petición de prueba
+Set Variable [ $headers ; Value: "Authorization: Bearer " & $token ]
+
+# Intentar conexión con endpoint de test
+Insert from URL [ 
+    Target: $resultado_prueba ;
+    URL: $servidor & "/comprobantes/test-auth" ;
+    Headers: $headers ;
+    Verify SSL Certificates: Off
+]
+
+# Procesar resultado de la prueba
+Set Variable [ $status_prueba ; Value: JSONGetElement ( $resultado_prueba ; "status" ) ]
+
+If [ $status_prueba = "success" ]
+    # ===========================
+    # CONEXIÓN EXITOSA
+    # ===========================
+    
+    # Guardar configuración
+    Set Field [ Configuracion::ServidorAPI ; $servidor ]
+    Set Field [ Configuracion::TokenAPI ; $token ]
+    Set Field [ Configuracion::FechaConfiguracion ; Get ( CurrentTimeStamp ) ]
+    Set Field [ Configuracion::EstadoConexion ; "Conectado" ]
+    Set Field [ Configuracion::UltimaPrueba ; Get ( CurrentTimeStamp ) ]
+    
+    # Confirmar éxito
+    Show Custom Dialog [ "Configuración Exitosa" ; 
+        "✅ ¡Conexión establecida correctamente!¶¶" &
+        "📋 CONFIGURACIÓN GUARDADA:¶" &
+        "• Servidor: " & $servidor & "¶" &
+        "• Estado: Conectado¶" &
+        "• Fecha: " & Get ( CurrentTimeStamp ) & "¶¶" &
+        "🎉 Ya puede usar la facturación electrónica"
+    ]
+    
+    # ===========================
+    # PROBAR ENDPOINT DE QR
+    # ===========================
+    
+    Show Custom Dialog [ "¿Probar generación de QR?" ; 
+        "✅ Conexión básica exitosa¶¶" &
+        "¿Desea probar la generación de códigos QR?¶" &
+        "(Se creará un QR de prueba)" ; 
+        "Probar QR" ; "Después" 
+    ]
+    
+    If [ Get ( LastMessageChoice ) = 1 ]
+        # Probar endpoint de QR con URL de ejemplo
+        Set Variable [ $url_prueba ; Value: "https://dgii.gov.do/ecf/consulta/?rnc=130085765&ncf=E310000000001&codigo=TEST123&fecha=01-01-2025" ]
+        
+        Set Variable [ $body_qr_prueba ; Value: JSONSetElement ( "{}" ; 
+            [ "url" ; $url_prueba ; JSONString ] ;
+            [ "formato" ; "png" ; JSONString ] ;
+            [ "tamaño" ; 200 ; JSONNumber ]
+        ) ]
+        
+        Set Variable [ $headers_qr ; Value: "Authorization: Bearer " & $token & ¶ & "Content-Type: application/json" ]
+        
+        Insert from URL [ 
+            Target: $resultado_qr_prueba ;
+            URL: $servidor & "/comprobantes/generar-qr" ;
+            Request Data: $body_qr_prueba ;
+            Headers: $headers_qr ;
+            Verify SSL Certificates: Off
+        ]
+        
+        Set Variable [ $status_qr_prueba ; Value: JSONGetElement ( $resultado_qr_prueba ; "status" ) ]
+        
+        If [ $status_qr_prueba = "success" ]
+            Set Variable [ $version_qr ; Value: JSONGetElement ( $resultado_qr_prueba ; "data.version" ) ]
+            Set Variable [ $cumple_dgii ; Value: JSONGetElement ( $resultado_qr_prueba ; "data.especificaciones.cumpleNormativaDGII" ) ]
+            
+            Show Custom Dialog [ "Prueba de QR Exitosa" ; 
+                "🎉 ¡Generación de QR funcional!¶¶" &
+                "📱 DETALLES DEL QR:¶" &
+                "• Versión: " & $version_qr & " (DGII)¶" &
+                "• Cumple normativa: " & If ( $cumple_dgii = True ; "✅ Sí" ; "❌ No" ) & "¶" &
+                "• Formato: PNG¶" &
+                "• Tamaño: 200px¶¶" &
+                "✅ Sistema completamente funcional"
+            ]
+            
+            Set Field [ Configuracion::QRFuncional ; True ]
+            Set Field [ Configuracion::VersionQR ; $version_qr ]
+        Else
+            Set Variable [ $error_qr_prueba ; Value: JSONGetElement ( $resultado_qr_prueba ; "message" ) ]
+            
+            Show Custom Dialog [ "Error en Prueba de QR" ; 
+                "⚠️ Conexión OK, pero error en QR¶¶" &
+                "Error: " & $error_qr_prueba & "¶¶" &
+                "💡 La facturación funciona, pero¶" &
+                "revise la configuración del endpoint QR"
+            ]
+            
+            Set Field [ Configuracion::QRFuncional ; False ]
+            Set Field [ Configuracion::ErrorQR ; $error_qr_prueba ]
+        End If
+    End If
+    
+Else
+    # ===========================
+    # ERROR DE CONEXIÓN
+    # ===========================
+    Set Variable [ $error_conexion ; Value: JSONGetElement ( $resultado_prueba ; "message" ) ]
+    
+    Show Custom Dialog [ "Error de Conexión" ; 
+        "❌ No se pudo establecer conexión¶¶" &
+        "Error: " & If ( IsEmpty ( $error_conexion ) ; "Servidor no disponible" ; $error_conexion ) & "¶¶" &
+        "🔧 POSIBLES SOLUCIONES:¶" &
+        "• Verificar URL del servidor¶" &
+        "• Comprobar token de autenticación¶" &
+        "• Revisar conexión a internet¶" &
+        "• Contactar administrador del sistema"
+    ]
+    
+    # Guardar intento fallido para análisis
+    Set Field [ Configuracion::ServidorAPI ; $servidor ]
+    Set Field [ Configuracion::TokenAPI ; "[ERROR]" ]
+    Set Field [ Configuracion::EstadoConexion ; "Error" ]
+    Set Field [ Configuracion::ErrorConexion ; $error_conexion ]
+    Set Field [ Configuracion::FechaError ; Get ( CurrentTimeStamp ) ]
+End If
+
+# ===============================
+# LIMPIEZA DE SEGURIDAD
+# ===============================
+# Limpiar variables con información sensible
+Set Variable [ $token ; Value: "" ]
+Set Variable [ $headers ; Value: "" ]
+Set Variable [ $headers_qr ; Value: "" ]
+
+#####################################################################
+# FIN DEL SCRIPT DE CONFIGURACIÓN
+#####################################################################

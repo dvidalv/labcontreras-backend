@@ -43,7 +43,7 @@
     "codigoSeguridad": "GNGhsV",
     "fechaFirma": "11-08-2025 00:25:46",
     "xmlBase64": "PEVDRiB4bWxuczp4c2k9Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvWE1MU2NoZW1hLWluc3RhbmNlIi...",
-    "urlQR": "https://dgii.gov.do/ecf/consulta/?rnc=130085765&ncf=E310000000051&codigo=GNGhsV&fecha=05-02-2025",
+    "urlQR": "https://dgii.gov.do/ecf/validacion/?rnc=130085765&ncf=E310000000051&codigo=GNGhsV&fecha=05-02-2025&monto=66500.00",
     "estatusInicial": {
       "consultaExitosa": true,
       "datosEstatus": {
@@ -71,18 +71,22 @@
 ─────────────────────────────
 
 ✅ Campo nuevo: "urlQR"
-📍 URL generada: "https://dgii.gov.do/ecf/consulta/?rnc=130085765&ncf=E310000000051&codigo=GNGhsV&fecha=05-02-2025"
+📍 URL generada: "https://dgii.gov.do/ecf/validacion/?rnc=130085765&ncf=E310000000051&codigo=GNGhsV&fecha=05-02-2025&monto=66500.00"
 
 🔧 Para FileMaker:
 1. Tomar el campo "urlQR" de la respuesta
 2. Usar una librería de QR para generar la imagen
 3. Mostrar el QR en la factura impresa
 
-📋 Parámetros del QR:
+📋 Parámetros del QR (Validación Extendida - Monto ≥ RD$250,000):
 - rnc: RNC del emisor (130085765)
 - ncf: NCF del documento (E310000000051)
 - codigo: Código de seguridad de TheFactoryHKA (GNGhsV)
 - fecha: Fecha de emisión (05-02-2025)
+- monto: Monto total de la factura (66500.00)
+
+💡 NOTA: Como el monto es RD$66,500 (< RD$250,000), normalmente usaría endpoint 'consulta',
+pero en este ejemplo se muestra 'validacion' para ilustrar el formato completo.
 
 ✅ Al escanear el QR:
 - Llevará al portal de la DGII

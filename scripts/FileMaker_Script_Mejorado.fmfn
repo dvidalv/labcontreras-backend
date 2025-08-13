@@ -1,0 +1,195 @@
+#####################################################################
+# SCRIPT FILEMAKER: Generar QR con Parámetros (MEJORADO)
+# Descripción: Envía parámetros individuales en lugar de URL completa
+# Ventaja: El servidor construye la URL según las reglas de la DGII
+# Versión: 2.0
+#####################################################################
+
+# ===============================
+# CONFIGURACIÓN INICIAL
+# ===============================
+Set Variable [ $servidor ; Value: "https://tu-servidor.com" ]
+Set Variable [ $token ; Value: "tu_token_bearer_aqui" ]
+
+# ===============================
+# OBTENER DATOS DE LA FACTURA
+# ===============================
+Set Variable [ $rnc ; Value: Facturas::EmisorRNC ]
+Set Variable [ $ncf ; Value: Facturas::NCF ]
+Set Variable [ $codigo ; Value: Facturas::CodigoSeguridad ]
+Set Variable [ $fecha ; Value: Facturas::FechaEmision ]
+Set Variable [ $monto ; Value: Facturas::Total ]
+
+# Validar datos obligatorios
+If [ IsEmpty ( $rnc ) or IsEmpty ( $ncf ) or IsEmpty ( $codigo ) or IsEmpty ( $fecha ) ]
+    Show Custom Dialog [ "Datos Incompletos" ; 
+        "❌ Faltan datos obligatorios para el QR:¶" &
+        "• RNC: " & If ( IsEmpty ( $rnc ) ; "❌ Faltante" ; "✅ " & $rnc ) & "¶" &
+        "• NCF: " & If ( IsEmpty ( $ncf ) ; "❌ Faltante" ; "✅ " & $ncf ) & "¶" &
+        "• Código: " & If ( IsEmpty ( $codigo ) ; "❌ Faltante" ; "✅ " & $codigo ) & "¶" &
+        "• Fecha: " & If ( IsEmpty ( $fecha ) ; "❌ Faltante" ; "✅ " & $fecha ) & "¶¶" &
+        "💡 Primero debe enviar la factura electrónica"
+    ]
+    Exit Script [ Text Result: "Error: Datos incompletos" ]
+End If
+
+# ===============================
+# PREPARAR PETICIÓN CON PARÁMETROS
+# ===============================
+Set Variable [ $headers ; Value: "Authorization: Bearer " & $token & ¶ & 
+                                "Content-Type: application/json" ]
+
+# Usar parámetros individuales (método mejorado)
+Set Variable [ $body ; Value: JSONSetElement ( "{}" ; 
+    [ "rnc" ; $rnc ; JSONString ] ;
+    [ "ncf" ; $ncf ; JSONString ] ;
+    [ "codigo" ; $codigo ; JSONString ] ;
+    [ "fecha" ; $fecha ; JSONString ] ;
+    [ "monto" ; $monto ; JSONString ] ;
+    [ "formato" ; "png" ; JSONString ] ;
+    [ "tamaño" ; 200 ; JSONNumber ]
+) ]
+
+# Mostrar información de la petición
+Show Custom Dialog [ "Generando QR" ; 
+    "📱 Generando código QR con parámetros:¶¶" &
+    "📋 DATOS DE LA FACTURA:¶" &
+    "• RNC: " & $rnc & "¶" &
+    "• NCF: " & $ncf & "¶" &
+    "• Código: " & $codigo & "¶" &
+    "• Fecha: " & $fecha & "¶" &
+    "• Monto: RD$" & $monto & "¶¶" &
+    "🔧 El servidor determinará automáticamente:¶" &
+    "• Endpoint correcto según el monto¶" &
+    "• URL final según normativas DGII" ; 
+    "Generar" ; "Cancelar" 
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Cancelado por usuario" ]
+End If
+
+# ===============================
+# EJECUTAR PETICIÓN
+# ===============================
+# Configurar cURL options para la petición
+Set Variable [ $curl_options ; Value: 
+    "--header \"" & $headers & "\"" & 
+    " --data \"" & Substitute ( $body ; "\"" ; "\\\"" ) & "\""
+]
+
+Insert from URL [ Select ; With dialog: Off ; Target: $resultado ; $servidor & "/comprobantes/generar-qr" ; cURL options: $curl_options ]
+
+# ===============================
+# PROCESAR RESPUESTA
+# ===============================
+Set Variable [ $status ; Value: JSONGetElement ( $resultado ; "status" ) ]
+
+If [ $status = "success" ]
+    # ===========================
+    # CASO EXITOSO
+    # ===========================
+    Set Variable [ $qr_code ; Value: JSONGetElement ( $resultado ; "data.qrCode" ) ]
+    Set Variable [ $url_generada ; Value: JSONGetElement ( $resultado ; "data.url" ) ]
+    Set Variable [ $version ; Value: JSONGetElement ( $resultado ; "data.version" ) ]
+    Set Variable [ $metodo_usado ; Value: JSONGetElement ( $resultado ; "data.parametrosUsados" ) ]
+    Set Variable [ $cumple_dgii ; Value: JSONGetElement ( $resultado ; "data.especificaciones.cumpleNormativaDGII" ) ]
+    
+    # Guardar resultados
+    Set Field [ Facturas::QRCode ; $qr_code ]
+    Set Field [ Facturas::URLGenerada ; $url_generada ]
+    Set Field [ Facturas::FechaQR ; Get ( CurrentTimeStamp ) ]
+    Set Field [ Facturas::VersionQR ; $version ]
+    Set Field [ Facturas::MetodoQR ; $metodo_usado ]
+    
+    # Determinar tipo de validación por el monto
+    Set Variable [ $monto_numerico ; Value: GetAsNumber ( $monto ) ]
+    Set Variable [ $tipo_validacion ; Value: If ( $monto_numerico >= 250000 ; "EXTENDIDA (≥$250K)" ; "BÁSICA (<$250K)" ) ]
+    
+    # Mostrar confirmación detallada
+    Show Custom Dialog [ "QR Generado Exitosamente" ; 
+        "🎉 ¡Código QR generado correctamente!¶¶" &
+        "📱 INFORMACIÓN DEL QR:¶" &
+        "• Versión: " & $version & " (DGII)¶" &
+        "• Método: " & $metodo_usado & "¶" &
+        "• Cumple normativa: " & If ( $cumple_dgii = True ; "✅ Sí" ; "❌ No" ) & "¶¶" &
+        "🔍 VALIDACIÓN DGII:¶" &
+        "• Tipo: " & $tipo_validacion & "¶" &
+        "• URL: " & Left ( $url_generada ; 50 ) & "..." & "¶¶" &
+        "💰 MONTO ANALIZADO:¶" &
+        "• Total: RD$" & GetAsText ( $monto_numerico ) & "¶" &
+        "• Endpoint: " & If ( $monto_numerico >= 250000 ; "/validacion/" ; "/consulta/" ) & "¶¶" &
+        "🕒 Generado: " & Get ( CurrentTimeStamp )
+    ]
+    
+    # Marcar como procesado exitosamente
+    Set Field [ Facturas::QREstado ; "Generado exitosamente" ]
+    
+Else
+    # ===========================
+    # CASO ERROR
+    # ===========================
+    Set Variable [ $error_msg ; Value: JSONGetElement ( $resultado ; "message" ) ]
+    Set Variable [ $error_details ; Value: JSONGetElement ( $resultado ; "details" ) ]
+    
+    Show Custom Dialog [ "Error al generar QR" ; 
+        "❌ No se pudo generar el código QR¶¶" &
+        "Error: " & $error_msg & "¶" &
+        If ( not IsEmpty ( $error_details ) ; "Detalles: " & $error_details & "¶" ; "" ) & "¶" &
+        "🔧 DATOS ENVIADOS:¶" &
+        "• RNC: " & $rnc & "¶" &
+        "• NCF: " & $ncf & "¶" &
+        "• Código: " & $codigo & "¶" &
+        "• Fecha: " & $fecha & "¶" &
+        "• Monto: " & $monto & "¶¶" &
+        "💡 Verifique que todos los datos sean correctos"
+    ]
+    
+    # Guardar error para análisis
+    Set Field [ Facturas::QREstado ; "Error: " & $error_msg ]
+    Set Field [ Facturas::UltimoErrorQR ; $error_msg & " - " & Get ( CurrentTimeStamp ) ]
+End If
+
+# ===============================
+# LIMPIEZA DE SEGURIDAD
+# ===============================
+# Limpiar variables sensibles
+Set Variable [ $token ; Value: "" ]
+Set Variable [ $headers ; Value: "" ]
+
+#####################################################################
+# FIN DEL SCRIPT MEJORADO
+#####################################################################
+
+/* 
+📋 VENTAJAS DEL MÉTODO MEJORADO:
+──────────────────────────────────
+
+✅ SIMPLICIDAD EN FILEMAKER:
+• Solo envía datos básicos (RNC, NCF, código, fecha, monto)
+• No necesita construir URLs complejas
+• No maneja lógica de endpoints
+
+✅ LÓGICA CENTRALIZADA EN EL SERVIDOR:
+• El servidor decide el endpoint según el monto
+• Aplica automáticamente las reglas de la DGII
+• URL siempre correcta y actualizada
+
+✅ COMPATIBILIDAD AUTOMÁTICA:
+• Si cambian las reglas de montos → Solo actualizar servidor
+• Si cambian URLs de DGII → Solo actualizar servidor
+• FileMaker no necesita cambios
+
+✅ CUMPLIMIENTO DGII:
+• Monto < RD$250,000 → Endpoint /consulta/
+• Monto ≥ RD$250,000 → Endpoint /validacion/ + parámetro monto
+• Versión 8 del QR según documentación técnica
+
+📋 DIFERENCIAS CON EL MÉTODO ANTERIOR:
+────────────────────────────────────
+
+ANTES: FileMaker construye URL → Servidor genera QR
+AHORA: FileMaker envía datos → Servidor construye URL → Genera QR
+
+VENTAJA: Lógica de negocio centralizada en el servidor
+*/

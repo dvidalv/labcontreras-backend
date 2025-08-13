@@ -1,6 +1,7 @@
 const httpStatus = require('http-status');
 const { Comprobante } = require('../models/comprobante');
 const axios = require('axios');
+const QRCode = require('qrcode');
 const {
   THEFACTORY_AUTH_URL,
   THEFACTORY_ENVIAR_URL,
@@ -100,26 +101,160 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
   return esObligatorio;
 };
 
-// Función para generar URL del QR Code para la DGII
+// Función para generar URL del QR Code para la DGII según el monto
 const generarUrlQR = (responseData, facturaOriginal) => {
   try {
-    const baseUrl = 'https://dgii.gov.do/ecf/consulta/';
+    const montoTotal = parseFloat(facturaOriginal.factura.total || 0);
+    const LIMITE_MONTO = 250000; // RD$250,000
 
+    // URLs oficiales según informe técnico DGII - diferentes endpoints según monto
+    const esMontoAlto = montoTotal >= LIMITE_MONTO;
+    const baseUrl = esMontoAlto
+      ? 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre' // ≥ RD$250,000
+      : 'https://fc.dgii.gov.do/eCF/ConsultaTimbreFC'; // < RD$250,000
+
+    // Parámetros según especificación DGII
     const params = new URLSearchParams({
-      rnc: facturaOriginal.emisor.rnc, // RNC del emisor
-      ncf: facturaOriginal.factura.ncf, // NCF del documento
-      codigo: responseData.codigoSeguridad, // Código de seguridad de TheFactoryHKA
-      fecha: responseData.fechaEmision, // Fecha de emisión
+      rnc: facturaOriginal.emisor.rnc,
+      ncf: facturaOriginal.factura.ncf,
+      codigo: responseData.codigoSeguridad,
+      fecha: responseData.fechaEmision.substring(0, 10), // Solo fecha DD-MM-YYYY
     });
+
+    // Agregar monto solo para facturas de alto valor (≥ RD$250,000)
+    if (esMontoAlto) {
+      params.append('monto', montoTotal.toFixed(2));
+    }
 
     const urlCompleta = `${baseUrl}?${params.toString()}`;
 
-    console.log(`📱 URL generada para QR Code: ${urlCompleta}`);
+    console.log(
+      `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlCompleta}`,
+    );
+    console.log(
+      `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
+    );
 
     return urlCompleta;
   } catch (error) {
-    console.error('❌ Error al generar URL del QR:', error);
+    console.error('❌ Error al generar datos del QR:', error);
     return null;
+  }
+};
+
+// Función para generar código QR según especificaciones de la DGII
+const generarCodigoQR = async (req, res) => {
+  try {
+    const {
+      url,
+      rnc,
+      ncf,
+      codigo,
+      fecha,
+      monto,
+      formato = 'png',
+      tamaño = 300,
+    } = req.body;
+
+    let urlParaQR;
+
+    // Opción 1: URL completa proporcionada (método anterior)
+    if (url) {
+      urlParaQR = url;
+    }
+    // Opción 2: Parámetros individuales (método mejorado)
+    else if (rnc && ncf && codigo && fecha) {
+      // URLs oficiales según informe técnico DGII - diferentes endpoints según monto
+      const montoTotal = parseFloat(monto || 0);
+      const LIMITE_MONTO = 250000; // RD$250,000
+
+      const esMontoAlto = montoTotal >= LIMITE_MONTO;
+      const baseUrl = esMontoAlto
+        ? 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre' // ≥ RD$250,000
+        : 'https://fc.dgii.gov.do/eCF/ConsultaTimbreFC'; // < RD$250,000
+
+      // Parámetros según especificación DGII
+      const params = new URLSearchParams({
+        rnc: rnc,
+        ncf: ncf,
+        codigo: codigo,
+        fecha: fecha.substring(0, 10), // Solo fecha DD-MM-YYYY
+      });
+
+      // Agregar monto solo para facturas de alto valor (≥ RD$250,000)
+      if (esMontoAlto) {
+        params.append('monto', montoTotal.toFixed(2));
+      }
+
+      urlParaQR = `${baseUrl}?${params.toString()}`;
+
+      console.log(
+        `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlParaQR}`,
+      );
+      console.log(
+        `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
+      );
+    } else {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'Parámetros insuficientes para generar el código QR',
+        details:
+          'Debe proporcionar: url completa O (rnc + ncf + codigo + fecha + monto opcional)',
+      });
+    }
+
+    // Configuración según recomendaciones de la DGII
+    const opcionesQR = {
+      version: 8, // Versión 8 recomendada por la DGII
+      errorCorrectionLevel: 'M', // Nivel medio de corrección de errores
+      type: formato === 'svg' ? 'svg' : 'image/png',
+      quality: 0.92,
+      margin: 1, // Margen recomendado (4 módulos para mejor lectura)
+      color: {
+        dark: '#000000', // Color negro para el QR
+        light: '#FFFFFF', // Fondo blanco
+      },
+      width: Math.max(parseInt(tamaño) || 300, 150), // Mínimo 150px (~2.5cm a 150 DPI)
+    };
+
+    console.log(`📱 Generando QR Code versión 8 para URL: ${urlParaQR}`);
+    console.log(`📏 Configuración: ${formato.toUpperCase()}, ${tamaño}px`);
+
+    // Generar el código QR
+    let qrData;
+    if (formato === 'svg') {
+      qrData = await QRCode.toString(urlParaQR, { ...opcionesQR, type: 'svg' });
+    } else {
+      qrData = await QRCode.toDataURL(urlParaQR, opcionesQR);
+    }
+
+    // Respuesta exitosa
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Código QR generado exitosamente',
+      data: {
+        url: urlParaQR,
+        qrCode: qrData,
+        formato: formato,
+        tamaño: tamaño,
+        version: 8,
+        parametrosUsados: url ? 'URL completa' : 'Parámetros individuales',
+        especificaciones: {
+          errorCorrection: 'M',
+          cumpleNormativaDGII: true,
+          versionRecomendada: 8,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error al generar código QR:', error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno al generar el código QR',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
   }
 };
 
@@ -1353,5 +1488,6 @@ module.exports = {
   enviarFacturaElectronica,
   consultarEstatusDocumento,
   generarUrlQR,
+  generarCodigoQR,
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
 };

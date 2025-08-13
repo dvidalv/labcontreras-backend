@@ -12,6 +12,7 @@ const {
   consumirNumeroPorRnc,
   enviarFacturaElectronica,
   consultarEstatusDocumento,
+  generarCodigoQR,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -49,5 +50,8 @@ router.patch('/:id/estado', updateComprobanteEstado); // PATCH /comprobantes/:id
 
 // Ruta para consumir un número del rango (usando ID)
 router.post('/:id/consumir', consumirNumero); // POST /comprobantes/:id/consumir - Consumir número
+
+// Ruta para generar código QR según especificaciones DGII
+router.post('/generar-qr', generarCodigoQR); // POST /comprobantes/generar-qr - Generar QR Code versión 8
 
 module.exports = router;

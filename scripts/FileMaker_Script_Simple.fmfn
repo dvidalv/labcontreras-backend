@@ -1,0 +1,121 @@
+#####################################################################
+# SCRIPT FILEMAKER: Generar QR Simple
+# Descripción: Script básico para generar código QR desde FileMaker
+# Endpoint: POST /comprobantes/generar-qr
+# Versión: 1.0
+#####################################################################
+
+# ===============================
+# VARIABLES DE CONFIGURACIÓN
+# ===============================
+Set Variable [ $servidor ; Value: "https://tu-servidor.com" ]
+Set Variable [ $token ; Value: "tu_token_bearer_aqui" ]
+
+# ===============================
+# OBTENER DATOS DE LA FACTURA
+# ===============================
+Set Variable [ $rnc ; Value: Facturas::EmisorRNC ]
+Set Variable [ $ncf ; Value: Facturas::NCF ]
+Set Variable [ $codigo ; Value: Facturas::CodigoSeguridad ]
+Set Variable [ $fecha ; Value: Facturas::FechaEmision ]
+Set Variable [ $monto ; Value: Facturas::Total ]
+
+# Validar datos obligatorios
+If [ IsEmpty ( $rnc ) or IsEmpty ( $ncf ) or IsEmpty ( $codigo ) or IsEmpty ( $fecha ) ]
+    Show Custom Dialog [ "Datos Incompletos" ; 
+        "❌ Faltan datos obligatorios para el QR:¶" &
+        "• RNC: " & If ( IsEmpty ( $rnc ) ; "❌ Faltante" ; "✅ " & $rnc ) & "¶" &
+        "• NCF: " & If ( IsEmpty ( $ncf ) ; "❌ Faltante" ; "✅ " & $ncf ) & "¶" &
+        "• Código: " & If ( IsEmpty ( $codigo ) ; "❌ Faltante" ; "✅ " & $codigo ) & "¶" &
+        "• Fecha: " & If ( IsEmpty ( $fecha ) ; "❌ Faltante" ; "✅ " & $fecha ) & "¶¶" &
+        "💡 Primero debe enviar la factura electrónica"
+    ]
+    Exit Script [ Text Result: "Error: Datos incompletos" ]
+End If
+
+# ===============================
+# PREPARAR PETICIÓN HTTP
+# ===============================
+Set Variable [ $headers ; Value: "Authorization: Bearer " & $token & ¶ & 
+                                "Content-Type: application/json" ]
+
+Set Variable [ $body ; Value: JSONSetElement ( "{}" ; 
+    [ "rnc" ; $rnc ; JSONString ] ;
+    [ "ncf" ; $ncf ; JSONString ] ;
+    [ "codigo" ; $codigo ; JSONString ] ;
+    [ "fecha" ; $fecha ; JSONString ] ;
+    [ "monto" ; $monto ; JSONString ] ;
+    [ "formato" ; "png" ; JSONString ] ;
+    [ "tamaño" ; 250 ; JSONNumber ]
+) ]
+
+# ===============================
+# EJECUTAR PETICIÓN
+# ===============================
+# Configurar cURL options para la petición
+Set Variable [ $curl_options ; Value: 
+    "--header \"" & $headers & "\"" & 
+    " --data \"" & Substitute ( $body ; "\"" ; "\\\"" ) & "\""
+]
+
+Insert from URL [ Select ; With dialog: Off ; Target: $resultado ; $servidor & "/comprobantes/generar-qr" ; cURL options: $curl_options ]
+
+# ===============================
+# PROCESAR RESPUESTA
+# ===============================
+Set Variable [ $status ; Value: JSONGetElement ( $resultado ; "status" ) ]
+
+If [ $status = "success" ]
+    # ===========================
+    # CASO EXITOSO
+    # ===========================
+    Set Variable [ $qr_code ; Value: JSONGetElement ( $resultado ; "data.qrCode" ) ]
+    Set Variable [ $version ; Value: JSONGetElement ( $resultado ; "data.version" ) ]
+    Set Variable [ $cumple_dgii ; Value: JSONGetElement ( $resultado ; "data.especificaciones.cumpleNormativaDGII" ) ]
+    
+    # Guardar el QR en el campo (compatible con todas las versiones)
+    # Verificar si es FileMaker 16+ (soporta Data URLs directamente)
+    If [ Get ( ApplicationVersion ) ≥ "Pro 16.0" ]
+        # FileMaker 16+ - Data URL directo
+        Set Field [ Facturas::QRCode ; $qr_code ]
+    Else
+        # FileMaker 15 y anteriores - Decodificar Base64
+        Set Variable [ $base64_start ; Value: Position ( $qr_code ; "," ; 1 ; 1 ) + 1 ]
+        Set Variable [ $base64_data ; Value: Middle ( $qr_code ; $base64_start ; Length ( $qr_code ) ) ]
+        Set Variable [ $imagen_binaria ; Value: Base64Decode ( $base64_data ) ]
+        Set Field [ Facturas::QRCode ; $imagen_binaria ]
+    End If
+    
+    Set Field [ Facturas::FechaQR ; Get ( CurrentTimeStamp ) ]
+    Set Field [ Facturas::VersionQR ; $version ]
+    
+    # Mostrar confirmación
+    Set Variable [ $metodo_insercion ; Value: If ( Get ( ApplicationVersion ) ≥ "Pro 16.0" ; "Data URL directo" ; "Base64 decodificado" ) ]
+    Show Custom Dialog [ "QR Generado Exitosamente" ; 
+        "✅ Código QR generado correctamente¶" &
+        "📱 Versión QR: " & $version & " (DGII)¶" &
+        "📋 FileMaker: " & Get ( ApplicationVersion ) & "¶" &
+        "🔧 Método: " & $metodo_insercion & "¶" &
+        "✅ Cumple normativa: " & If ( $cumple_dgii = True ; "Sí" ; "No" ) & "¶" &
+        "🕒 Generado: " & Get ( CurrentTimeStamp )
+    ]
+    
+Else
+    # ===========================
+    # CASO ERROR
+    # ===========================
+    Set Variable [ $error_msg ; Value: JSONGetElement ( $resultado ; "message" ) ]
+    Set Variable [ $error_details ; Value: JSONGetElement ( $resultado ; "details" ) ]
+    
+    Show Custom Dialog [ "Error al generar QR" ; 
+        "❌ " & $error_msg & "¶" &
+        If ( not IsEmpty ( $error_details ) ; "Detalles: " & $error_details ; "" )
+    ]
+    
+    # Log del error para debugging
+    Set Field [ Facturas::UltimoError ; $error_msg & " - " & Get ( CurrentTimeStamp ) ]
+End If
+
+#####################################################################
+# FIN DEL SCRIPT
+#####################################################################

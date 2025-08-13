@@ -1,0 +1,197 @@
+#####################################################################
+# SCRIPT FILEMAKER: Proceso Completo Factura + QR
+# Descripción: Envía factura electrónica y genera QR automáticamente
+# Endpoints: /enviar-electronica + /generar-qr
+# Versión: 1.0
+#####################################################################
+
+# ===============================
+# CONFIGURACIÓN INICIAL
+# ===============================
+Set Variable [ $servidor ; Value: "https://tu-servidor.com" ]
+Set Variable [ $token ; Value: "tu_token_bearer_aqui" ]
+Set Variable [ $headers ; Value: "Authorization: Bearer " & $token & ¶ & 
+                                "Content-Type: application/json" ]
+
+# ===============================
+# PASO 1: PREPARAR DATOS FACTURA
+# ===============================
+Set Variable [ $factura_json ; Value: JSONSetElement ( "{}" ;
+    # Datos del comprador
+    [ "comprador.correo" ; Facturas::CompradorCorreo ; JSONString ] ;
+    [ "comprador.nombre" ; Facturas::CompradorNombre ; JSONString ] ;
+    [ "comprador.rnc" ; Facturas::CompradorRNC ; JSONString ] ;
+    
+    # Datos del emisor
+    [ "emisor.correo" ; "informacion@contrerasrobledo.com.do" ; JSONString ] ;
+    [ "emisor.direccion" ; "Av. Juan Pablo Duarte No. 176, Santiago" ; JSONString ] ;
+    [ "emisor.razonSocial" ; "LABORATORIO DE PATOLOGIA CONTRERAS ROBLEDO" ; JSONString ] ;
+    [ "emisor.rnc" ; "130085765" ; JSONString ] ;
+    [ "emisor.telefono[0]" ; "809-580-1428" ; JSONString ] ;
+    
+    # Datos de la factura
+    [ "factura.fecha" ; Facturas::Fecha ; JSONString ] ;
+    [ "factura.id" ; Facturas::ID ; JSONString ] ;
+    [ "factura.ncf" ; Facturas::NCF ; JSONString ] ;
+    [ "factura.fechaVencNCF" ; Facturas::FechaVencNCF ; JSONString ] ;
+    [ "factura.tipo" ; Facturas::Tipo ; JSONString ] ;
+    [ "factura.total" ; Facturas::Total ; JSONString ] ;
+    
+    # Items de la factura
+    [ "items[0].nombre" ; Facturas::ServicioNombre ; JSONString ] ;
+    [ "items[0].precio" ; Facturas::ServicioPrecio ; JSONString ]
+) ]
+
+# Validar datos obligatorios
+If [ IsEmpty ( Facturas::CompradorRNC ) or IsEmpty ( Facturas::NCF ) or IsEmpty ( Facturas::Total ) ]
+    Show Custom Dialog [ "Datos Incompletos" ; "❌ Faltan datos obligatorios:¶• RNC del comprador¶• NCF¶• Total de la factura" ]
+    Exit Script [ Text Result: "Error: Datos incompletos" ]
+End If
+
+# ===============================
+# PASO 2: ENVIAR FACTURA ELECTRÓNICA
+# ===============================
+Show Custom Dialog [ "Enviando Factura" ; "📤 Enviando factura electrónica...¶NCF: " & Facturas::NCF ; "Continuar" ; "Cancelar" ]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Cancelado por usuario" ]
+End If
+
+# Configurar cURL options para envío
+Set Variable [ $curl_options_envio ; Value: 
+    "--header \"" & $headers & "\"" & 
+    " --data \"" & Substitute ( $factura_json ; "\"" ; "\\\"" ) & "\""
+]
+
+# Ejecutar envío
+Insert from URL [ Select ; With dialog: Off ; Target: $resultado_envio ; $servidor & "/comprobantes/enviar-electronica" ; cURL options: $curl_options_envio ]
+
+# Procesar respuesta del envío
+Set Variable [ $status_envio ; Value: JSONGetElement ( $resultado_envio ; "status" ) ]
+
+If [ $status_envio = "success" ]
+    # ===========================
+    # ENVÍO EXITOSO
+    # ===========================
+    Set Variable [ $url_qr ; Value: JSONGetElement ( $resultado_envio ; "data.urlQR" ) ]
+    Set Variable [ $codigo_seguridad ; Value: JSONGetElement ( $resultado_envio ; "data.codigoSeguridad" ) ]
+    Set Variable [ $ncf_generado ; Value: JSONGetElement ( $resultado_envio ; "data.ncfGenerado" ) ]
+    Set Variable [ $xml_base64 ; Value: JSONGetElement ( $resultado_envio ; "data.xmlBase64" ) ]
+    
+    # Guardar datos del envío
+    Set Field [ Facturas::urlQR ; $url_qr ]
+    Set Field [ Facturas::CodigoSeguridad ; $codigo_seguridad ]
+    Set Field [ Facturas::XMLBase64 ; $xml_base64 ]
+    Set Field [ Facturas::EstadoEnvio ; "Enviado Exitosamente" ]
+    Set Field [ Facturas::FechaEnvio ; Get ( CurrentTimeStamp ) ]
+    
+    # ===========================
+    # PASO 3: GENERAR QR AUTOMÁTICAMENTE
+    # ===========================
+    # Usar parámetros individuales (método mejorado)
+    Set Variable [ $body_qr ; Value: JSONSetElement ( "{}" ; 
+        [ "rnc" ; $rnc ; JSONString ] ;
+        [ "ncf" ; $ncf ; JSONString ] ;
+        [ "codigo" ; $codigo_seguridad ; JSONString ] ;
+        [ "fecha" ; $fecha ; JSONString ] ;
+        [ "monto" ; $monto ; JSONString ] ;
+        [ "formato" ; "png" ; JSONString ] ;
+        [ "tamaño" ; 220 ; JSONNumber ]  # Tamaño optimizado para facturas
+    ) ]
+    
+    # Configurar cURL options para QR
+    Set Variable [ $curl_options_qr ; Value: 
+        "--header \"" & $headers & "\"" & 
+        " --data \"" & Substitute ( $body_qr ; "\"" ; "\\\"" ) & "\""
+    ]
+    
+    # Ejecutar generación de QR
+    Insert from URL [ Select ; With dialog: Off ; Target: $resultado_qr ; $servidor & "/comprobantes/generar-qr" ; cURL options: $curl_options_qr ]
+    
+    # Procesar respuesta del QR
+    Set Variable [ $status_qr ; Value: JSONGetElement ( $resultado_qr ; "status" ) ]
+    
+    If [ $status_qr = "success" ]
+        # ===========================
+        # QR GENERADO EXITOSAMENTE
+        # ===========================
+        Set Variable [ $qr_code ; Value: JSONGetElement ( $resultado_qr ; "data.qrCode" ) ]
+        Set Variable [ $version_qr ; Value: JSONGetElement ( $resultado_qr ; "data.version" ) ]
+        
+        # Guardar QR
+        Set Field [ Facturas::QRCode ; $qr_code ]
+        Set Field [ Facturas::FechaQR ; Get ( CurrentTimeStamp ) ]
+        Set Field [ Facturas::VersionQR ; $version_qr ]
+        
+        # ===========================
+        # ÉXITO COMPLETO
+        # ===========================
+        Show Custom Dialog [ "Proceso Completado Exitosamente" ; 
+            "🎉 ¡Factura procesada correctamente!¶¶" &
+            "📄 DATOS DE LA FACTURA:¶" &
+            "• NCF: " & $ncf_generado & "¶" &
+            "• Código: " & $codigo_seguridad & "¶" &
+            "• Estado: Enviado a DGII¶¶" &
+            "📱 CÓDIGO QR:¶" &
+            "• Generado: ✅¶" &
+            "• Versión: " & $version_qr & " (DGII)¶" &
+            "• Listo para imprimir¶¶" &
+            "🕒 Procesado: " & Get ( CurrentTimeStamp )
+        ]
+        
+        # Marcar como completado
+        Set Field [ Facturas::ProcesCompleto ; True ]
+        Set Field [ Facturas::EstadoFinal ; "Factura enviada + QR generado" ]
+        
+    Else
+        # ===========================
+        # ENVÍO OK, PERO QR FALLÓ
+        # ===========================
+        Set Variable [ $error_qr ; Value: JSONGetElement ( $resultado_qr ; "message" ) ]
+        
+        Show Custom Dialog [ "Envío OK - QR Error" ; 
+            "✅ Factura enviada correctamente¶" &
+            "• NCF: " & $ncf_generado & "¶" &
+            "• Código: " & $codigo_seguridad & "¶¶" &
+            "❌ Error al generar QR:¶" &
+            $error_qr & "¶¶" &
+            "💡 Puede generar el QR manualmente después" ; "Entendido"
+        ]
+        
+        Set Field [ Facturas::EstadoFinal ; "Factura enviada - QR pendiente" ]
+        Set Field [ Facturas::ErrorQR ; $error_qr ]
+    End If
+    
+Else
+    # ===========================
+    # ERROR EN EL ENVÍO
+    # ===========================
+    Set Variable [ $error_envio ; Value: JSONGetElement ( $resultado_envio ; "message" ) ]
+    Set Variable [ $error_details ; Value: JSONGetElement ( $resultado_envio ; "details" ) ]
+    
+    Show Custom Dialog [ "Error en el Envío" ; 
+        "❌ No se pudo enviar la factura¶¶" &
+        "Error: " & $error_envio & "¶" &
+        If ( not IsEmpty ( $error_details ) ; "Detalles: " & $error_details ; "" ) & "¶¶" &
+        "🔧 Posibles soluciones:¶" &
+        "• Verificar datos de la factura¶" &
+        "• Comprobar conexión a internet¶" &
+        "• Contactar soporte técnico"
+    ]
+    
+    # Guardar error para análisis
+    Set Field [ Facturas::EstadoEnvio ; "Error" ]
+    Set Field [ Facturas::ErrorEnvio ; $error_envio ]
+    Set Field [ Facturas::FechaError ; Get ( CurrentTimeStamp ) ]
+End If
+
+# ===============================
+# LIMPIEZA FINAL
+# ===============================
+# Limpiar variables sensibles
+Set Variable [ $token ; Value: "" ]
+Set Variable [ $headers ; Value: "" ]
+
+#####################################################################
+# FIN DEL SCRIPT
+#####################################################################
