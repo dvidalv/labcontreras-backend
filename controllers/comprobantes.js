@@ -1027,45 +1027,24 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
   console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
 
-  // Construir los detalles de items
-  const detallesItems = items.map((item, index) => ({
-    numeroLinea: (index + 1).toString(),
-    tablaCodigos: null,
-    indicadorFacturacion: '4', // Servicios
-    retencion: null,
-    nombre: stringVacioANull(item.nombre),
-    indicadorBienoServicio: '1', // Servicio
-    descripcion: item.descripcion || null,
-    cantidad: '1.00', // Cantidad por defecto
-    unidadMedida: '47', // Unidad (servicios)
-    cantidadReferencia: null,
-    unidadReferencia: null,
-    tablaSubcantidad: null,
-    gradosAlcohol: null,
-    precioUnitarioReferencia: null,
-    fechaElaboracion: null,
-    fechaVencimiento: null,
-    mineria: null,
-    precioUnitario: parseFloat(item.precio).toFixed(2),
-    descuentoMonto: null,
-    tablaSubDescuento: null,
-    recargoMonto: null,
-    tablaSubRecargo: null,
-    tablaImpuestoAdicional: null,
-    otraMonedaDetalle: null,
-    monto: parseFloat(item.precio).toFixed(2),
-  }));
-
-  // Calcular totales
+  // Calcular totales PRIMERO
   const montoTotal = parseFloat(factura.total).toFixed(2);
 
-  // 🧮 Calcular montoExento basado en los items
+  // Función para limpiar y parsear montos con comas
+  const parsearMonto = (monto) => {
+    if (!monto) return 0;
+    // Remover comas y parsear como número
+    const montoLimpio = monto.toString().replace(/,/g, '');
+    return parseFloat(montoLimpio) || 0;
+  };
+
+  // 🧮 Calcular montoExento basado en los items (con parsing correcto)
   // Para servicios médicos en República Dominicana, generalmente son exentos de ITBIS
   // Si un item tiene .itbis = false o .exento = true, se considera exento
   // Si no tiene esas propiedades, asumimos que es exento (servicios médicos)
   const montoExentoCalculado = items
     .reduce((suma, item) => {
-      const precio = parseFloat(item.precio || 0);
+      const precio = parsearMonto(item.precio);
       // Si específicamente se marca como gravado, no lo incluimos en exento
       if (item.itbis === true || item.gravado === true) {
         return suma; // No sumarlo al exento
@@ -1078,7 +1057,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // Calcular monto gravado (lo que no es exento)
   const montoGravadoCalculado = items
     .reduce((suma, item) => {
-      const precio = parseFloat(item.precio || 0);
+      const precio = parsearMonto(item.precio);
       // Solo si específicamente se marca como gravado
       if (item.itbis === true || item.gravado === true) {
         return suma + precio;
@@ -1101,6 +1080,45 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     ).toFixed(2),
   });
 
+  // Construir los detalles de items DESPUÉS de calcular los montos - camelCase según ejemplo oficial
+  const detallesItems = items.map((item, index) => {
+    const itemCompleto = {
+      numeroLinea: (index + 1).toString(),
+      indicadorFacturacion: parseFloat(montoGravadoCalculado) > 0 ? '1' : '4', // 1=gravado, 4=exento
+    };
+
+    // Para tipos 41, 43, 44, 45, 46, 47: incluir sección retencion OBLIGATORIA
+    if (
+      factura.tipo === '41' ||
+      factura.tipo === '43' ||
+      factura.tipo === '44' ||
+      factura.tipo === '45' ||
+      factura.tipo === '46' ||
+      factura.tipo === '47'
+    ) {
+      itemCompleto.retencion = {
+        indicadorAgente: '1',
+        montoITBIS:
+          parseFloat(montoGravadoCalculado) > 0
+            ? (parsearMonto(item.precio) * 0.18).toFixed(2)
+            : '0.00',
+        montoISR: '0.00',
+      };
+    }
+
+    // Campos comunes para todos los tipos (camelCase)
+    return {
+      ...itemCompleto,
+      nombre: stringVacioANull(item.nombre),
+      indicadorBienoServicio: item.indicadorBienoServicio || '1', // 1=Bien, 2=Servicio
+      descripcion: item.descripcion || null,
+      cantidad: item.cantidad || '1.00',
+      unidadMedida: item.unidadMedida || '43', // 43 = Unidad
+      precioUnitario: parsearMonto(item.precio).toFixed(2),
+      monto: parsearMonto(item.precio).toFixed(2),
+    };
+  });
+
   // Formatear fecha (DD-MM-YYYY)
   const formatearFecha = (fecha) => {
     if (!fecha) return null;
@@ -1113,153 +1131,209 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
   };
 
-  // Estructura completa para TheFactoryHKA
+  // Estructura completa para TheFactoryHKA - CORREGIDA según ejemplo oficial
   const documentoCompleto = {
     Token: token,
     documentoElectronico: {
       encabezado: {
-        identificacionDocumento: {
-          tipoDocumento: factura.tipo,
-          ncf: factura.ncf,
-          fechaVencimientoSecuencia: esFechaVencimientoObligatoria(factura.tipo)
-            ? fechaVencimientoFormateada
-            : null, // Solo incluir si es obligatorio según el tipo
-          indicadorEnvioDiferido: '1',
-          indicadorMontoGravado: '1',
-          indicadorNotaCredito: null,
-          tipoIngresos: '01',
-          tipoPago: '1',
-          fechaLimitePago: null,
-          terminoPago: null,
-          tablaFormasPago: [
-            {
-              forma: '1', // Efectivo
-              monto: montoTotal,
-            },
-          ],
-          tipoCuentaPago: null,
-          numeroCuentaPago: null,
-          bancoPago: null,
-          fechaDesde: null,
-          fechaHasta: null,
-        },
-        emisor: {
-          rnc: emisor.rnc,
-          razonSocial: stringVacioANull(emisor.razonSocial),
-          nombreComercial: stringVacioANull(emisor.razonSocial),
-          sucursal: 'Principal',
-          direccion: stringVacioANull(emisor.direccion),
-          tablaTelefono: emisor.telefono || [],
-          correo: stringVacioANull(emisor.correo),
-          webSite: null,
-          actividadEconomica: null,
-          codigoVendedor: factura.id || 'VEND001',
-          numeroFacturaInterna: stringVacioANull(factura.id),
-          numeroPedidoInterno: stringVacioANull(factura.id),
-          zonaVenta: 'PRINCIPAL',
-          rutaVenta: null,
-          informacionAdicional: null,
-          fechaEmision: formatearFecha(factura.fecha),
-        },
-        comprador: {
-          rnc: comprador.rnc,
-          identificacionExtranjero: null,
-          razonSocial: stringVacioANull(comprador.nombre),
-          contacto: stringVacioANull(comprador.nombre),
-          correo: stringVacioANull(comprador.correo),
-          envioMail: stringVacioANull(comprador.correo) ? 'SI' : 'NO',
-          direccion: stringVacioANull(comprador.direccion),
-          fechaEntrega: null,
-          fechaOrdenCompra: null,
-          contactoEntrega: null,
-          direccionEntrega: null,
-          telefonoAdicional: null,
-          fechaOrden: null,
-          numeroOrden: null,
-          codigoInterno: comprador.rnc,
-          responsablePago: null,
-          informacionAdicional: null,
-        },
-        informacionesAdicionales: {
-          fechaEmbarque: null,
-          numeroEmbarque: null,
-          numeroContenedor: null,
-          numeroReferencia: stringVacioANull(factura.id),
-          pesoBruto: null,
-          pesoNeto: null,
-          unidadPesoBruto: null,
-          unidadPesoNeto: null,
-          cantidadBulto: null,
-          unidadBulto: null,
-          volumenBulto: null,
-          unidadVolumen: null,
-          nombrePuertoEmbarque: null,
-          condicionesEntrega: null,
-          totalFob: null,
-          seguro: null,
-          flete: null,
-          otrosGastos: null,
-          totalCif: null,
-          regimenAduanero: null,
-          nombrePuertoSalida: null,
-          nombrePuertoDesembarque: null,
-        },
-        transporte: null,
-        totales: {
-          montoGravadoTotal:
-            parseFloat(montoGravadoCalculado) > 0
-              ? montoGravadoCalculado
+        identificacionDocumento: (() => {
+          const baseIdDoc = {
+            tipoDocumento: factura.tipo,
+            ncf: factura.ncf,
+            fechaVencimientoSecuencia: esFechaVencimientoObligatoria(
+              factura.tipo,
+            )
+              ? fechaVencimientoFormateada
               : null,
-          montoGravadoI1:
-            parseFloat(montoGravadoCalculado) > 0
-              ? montoGravadoCalculado
-              : null,
-          montoGravadoI2: null,
-          montoGravadoI3: null,
-          montoExento:
-            parseFloat(montoExentoCalculado) > 0 ? montoExentoCalculado : null,
-          itbiS1:
-            parseFloat(montoGravadoCalculado) > 0
-              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
-              : null,
-          itbiS2: null,
-          itbiS3: null,
-          totalITBIS:
-            parseFloat(montoGravadoCalculado) > 0
-              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
-              : null,
-          totalITBIS1:
-            parseFloat(montoGravadoCalculado) > 0
-              ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
-              : null,
-          totalITBIS2: null,
-          totalITBIS3: null,
-          montoImpuestoAdicional: null,
-          impuestosAdicionales: null,
-          montoTotal: montoTotal,
-          montoNoFacturable: null,
-          montoPeriodo: null,
-          saldoAnterior: null,
-          montoAvancePago: null,
-          valorPagar: null,
-          totalITBISRetenido: null,
-          totalISRRetencion: null,
-          totalITBISPercepcion: null,
-          totalISRPercepcion: null,
-        },
-        otraMoneda: null,
+            indicadorMontoGravado:
+              parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+          };
+
+          // Configuración específica por tipo de comprobante
+          if (
+            factura.tipo === '31' ||
+            factura.tipo === '32' ||
+            factura.tipo === '33' ||
+            factura.tipo === '34'
+          ) {
+            // Tipos 31, 32, 33, 34: Facturas y Notas - incluyen indicadorEnvioDiferido y tipoIngresos
+            return {
+              ...baseIdDoc,
+              indicadorEnvioDiferido: '1',
+              tipoIngresos: '01',
+              tipoPago: '1',
+              tablaFormasPago: [
+                {
+                  forma: '1',
+                  monto: montoTotal,
+                },
+              ],
+            };
+          } else if (
+            factura.tipo === '41' ||
+            factura.tipo === '43' ||
+            factura.tipo === '44' ||
+            factura.tipo === '45' ||
+            factura.tipo === '46' ||
+            factura.tipo === '47'
+          ) {
+            // Tipos 41, 43, 44, 45, 46, 47: Compras y otros - NO incluyen indicadorEnvioDiferido
+            return {
+              ...baseIdDoc,
+              tipoPago: '1',
+              tablaFormasPago: [
+                {
+                  forma: '1',
+                  monto: montoTotal,
+                },
+              ],
+            };
+          }
+
+          // Fallback por defecto
+          return {
+            ...baseIdDoc,
+            tipoPago: '1',
+            tablaFormasPago: [
+              {
+                forma: '1',
+                monto: montoTotal,
+              },
+            ],
+          };
+        })(),
+        emisor: (() => {
+          const baseEmisor = {
+            rnc: emisor.rnc,
+            razonSocial: stringVacioANull(emisor.razonSocial),
+            direccion: stringVacioANull(emisor.direccion),
+            municipio: emisor.municipio || null,
+            provincia: emisor.provincia || null,
+            tablaTelefono: emisor.telefono || [],
+            fechaEmision: formatearFecha(factura.fecha),
+          };
+
+          // Para tipos 31, 32, 33, 34: incluir campos adicionales del emisor
+          if (
+            factura.tipo === '31' ||
+            factura.tipo === '32' ||
+            factura.tipo === '33' ||
+            factura.tipo === '34'
+          ) {
+            return {
+              ...baseEmisor,
+              nombreComercial: stringVacioANull(emisor.razonSocial),
+              correo: stringVacioANull(emisor.correo),
+              webSite: emisor.webSite || null,
+              codigoVendedor: factura.id || null,
+              numeroFacturaInterna: stringVacioANull(factura.id),
+              numeroPedidoInterno: stringVacioANull(factura.id),
+              zonaVenta: 'PRINCIPAL',
+            };
+          }
+
+          // Para otros tipos (41, 43, etc.): estructura más simple
+          return baseEmisor;
+        })(),
+        comprador: (() => {
+          const baseComprador = {
+            rnc: comprador.rnc,
+            razonSocial: stringVacioANull(comprador.nombre),
+            correo: stringVacioANull(comprador.correo),
+            direccion: stringVacioANull(comprador.direccion),
+            municipio: comprador.municipio || null,
+            provincia: comprador.provincia || null,
+          };
+
+          // Para tipos 31, 32, 33, 34: incluir campos adicionales del comprador
+          if (
+            factura.tipo === '31' ||
+            factura.tipo === '32' ||
+            factura.tipo === '33' ||
+            factura.tipo === '34'
+          ) {
+            return {
+              ...baseComprador,
+              contacto: stringVacioANull(comprador.nombre),
+              envioMail: stringVacioANull(comprador.correo) ? 'SI' : 'NO',
+              fechaEntrega: comprador.fechaEntrega || null,
+              fechaOrden: comprador.fechaOrden || null,
+              numeroOrden: comprador.numeroOrden || null,
+              codigoInterno: comprador.codigoInterno || comprador.rnc,
+            };
+          }
+
+          // Para otros tipos: estructura más simple
+          return baseComprador;
+        })(),
+        // informacionesAdicionales solo para tipos 31, 32, 33, 34
+        ...(factura.tipo === '31' ||
+        factura.tipo === '32' ||
+        factura.tipo === '33' ||
+        factura.tipo === '34'
+          ? {
+              informacionesAdicionales: {
+                numeroContenedor: factura.numeroContenedor || null,
+                numeroReferencia: stringVacioANull(factura.id),
+              },
+            }
+          : {}),
+        totales: (() => {
+          // Estructura según ejemplo oficial de TheFactoryHKA (camelCase)
+          const baseTotales = {
+            montoGravadoTotal:
+              parseFloat(montoGravadoCalculado) > 0
+                ? montoGravadoCalculado
+                : null,
+            montoGravadoI1:
+              parseFloat(montoGravadoCalculado) > 0
+                ? montoGravadoCalculado
+                : null,
+            itbiS1: parseFloat(montoGravadoCalculado) > 0 ? '18' : null,
+            totalITBIS:
+              parseFloat(montoGravadoCalculado) > 0
+                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+                : null,
+            totalITBIS1:
+              parseFloat(montoGravadoCalculado) > 0
+                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+                : null,
+            montoTotal: montoTotal,
+          };
+
+          // Para tipos 31, 32, 33, 34: Incluir montoExento (según ejemplo oficial)
+          if (
+            factura.tipo === '31' ||
+            factura.tipo === '32' ||
+            factura.tipo === '33' ||
+            factura.tipo === '34'
+          ) {
+            return {
+              ...baseTotales,
+              montoExento:
+                parseFloat(montoExentoCalculado) > 0
+                  ? montoExentoCalculado
+                  : null,
+            };
+          }
+
+          // Para tipos 41, 43, 44, 45, 46, 47: Incluir campos de retención
+          return {
+            ...baseTotales,
+            montoExento:
+              parseFloat(montoExentoCalculado) > 0
+                ? montoExentoCalculado
+                : null,
+            valorPagar: montoTotal,
+            totalITBISRetenido:
+              parseFloat(montoGravadoCalculado) > 0
+                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+                : '0.00',
+            totalISRRetencion: '0.00',
+          };
+        })(),
       },
       detallesItems: detallesItems,
-      observaciones: [
-        {
-          valor: 'FACTURA ELECTRONICA',
-          campo: 'Factura generada electrónicamente',
-        },
-      ],
-      cuotas: null,
-      subtotales: null,
-      descuentosORecargos: null,
-      informacionReferencia: null,
     },
   };
 
