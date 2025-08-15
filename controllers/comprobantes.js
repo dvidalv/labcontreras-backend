@@ -89,9 +89,19 @@ const obtenerTokenTheFactory = async () => {
 // Función para determinar si la fecha de vencimiento es obligatoria según el tipo de NCF
 const esFechaVencimientoObligatoria = (tipoDocumento) => {
   // Según la documentación de la DGII, estos tipos requieren fecha de vencimiento:
-  const tiposObligatorios = ['31', '33', '34', '41', '44', '45', '46', '47'];
+  const tiposObligatorios = [
+    '31',
+    '33',
+    '34',
+    '41',
+    '43',
+    '44',
+    '45',
+    '46',
+    '47',
+  ];
 
-  // Tipos opcionales: '32' (Factura de Consumo), '43' (Gastos Menores)
+  // Tipos opcionales: '32' (Factura de Consumo)
   const esObligatorio = tiposObligatorios.includes(tipoDocumento);
 
   console.log(
@@ -1039,34 +1049,73 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   };
 
   // 🧮 Calcular montoExento basado en los items (con parsing correcto)
-  // Para servicios médicos en República Dominicana, generalmente son exentos de ITBIS
-  // Si un item tiene .itbis = false o .exento = true, se considera exento
-  // Si no tiene esas propiedades, asumimos que es exento (servicios médicos)
-  const montoExentoCalculado = items
-    .reduce((suma, item) => {
-      const precio = parsearMonto(item.precio);
-      // Si específicamente se marca como gravado, no lo incluimos en exento
-      if (item.itbis === true || item.gravado === true) {
-        return suma; // No sumarlo al exento
-      }
-      // Por defecto, servicios médicos son exentos
-      return suma + precio;
-    }, 0)
-    .toFixed(2);
+  // Lógica de cálculo de montos según el tipo de comprobante
+  let montoExentoCalculado, montoGravadoCalculado;
 
-  // Calcular monto gravado (lo que no es exento)
-  const montoGravadoCalculado = items
-    .reduce((suma, item) => {
-      const precio = parsearMonto(item.precio);
-      // Solo si específicamente se marca como gravado
-      if (item.itbis === true || item.gravado === true) {
+  if (factura.tipo === '45') {
+    // Tipo 45 (Gubernamental): Por defecto todos los items son GRAVADOS
+    // Solo si se marca explícitamente como exento, se considera exento
+    montoExentoCalculado = items
+      .reduce((suma, item) => {
+        const precio = parsearMonto(item.precio);
+        // Solo si específicamente se marca como exento
+        if (
+          item.itbis === false ||
+          item.exento === true ||
+          item.gravado === false
+        ) {
+          return suma + precio;
+        }
+        return suma; // Por defecto gravado para tipo 45
+      }, 0)
+      .toFixed(2);
+
+    montoGravadoCalculado = items
+      .reduce((suma, item) => {
+        const precio = parsearMonto(item.precio);
+        // Si específicamente se marca como exento, no lo incluimos en gravado
+        if (
+          item.itbis === false ||
+          item.exento === true ||
+          item.gravado === false
+        ) {
+          return suma;
+        }
+        // Por defecto gravado para tipo 45
         return suma + precio;
-      }
-      return suma;
-    }, 0)
-    .toFixed(2);
+      }, 0)
+      .toFixed(2);
+  } else {
+    // Para otros tipos: servicios médicos generalmente son exentos de ITBIS
+    // Si un item tiene .itbis = false o .exento = true, se considera exento
+    // Si no tiene esas propiedades, asumimos que es exento (servicios médicos)
+    montoExentoCalculado = items
+      .reduce((suma, item) => {
+        const precio = parsearMonto(item.precio);
+        // Si específicamente se marca como gravado, no lo incluimos en exento
+        if (item.itbis === true || item.gravado === true) {
+          return suma; // No sumarlo al exento
+        }
+        // Por defecto, servicios médicos son exentos
+        return suma + precio;
+      }, 0)
+      .toFixed(2);
+
+    // Calcular monto gravado (lo que no es exento)
+    montoGravadoCalculado = items
+      .reduce((suma, item) => {
+        const precio = parsearMonto(item.precio);
+        // Solo si específicamente se marca como gravado
+        if (item.itbis === true || item.gravado === true) {
+          return suma + precio;
+        }
+        return suma;
+      }, 0)
+      .toFixed(2);
+  }
 
   console.log(`💰 Cálculo de totales:`, {
+    tipoComprobante: factura.tipo,
     montoTotalFactura: montoTotal,
     montoExentoCalculado: montoExentoCalculado,
     montoGravadoCalculado: montoGravadoCalculado,
@@ -1082,41 +1131,112 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
   // Construir los detalles de items DESPUÉS de calcular los montos - camelCase según ejemplo oficial
   const detallesItems = items.map((item, index) => {
+    // Determinar si este item específico es gravado o exento
+    let itemEsGravado = false;
+
+    if (factura.tipo === '45') {
+      // Tipo 45 (Gubernamental): Servicios médicos son EXENTOS por defecto
+      // Solo gravado si se marca explícitamente con itbis=true o gravado=true
+      itemEsGravado = item.itbis === true || item.gravado === true;
+    } else {
+      // Otros tipos: Por defecto exento (servicios médicos), solo gravado si se marca explícitamente
+      itemEsGravado = item.itbis === true || item.gravado === true;
+    }
+
     const itemCompleto = {
-      numeroLinea: (index + 1).toString(),
-      indicadorFacturacion: parseFloat(montoGravadoCalculado) > 0 ? '1' : '4', // 1=gravado, 4=exento
+      NumeroLinea: (index + 1).toString(),
+      IndicadorFacturacion: itemEsGravado ? '1' : '4', // 1=gravado, 4=exento
     };
 
-    // Para tipos 41, 43, 44, 45, 46, 47: incluir sección retencion OBLIGATORIA
+    // Para tipos 41, 46, 47: incluir sección retencion OBLIGATORIA
+    // NOTA: Tipos 43, 44 y 45 NO incluyen retención según validación de TheFactoryHKA
     if (
       factura.tipo === '41' ||
-      factura.tipo === '43' ||
-      factura.tipo === '44' ||
-      factura.tipo === '45' ||
       factura.tipo === '46' ||
       factura.tipo === '47'
     ) {
       itemCompleto.retencion = {
         indicadorAgente: '1',
-        montoITBIS:
-          parseFloat(montoGravadoCalculado) > 0
-            ? (parsearMonto(item.precio) * 0.18).toFixed(2)
-            : '0.00',
+        montoITBIS: itemEsGravado
+          ? (parsearMonto(item.precio) * 0.18).toFixed(2)
+          : '0.00',
         montoISR: '0.00',
       };
     }
 
-    // Campos comunes para todos los tipos (camelCase)
+    // Campos comunes para todos los tipos (PascalCase según ejemplo oficial)
     return {
       ...itemCompleto,
-      nombre: stringVacioANull(item.nombre),
-      indicadorBienoServicio: item.indicadorBienoServicio || '1', // 1=Bien, 2=Servicio
-      descripcion: item.descripcion || null,
-      cantidad: item.cantidad || '1.00',
-      unidadMedida: item.unidadMedida || '43', // 43 = Unidad
-      precioUnitario: parsearMonto(item.precio).toFixed(2),
-      monto: parsearMonto(item.precio).toFixed(2),
+      Nombre: stringVacioANull(item.nombre),
+      IndicadorBienoServicio: item.indicadorBienoServicio || '1', // 1=Bien, 2=Servicio
+      Descripcion: item.descripcion || null,
+      Cantidad: item.cantidad || '1.00',
+      UnidadMedida: item.unidadMedida || '43', // 43 = Unidad
+      PrecioUnitario: parsearMonto(item.precio).toFixed(2),
+      Monto: parsearMonto(item.precio).toFixed(2),
     };
+  });
+
+  // 🔍 Debug: Verificar suma individual de items vs totales calculados
+  let sumaItemsGravados = detallesItems
+    .filter((item) => item.IndicadorFacturacion === '1')
+    .reduce((suma, item) => suma + parseFloat(item.Monto), 0)
+    .toFixed(2);
+
+  let sumaItemsExentos = detallesItems
+    .filter((item) => item.IndicadorFacturacion === '4')
+    .reduce((suma, item) => suma + parseFloat(item.Monto), 0)
+    .toFixed(2);
+
+  // 🔧 Para tipo 45: Ajustar montos de items si hay diferencia con total declarado
+  if (factura.tipo === '45') {
+    const totalDeclarado = parseFloat(montoTotal);
+    const detalleCalculado = parseFloat(sumaItemsGravados);
+    const diferencia = Math.abs(totalDeclarado - detalleCalculado);
+
+    // Si hay diferencia mínima, ajustar los montos de los items proporcionalmente
+    if (diferencia <= 1.0 && diferencia > 0) {
+      const factorAjuste = totalDeclarado / detalleCalculado;
+
+      console.log(`🔧 Ajustando montos de items para tipo 45:`, {
+        totalDeclarado: totalDeclarado,
+        detalleCalculado: detalleCalculado,
+        diferencia: diferencia.toFixed(2),
+        factorAjuste: factorAjuste.toFixed(4),
+      });
+
+      // Ajustar cada item gravado proporcionalmente
+      detallesItems.forEach((item) => {
+        if (item.IndicadorFacturacion === '1') {
+          const montoOriginal = parseFloat(item.Monto);
+          const montoAjustado = (montoOriginal * factorAjuste).toFixed(2);
+          item.Monto = montoAjustado;
+          item.PrecioUnitario = montoAjustado; // También ajustar precio unitario
+
+          console.log(`  Item ajustado: ${montoOriginal} → ${montoAjustado}`);
+        }
+      });
+
+      // Recalcular sumas después del ajuste
+      sumaItemsGravados = detallesItems
+        .filter((item) => item.IndicadorFacturacion === '1')
+        .reduce((suma, item) => suma + parseFloat(item.Monto), 0)
+        .toFixed(2);
+    }
+  }
+
+  console.log(`🔍 Verificación detalle vs totales:`, {
+    tipoComprobante: factura.tipo,
+    itemsGravadosDetalle: sumaItemsGravados,
+    montoGravadoCalculado: montoGravadoCalculado,
+    diferenciaGravado: (
+      parseFloat(sumaItemsGravados) - parseFloat(montoGravadoCalculado)
+    ).toFixed(2),
+    itemsExentosDetalle: sumaItemsExentos,
+    montoExentoCalculado: montoExentoCalculado,
+    diferenciaExento: (
+      parseFloat(sumaItemsExentos) - parseFloat(montoExentoCalculado)
+    ).toFixed(2),
   });
 
   // Formatear fecha (DD-MM-YYYY)
@@ -1134,57 +1254,94 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // Estructura completa para TheFactoryHKA - CORREGIDA según ejemplo oficial
   const documentoCompleto = {
     Token: token,
-    documentoElectronico: {
-      encabezado: {
-        identificacionDocumento: (() => {
+    DocumentoElectronico: {
+      Encabezado: {
+        IdentificacionDocumento: (() => {
           const baseIdDoc = {
-            tipoDocumento: factura.tipo,
-            ncf: factura.ncf,
-            fechaVencimientoSecuencia: esFechaVencimientoObligatoria(
+            TipoDocumento: factura.tipo,
+            NCF: factura.ncf,
+            FechaVencimientoSecuencia: esFechaVencimientoObligatoria(
               factura.tipo,
             )
               ? fechaVencimientoFormateada
               : null,
-            indicadorMontoGravado:
-              parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
           };
 
           // Configuración específica por tipo de comprobante
           if (
             factura.tipo === '31' ||
             factura.tipo === '32' ||
-            factura.tipo === '33' ||
-            factura.tipo === '34'
+            factura.tipo === '33'
           ) {
-            // Tipos 31, 32, 33, 34: Facturas y Notas - incluyen indicadorEnvioDiferido y tipoIngresos
+            // Tipos 31, 32, 33: Facturas y Notas de Débito - incluyen indicadorEnvioDiferido
             return {
               ...baseIdDoc,
-              indicadorEnvioDiferido: '1',
-              tipoIngresos: '01',
-              tipoPago: '1',
-              tablaFormasPago: [
+              IndicadorMontoGravado:
+                parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+              IndicadorEnvioDiferido: '1',
+              TipoIngresos: '01',
+              TipoPago: '1',
+              TablaFormasPago: [
                 {
-                  forma: '1',
-                  monto: montoTotal,
+                  Forma: '1',
+                  Monto: montoTotal,
                 },
               ],
             };
+          } else if (factura.tipo === '34') {
+            // Tipo 34: Nota de Crédito - estructura especial SIN fechaVencimiento ni indicadorEnvioDiferido
+            return {
+              TipoDocumento: factura.tipo,
+              NCF: factura.ncf,
+              // NO incluir FechaVencimientoSecuencia para tipo 34
+              IndicadorMontoGravado:
+                parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+              IndicadorNotaCredito: '0', // OBLIGATORIO para tipo 34
+              TipoIngresos: '01',
+              TipoPago: '1',
+            };
+          } else if (factura.tipo === '41') {
+            // Tipo 41: Compras - incluyen indicadorMontoGravado pero NO indicadorEnvioDiferido
+            return {
+              ...baseIdDoc,
+              IndicadorMontoGravado:
+                parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+              TipoPago: '1',
+              TablaFormasPago: [
+                {
+                  Forma: '1',
+                  Monto: montoTotal,
+                },
+              ],
+            };
+          } else if (factura.tipo === '43') {
+            // Tipo 43: Gastos Menores - estructura muy simple, solo campos básicos
+            return {
+              ...baseIdDoc,
+            };
+          } else if (factura.tipo === '45') {
+            // Tipo 45: Gubernamental - incluye indicadorMontoGravado y tipoIngresos pero NO tablaFormasPago
+            return {
+              ...baseIdDoc,
+              IndicadorMontoGravado:
+                parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+              TipoIngresos: '01',
+              TipoPago: '1',
+            };
           } else if (
-            factura.tipo === '41' ||
-            factura.tipo === '43' ||
             factura.tipo === '44' ||
-            factura.tipo === '45' ||
             factura.tipo === '46' ||
             factura.tipo === '47'
           ) {
-            // Tipos 41, 43, 44, 45, 46, 47: Compras y otros - NO incluyen indicadorEnvioDiferido
+            // Tipos 44, 46, 47: Regímenes especiales - NO incluyen indicadorMontoGravado ni indicadorEnvioDiferido
             return {
               ...baseIdDoc,
-              tipoPago: '1',
-              tablaFormasPago: [
+              TipoIngresos: '01',
+              TipoPago: '1',
+              TablaFormasPago: [
                 {
-                  forma: '1',
-                  monto: montoTotal,
+                  Forma: '1',
+                  Monto: montoTotal,
                 },
               ],
             };
@@ -1193,24 +1350,24 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           // Fallback por defecto
           return {
             ...baseIdDoc,
-            tipoPago: '1',
-            tablaFormasPago: [
+            TipoPago: '1',
+            TablaFormasPago: [
               {
-                forma: '1',
-                monto: montoTotal,
+                Forma: '1',
+                Monto: montoTotal,
               },
             ],
           };
         })(),
-        emisor: (() => {
+        Emisor: (() => {
           const baseEmisor = {
-            rnc: emisor.rnc,
-            razonSocial: stringVacioANull(emisor.razonSocial),
-            direccion: stringVacioANull(emisor.direccion),
-            municipio: emisor.municipio || null,
-            provincia: emisor.provincia || null,
-            tablaTelefono: emisor.telefono || [],
-            fechaEmision: formatearFecha(factura.fecha),
+            RNC: emisor.rnc,
+            RazonSocial: stringVacioANull(emisor.razonSocial),
+            Direccion: stringVacioANull(emisor.direccion),
+            Municipio: emisor.municipio || null,
+            Provincia: emisor.provincia || null,
+            TablaTelefono: emisor.telefono || [],
+            FechaEmision: formatearFecha(factura.fecha),
           };
 
           // Para tipos 31, 32, 33, 34: incluir campos adicionales del emisor
@@ -1235,37 +1392,40 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           // Para otros tipos (41, 43, etc.): estructura más simple
           return baseEmisor;
         })(),
-        comprador: (() => {
-          const baseComprador = {
-            rnc: comprador.rnc,
-            razonSocial: stringVacioANull(comprador.nombre),
-            correo: stringVacioANull(comprador.correo),
-            direccion: stringVacioANull(comprador.direccion),
-            municipio: comprador.municipio || null,
-            provincia: comprador.provincia || null,
-          };
-
-          // Para tipos 31, 32, 33, 34: incluir campos adicionales del comprador
-          if (
-            factura.tipo === '31' ||
-            factura.tipo === '32' ||
-            factura.tipo === '33' ||
-            factura.tipo === '34'
-          ) {
-            return {
-              ...baseComprador,
-              contacto: stringVacioANull(comprador.nombre),
-              envioMail: stringVacioANull(comprador.correo) ? 'SI' : 'NO',
-              fechaEntrega: comprador.fechaEntrega || null,
-              fechaOrden: comprador.fechaOrden || null,
-              numeroOrden: comprador.numeroOrden || null,
-              codigoInterno: comprador.codigoInterno || comprador.rnc,
+        // Comprador: Tipo 43 NO incluye comprador según estructura oficial
+        ...(factura.tipo !== '43' && {
+          comprador: (() => {
+            const baseComprador = {
+              rnc: comprador.rnc,
+              razonSocial: stringVacioANull(comprador.nombre),
+              correo: stringVacioANull(comprador.correo),
+              direccion: stringVacioANull(comprador.direccion),
+              municipio: comprador.municipio || null,
+              provincia: comprador.provincia || null,
             };
-          }
 
-          // Para otros tipos: estructura más simple
-          return baseComprador;
-        })(),
+            // Para tipos 31, 32, 33, 34: incluir campos adicionales del comprador
+            if (
+              factura.tipo === '31' ||
+              factura.tipo === '32' ||
+              factura.tipo === '33' ||
+              factura.tipo === '34'
+            ) {
+              return {
+                ...baseComprador,
+                contacto: stringVacioANull(comprador.nombre),
+                envioMail: stringVacioANull(comprador.correo) ? 'SI' : 'NO',
+                fechaEntrega: comprador.fechaEntrega || null,
+                fechaOrden: comprador.fechaOrden || null,
+                numeroOrden: comprador.numeroOrden || null,
+                codigoInterno: comprador.codigoInterno || comprador.rnc,
+              };
+            }
+
+            // Para otros tipos: estructura más simple
+            return baseComprador;
+          })(),
+        }),
         // informacionesAdicionales solo para tipos 31, 32, 33, 34
         ...(factura.tipo === '31' ||
         factura.tipo === '32' ||
@@ -1278,7 +1438,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               },
             }
           : {}),
-        totales: (() => {
+        Totales: (() => {
           // Estructura según ejemplo oficial de TheFactoryHKA (camelCase)
           const baseTotales = {
             montoGravadoTotal:
@@ -1317,7 +1477,64 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             };
           }
 
-          // Para tipos 41, 43, 44, 45, 46, 47: Incluir campos de retención
+          // Para tipo 43: Gastos Menores - estructura muy simple
+          if (factura.tipo === '43') {
+            return {
+              montoExento: montoTotal, // Para tipo 43, todo es monto exento
+              montoTotal: montoTotal,
+            };
+          }
+
+          // Para tipo 44: Régimen especial - NO incluir campos de retención
+          if (factura.tipo === '44') {
+            return {
+              ...baseTotales,
+              montoExento:
+                parseFloat(montoExentoCalculado) > 0
+                  ? montoExentoCalculado
+                  : null,
+              valorPagar: montoTotal,
+            };
+          }
+
+          // Para tipo 45: Gubernamental - incluir campos ITBIS pero NO retención
+          if (factura.tipo === '45') {
+            // Después del ajuste de items, usar directamente la suma del detalle
+            const montoGravadoFinal = parseFloat(sumaItemsGravados);
+            const itbisCalculado = montoGravadoFinal * 0.18;
+            const montoTotalConImpuestos =
+              montoGravadoFinal + itbisCalculado + parseFloat(sumaItemsExentos);
+
+            console.log(`✅ Cálculo final para tipo 45:`, {
+              montoGravadoDetalle: sumaItemsGravados,
+              itbisCalculado: itbisCalculado.toFixed(2),
+              montoTotalConImpuestos: montoTotalConImpuestos.toFixed(2),
+            });
+
+            // Estructura específica para tipo 45 con cálculos exactos (PascalCase)
+            // NOTA: Solo incluir campos de ITBIS si hay montos gravados
+            const totales45 = {
+              MontoTotal: montoTotalConImpuestos.toFixed(2), // Total (sin impuestos para servicios exentos)
+              ValorPagar: montoTotalConImpuestos.toFixed(2),
+            };
+
+            // Solo incluir campos de impuestos si HAY montos gravados
+            if (montoGravadoFinal > 0) {
+              totales45.MontoGravadoTotal = sumaItemsGravados;
+              totales45.ITBIS1 = '18';
+              totales45.TotalITBIS = itbisCalculado.toFixed(2);
+              totales45.TotalITBIS1 = itbisCalculado.toFixed(2);
+            }
+
+            // Solo incluir montoExento si hay montos exentos (> 0)
+            if (parseFloat(sumaItemsExentos) > 0) {
+              totales45.MontoExento = sumaItemsExentos;
+            }
+
+            return totales45;
+          }
+
+          // Para tipos 41, 46, 47: Incluir campos de retención
           return {
             ...baseTotales,
             montoExento:
@@ -1333,7 +1550,46 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           };
         })(),
       },
-      detallesItems: detallesItems,
+      DetallesItems: detallesItems,
+      // Para tipo 45: Agregar sección vacía de descuentos/recargos para validación
+      ...(factura.tipo === '45' && {
+        DescuentosORecargos: [],
+      }),
+      // Para tipo 34: Agregar InformacionReferencia OBLIGATORIA (con validación)
+      ...(factura.tipo === '34' &&
+        (() => {
+          // Validar que se proporcionen los campos obligatorios para tipo 34
+          if (!factura.ncfModificado) {
+            throw new Error(
+              '❌ Tipo 34 requiere "ncfModificado": NCF de la factura original que se está modificando',
+            );
+          }
+          if (!factura.fechaNCFModificado) {
+            throw new Error(
+              '❌ Tipo 34 requiere "fechaNCFModificado": Fecha de la factura original',
+            );
+          }
+          if (!factura.codigoModificacion) {
+            throw new Error(
+              '❌ Tipo 34 requiere "codigoModificacion": Código que indica el tipo de modificación (1,2,3,4)',
+            );
+          }
+          if (!factura.razonModificacion) {
+            throw new Error(
+              '❌ Tipo 34 requiere "razonModificacion": Razón descriptiva de la modificación',
+            );
+          }
+
+          return {
+            InformacionReferencia: {
+              NCFModificado: factura.ncfModificado,
+              RNCOtroContribuyente: factura.rncOtroContribuyente || emisor.rnc,
+              FechaNCFModificado: formatearFecha(factura.fechaNCFModificado),
+              CodigoModificacion: factura.codigoModificacion,
+              RazonModificacion: factura.razonModificacion,
+            },
+          };
+        })()),
     },
   };
 
