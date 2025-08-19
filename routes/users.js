@@ -31,7 +31,7 @@ router.get('/verifyToken', authenticateToken, getCurrentUser);
 router.post(
   '/signup',
   (req, res, next) => {
-    console.log('🎯 Llegó a la ruta /signup');
+    // console.log('🎯 Llegó a la ruta /signup');
     next();
   },
   validateUser,

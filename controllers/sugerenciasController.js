@@ -67,7 +67,7 @@ const createSugerenciaMedico = async (req, res) => {
     });
 
     const { fingerprint, ...sugerenciaData } = req.body;
-    console.log('sugerenciaData', sugerenciaData);
+    // console.log('sugerenciaData', sugerenciaData);
     const sugerencia = await SugerenciasMedicos.create(sugerenciaData);
     res.status(201).json({
       mensaje: '¡Sugerencia enviada con éxito!',
