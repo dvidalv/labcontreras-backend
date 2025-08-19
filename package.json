@@ -42,6 +42,7 @@
     "punycode": "^2.3.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.3",
+    "sib-api-v3-sdk": "^8.5.0",
     "validator": "^13.11.0",
     "vercel": "^33.6.1",
     "winston": "^3.11.0"

@@ -3,10 +3,8 @@ const httpStatus = require('http-status'); // Importamos el módulo http-status
 const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
 const { v2: cloudinary } = require('cloudinary'); // Importamos cloudinary v2
-const sgMail = require('@sendgrid/mail');
+const { sendEmail } = require('../api/api-mail_brevo');
 require('dotenv').config();
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const getCurrentUser = async (req, res) => {
   try {
@@ -376,27 +374,60 @@ const forgotPassword = async (req, res) => {
     // Enviar email con el link de recuperación (asegurando que no haya doble slash)
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
-    const msg = {
-      to: email,
-      from: 'servicios@contrerasrobledo.com.do',
-      subject: 'Recuperación de Contraseña',
-      content: [
-        {
-          type: 'text/html',
-          value: `
-          <h1>Recuperación de Contraseña</h1>
-          <p>Has solicitado restablecer tu contraseña.</p>
-          <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
-          <a href="${resetUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Restablecer Contraseña</a>
-          <p>Este enlace expirará en 1 hora.</p>
-          <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
-          <p><small>URL alternativa: ${resetUrl}</small></p>
-        `,
-        },
-      ],
-    };
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #003366 0%, #0056b3 100%); padding: 30px; text-align: center; color: white;">
+          <h1>🔐 Recuperación de Contraseña</h1>
+          <p>Lab Contreras - Sistema de Gestión</p>
+        </div>
+        <div style="padding: 30px; background-color: #f8f9fa;">
+          <p style="font-size: 16px; color: #333;">Hola,</p>
+          <p style="color: #666;">Has solicitado restablecer tu contraseña en el sistema de Lab Contreras.</p>
+          <p style="color: #666;">Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="display: inline-block; padding: 12px 30px; background-color: #007bff; color: white; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,123,255,0.3);">
+              Restablecer Contraseña
+            </a>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              ⚠️ <strong>Importante:</strong> Este enlace expirará en 1 hora por seguridad.
+            </p>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">Si no solicitaste este cambio, puedes ignorar este correo con seguridad.</p>
+          
+          <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+          
+          <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">
+              <strong>URL alternativa:</strong><br>
+              <span style="word-break: break-all;">${resetUrl}</span>
+            </p>
+          </div>
+        </div>
+        <div style="padding: 20px; text-align: center; background-color: #003366; color: white;">
+          <p style="margin: 0; font-size: 12px;">© Lab Contreras - Sistema de Gestión</p>
+        </div>
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    await sendEmail({
+      to: email,
+      subject: 'Recuperación de Contraseña - Lab Contreras',
+      htmlContent,
+      textContent: `Recuperación de Contraseña - Lab Contreras
+
+Has solicitado restablecer tu contraseña.
+
+Enlace para restablecer: ${resetUrl}
+
+Este enlace expirará en 1 hora.
+
+Si no solicitaste este cambio, puedes ignorar este correo.`,
+    });
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -494,32 +525,72 @@ const sendInvitationEmail = async (req, res) => {
 
     const loginUrl = `${baseUrl.replace(/\/$/, '')}/signin`;
 
-    const msg = {
-      to: email,
-      from: 'servicios@contrerasrobledo.com.do',
-      subject: 'Invitación a Laboratorio Contreras',
-      content: [
-        {
-          type: 'text/html',
-          value: `
-          <h1>Bienvenido a Laboratorio Contreras</h1>
-          <p>Hola ${name},</p>
-          <p>Has sido invitado a unirte a Laboratorio Contreras.</p>
-          <p>Aquí están tus credenciales de acceso:</p>
-          <ul>
-            <li><strong>Email:</strong> ${email}</li>
-            <li><strong>Contraseña:</strong> ${password}</li>
-          </ul>
-          <p>Por favor, inicia sesión en el siguiente enlace:</p>
-          <a href="${loginUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Iniciar Sesión</a>
-          <p>Por razones de seguridad, te recomendamos cambiar tu contraseña después de iniciar sesión por primera vez.</p>
-          <p><small>URL alternativa: ${loginUrl}</small></p>
-        `,
-        },
-      ],
-    };
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #003366 0%, #0056b3 100%); padding: 30px; text-align: center; color: white;">
+          <h1>👋 Bienvenido a Lab Contreras</h1>
+          <p>Sistema de Gestión Laboratorial</p>
+        </div>
+        <div style="padding: 30px; background-color: #f8f9fa;">
+          <p style="font-size: 18px; color: #333;">¡Hola ${name}!</p>
+          <p style="color: #666;">Has sido invitado a unirte al sistema de gestión de Lab Contreras.</p>
+          
+          <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+            <h3 style="margin-top: 0; color: #1976d2;">📋 Tus credenciales de acceso:</h3>
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+              <p style="margin: 5px 0;"><strong>📧 Email:</strong> ${email}</p>
+              <p style="margin: 5px 0;"><strong>🔑 Contraseña:</strong> <code style="background-color: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${password}</code></p>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="display: inline-block; padding: 12px 30px; background-color: #007bff; color: white; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,123,255,0.3);">
+              🚀 Iniciar Sesión
+            </a>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              🔐 <strong>Recomendación de seguridad:</strong> Te recomendamos cambiar tu contraseña después de iniciar sesión por primera vez.
+            </p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+          
+          <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">
+              <strong>URL de acceso directo:</strong><br>
+              <span style="word-break: break-all;">${loginUrl}</span>
+            </p>
+          </div>
+        </div>
+        <div style="padding: 20px; text-align: center; background-color: #003366; color: white;">
+          <p style="margin: 0; font-size: 12px;">© Lab Contreras - Sistema de Gestión</p>
+          <p style="margin: 5px 0 0 0; font-size: 10px; opacity: 0.8;">Bienvenido al equipo</p>
+        </div>
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    await sendEmail({
+      to: email,
+      subject: 'Invitación a Lab Contreras - Credenciales de Acceso',
+      htmlContent,
+      textContent: `Bienvenido a Lab Contreras
+
+Hola ${name},
+
+Has sido invitado a unirte al sistema de gestión de Lab Contreras.
+
+Credenciales de acceso:
+- Email: ${email}
+- Contraseña: ${password}
+
+Enlace de acceso: ${loginUrl}
+
+Por razones de seguridad, te recomendamos cambiar tu contraseña después de iniciar sesión por primera vez.
+
+¡Bienvenido al equipo!`,
+    });
 
     return res.status(httpStatus.OK).json({
       status: 'success',

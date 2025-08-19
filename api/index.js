@@ -21,7 +21,7 @@ const upload = multer({ storage: storage });
 const { imagen } = require('./cloudinaryConfig');
 
 const { errors } = require('celebrate');
-const { sendMail } = require('./api-mail');
+const { sendMail } = require('./api-mail_brevo');
 
 const app = express();
 app.use(express.json());
