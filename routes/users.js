@@ -28,7 +28,15 @@ const router = Router();
 // Rutas de autenticación
 router.post('/signin', login);
 router.get('/verifyToken', authenticateToken, getCurrentUser);
-router.post('/signup', validateUser, createUser);
+router.post(
+  '/signup',
+  (req, res, next) => {
+    console.log('🎯 Llegó a la ruta /signup');
+    next();
+  },
+  validateUser,
+  createUser,
+);
 
 // Rutas de recuperación de contraseña
 router.post('/forgot-password', validateForgotPassword, forgotPassword);

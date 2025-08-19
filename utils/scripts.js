@@ -1,5 +1,5 @@
 // Script de migración (puedes ejecutarlo una vez)
-const { connectDB } = require('./db');
+const connectDB = require('../lib/db');
 const { User } = require('../models/user');
 const mongoose = require('mongoose');
 

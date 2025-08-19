@@ -1,0 +1,1 @@
+ATLAS_URI_2=mongodb+srv://dvidalv:KeibbxUKbCwOxZWD@cluster1.hycui.mongodb.net/LPCR?retryWrites=true&w=majority&appName=Cluster1
