@@ -366,10 +366,16 @@ const forgotPassword = async (req, res) => {
     );
 
     // Determinar la URL base según el entorno
-    const baseUrl =
-      process.env.NODE_ENV === 'production'
-        ? process.env.FRONTEND_URL_PROD
-        : process.env.FRONTEND_URL_DEV;
+    // Si hay un header Host que indica localhost, usar URL de desarrollo
+    const isLocalhost =
+      req.get('host') && req.get('host').includes('localhost');
+    const useDevUrl = process.env.NODE_ENV !== 'production' || isLocalhost;
+
+    const baseUrl = useDevUrl
+      ? process.env.FRONTEND_URL_DEV || 'http://localhost:3000'
+      : process.env.FRONTEND_URL_PROD;
+
+    console.log(`🔗 Generando URL de recuperación para: ${baseUrl}`);
 
     // Enviar email con el link de recuperación (asegurando que no haya doble slash)
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
@@ -518,12 +524,18 @@ const sendInvitationEmail = async (req, res) => {
     }
 
     // Determinar la URL base según el entorno
-    const baseUrl =
-      process.env.NODE_ENV === 'production'
-        ? process.env.FRONTEND_URL_PROD
-        : process.env.FRONTEND_URL_DEV;
+    // Si hay un header Host que indica localhost, usar URL de desarrollo
+    const isLocalhost =
+      req.get('host') && req.get('host').includes('localhost');
+    const useDevUrl = process.env.NODE_ENV !== 'production' || isLocalhost;
+
+    const baseUrl = useDevUrl
+      ? process.env.FRONTEND_URL_DEV || 'http://localhost:3000'
+      : process.env.FRONTEND_URL_PROD;
 
     const loginUrl = `${baseUrl.replace(/\/$/, '')}/signin`;
+
+    console.log(`🔗 Generando URL de invitación para: ${baseUrl}`);
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
