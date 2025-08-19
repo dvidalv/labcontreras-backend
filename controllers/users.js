@@ -25,7 +25,7 @@ const getCurrentUser = async (req, res) => {
 };
 
 const createUser = async (req, res) => {
-  console.log('🔍 Datos recibidos en createUser:', req.body);
+  // console.log('🔍 Datos recibidos en createUser:', req.body);
   try {
     const { name, email, password, role, url } = req.body;
     const newUser = {
@@ -53,9 +53,9 @@ const createUser = async (req, res) => {
     });
   } catch (err) {
     // Si hay un error en la creación del usuario lo capturamos aquí y devolvemos un error
-    console.log('❌ Error completo:', err);
-    console.log('❌ Error name:', err.name);
-    console.log('❌ Error message:', err.message);
+    // console.log('❌ Error completo:', err);
+    // console.log('❌ Error name:', err.name);
+    // console.log('❌ Error message:', err.message);
     if (err.name === 'ValidationError') {
       // Extraer errores específicos de validación de MongoDB
       const errors = Object.keys(err.errors).map((field) => ({
@@ -116,13 +116,13 @@ const generateAuthToken = async (user) => {
 };
 
 const login = async (req, res) => {
-  console.log('🔍 Datos recibidos en login:', req.body);
+  // console.log('🔍 Datos recibidos en login:', req.body);
   try {
     const { email, password } = req.body;
     const user = await User.findUserByCredentials(email, password);
-    console.log('🔍 Usuario encontrado:', user);
+    // console.log('🔍 Usuario encontrado:', user);
     const token = await generateAuthToken(user);
-    console.log('🔍 Token generado:', token);
+    // console.log('🔍 Token generado:', token);
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -348,8 +348,8 @@ const deleteImage = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log('🔍 Datos recibidos en forgotPassword:', req.body);
-    console.log('🔍 Email:', email);
+    // console.log('🔍 Datos recibidos en forgotPassword:', req.body);
+    // console.log('🔍 Email:', email);
 
     // Validar que el email existe
     const user = await User.findOne({ email });

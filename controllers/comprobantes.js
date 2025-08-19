@@ -36,7 +36,7 @@ const obtenerTokenTheFactory = async () => {
       }
     }
 
-    console.log('Obteniendo nuevo token de TheFactoryHKA...');
+    // console.log('Obteniendo nuevo token de TheFactoryHKA...');
 
     // Realizar petición de autenticación
     const authRequest = {
@@ -52,7 +52,7 @@ const obtenerTokenTheFactory = async () => {
       timeout: 15000, // 15 segundos para auth
     });
 
-    console.log('Respuesta de autenticación:', response.data);
+    // console.log('Respuesta de autenticación:', response.data);
 
     // Verificar que la autenticación fue exitosa
     if (response.data.codigo !== 0) {
@@ -63,10 +63,10 @@ const obtenerTokenTheFactory = async () => {
     tokenCache.token = response.data.token;
     tokenCache.fechaExpiracion = response.data.fechaExpiracion;
 
-    console.log(
-      'Token obtenido exitosamente, expira:',
-      tokenCache.fechaExpiracion,
-    );
+    // console.log(
+    //   'Token obtenido exitosamente, expira:',
+    //   tokenCache.fechaExpiracion,
+    // );
 
     return tokenCache.token;
   } catch (error) {
@@ -104,9 +104,9 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
   // Tipos opcionales: '32' (Factura de Consumo)
   const esObligatorio = tiposObligatorios.includes(tipoDocumento);
 
-  console.log(
-    `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
-  );
+  // console.log(
+  //   `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
+  // );
 
   return esObligatorio;
 };
@@ -138,12 +138,12 @@ const generarUrlQR = (responseData, facturaOriginal) => {
 
     const urlCompleta = `${baseUrl}?${params.toString()}`;
 
-    console.log(
-      `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlCompleta}`,
-    );
-    console.log(
-      `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
-    );
+    // console.log(
+    //   `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlCompleta}`,
+    // );
+    // console.log(
+    //   `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
+    // );
 
     return urlCompleta;
   } catch (error) {
@@ -198,12 +198,12 @@ const generarCodigoQR = async (req, res) => {
 
       urlParaQR = `${baseUrl}?${params.toString()}`;
 
-      console.log(
-        `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlParaQR}`,
-      );
-      console.log(
-        `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
-      );
+      // console.log(
+      //   `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlParaQR}`,
+      // );
+      // console.log(
+      //   `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
+      // );
     } else {
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
@@ -227,8 +227,8 @@ const generarCodigoQR = async (req, res) => {
       width: Math.max(parseInt(tamaño) || 300, 150), // Mínimo 150px (~2.5cm a 150 DPI)
     };
 
-    console.log(`📱 Generando QR Code versión 8 para URL: ${urlParaQR}`);
-    console.log(`📏 Configuración: ${formato.toUpperCase()}, ${tamaño}px`);
+    // console.log(`📱 Generando QR Code versión 8 para URL: ${urlParaQR}`);
+    // console.log(`📏 Configuración: ${formato.toUpperCase()}, ${tamaño}px`);
 
     // Generar el código QR
     let qrData;
@@ -440,7 +440,7 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
 // Función para consultar el estatus de un documento en TheFactoryHKA
 const consultarEstatusInmediato = async (ncf) => {
   try {
-    console.log(`🔍 Consultando estatus inmediato para NCF: ${ncf}`);
+    // console.log(`🔍 Consultando estatus inmediato para NCF: ${ncf}`);
 
     const token = await obtenerTokenTheFactory();
 
@@ -450,7 +450,7 @@ const consultarEstatusInmediato = async (ncf) => {
       documento: ncf,
     };
 
-    console.log('Payload para consulta de estatus:', payload);
+    // console.log('Payload para consulta de estatus:', payload);
 
     const response = await axios.post(THEFACTORY_ESTATUS_URL, payload, {
       headers: {
@@ -459,7 +459,7 @@ const consultarEstatusInmediato = async (ncf) => {
       timeout: 10000, // 10 segundos
     });
 
-    console.log('Respuesta de estatus TheFactoryHKA:', response.data);
+    // console.log('Respuesta de estatus TheFactoryHKA:', response.data);
 
     return {
       consultaExitosa: true,
@@ -554,10 +554,10 @@ const getAllComprobantes = async (req, res) => {
       vencimiento_proximo,
     } = req.query;
 
-    console.log('estado', estado);
-    console.log('tipo_comprobante', tipo_comprobante);
-    console.log('rnc', rnc);
-    console.log('vencimiento_proximo', vencimiento_proximo);
+    // console.log('estado', estado);
+    // console.log('tipo_comprobante', tipo_comprobante);
+    // console.log('rnc', rnc);
+    // console.log('vencimiento_proximo', vencimiento_proximo);
 
     const skip = (page - 1) * limit;
 
@@ -1035,12 +1035,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       );
     }
   } else {
-    console.log(
-      `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
-    );
+    // console.log(
+    //   `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
+    // );
   }
 
-  console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
+  // console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
 
   // Calcular totales PRIMERO
   const montoTotal = parseFloat(factura.total).toFixed(2);
@@ -1119,20 +1119,20 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       .toFixed(2);
   }
 
-  console.log(`💰 Cálculo de totales:`, {
-    tipoComprobante: factura.tipo,
-    montoTotalFactura: montoTotal,
-    montoExentoCalculado: montoExentoCalculado,
-    montoGravadoCalculado: montoGravadoCalculado,
-    sumaCalculada: (
-      parseFloat(montoExentoCalculado) + parseFloat(montoGravadoCalculado)
-    ).toFixed(2),
-    diferencia: (
-      parseFloat(montoTotal) -
-      parseFloat(montoExentoCalculado) -
-      parseFloat(montoGravadoCalculado)
-    ).toFixed(2),
-  });
+  // console.log(`💰 Cálculo de totales:`, {
+  //   tipoComprobante: factura.tipo,
+  //   montoTotalFactura: montoTotal,
+  //   montoExentoCalculado: montoExentoCalculado,
+  //   montoGravadoCalculado: montoGravadoCalculado,
+  //   sumaCalculada: (
+  //     parseFloat(montoExentoCalculado) + parseFloat(montoGravadoCalculado)
+  //   ).toFixed(2),
+  //   diferencia: (
+  //     parseFloat(montoTotal) -
+  //     parseFloat(montoExentoCalculado) -
+  //     parseFloat(montoGravadoCalculado)
+  //   ).toFixed(2),
+  // });
 
   // Construir los detalles de items DESPUÉS de calcular los montos - camelCase según ejemplo oficial
   const detallesItems = items.map((item, index) => {
@@ -1203,12 +1203,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     if (diferencia <= 1.0 && diferencia > 0) {
       const factorAjuste = totalDeclarado / detalleCalculado;
 
-      console.log(`🔧 Ajustando montos de items para tipo 45:`, {
-        totalDeclarado: totalDeclarado,
-        detalleCalculado: detalleCalculado,
-        diferencia: diferencia.toFixed(2),
-        factorAjuste: factorAjuste.toFixed(4),
-      });
+      // console.log(`🔧 Ajustando montos de items para tipo 45:`, {
+      //   totalDeclarado: totalDeclarado,
+      //   detalleCalculado: detalleCalculado,
+      //   diferencia: diferencia.toFixed(2),
+      //   factorAjuste: factorAjuste.toFixed(4),
+      // });
 
       // Ajustar cada item gravado proporcionalmente
       detallesItems.forEach((item) => {
@@ -1218,7 +1218,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           item.Monto = montoAjustado;
           item.PrecioUnitario = montoAjustado; // También ajustar precio unitario
 
-          console.log(`  Item ajustado: ${montoOriginal} → ${montoAjustado}`);
+          // console.log(`  Item ajustado: ${montoOriginal} → ${montoAjustado}`);
         }
       });
 
@@ -1230,19 +1230,19 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     }
   }
 
-  console.log(`🔍 Verificación detalle vs totales:`, {
-    tipoComprobante: factura.tipo,
-    itemsGravadosDetalle: sumaItemsGravados,
-    montoGravadoCalculado: montoGravadoCalculado,
-    diferenciaGravado: (
-      parseFloat(sumaItemsGravados) - parseFloat(montoGravadoCalculado)
-    ).toFixed(2),
-    itemsExentosDetalle: sumaItemsExentos,
-    montoExentoCalculado: montoExentoCalculado,
-    diferenciaExento: (
-      parseFloat(sumaItemsExentos) - parseFloat(montoExentoCalculado)
-    ).toFixed(2),
-  });
+  // console.log(`🔍 Verificación detalle vs totales:`, {
+  //   tipoComprobante: factura.tipo,
+  //   itemsGravadosDetalle: sumaItemsGravados,
+  //   montoGravadoCalculado: montoGravadoCalculado,
+  //   diferenciaGravado: (
+  //     parseFloat(sumaItemsGravados) - parseFloat(montoGravadoCalculado)
+  //   ).toFixed(2),
+  //   itemsExentosDetalle: sumaItemsExentos,
+  //   montoExentoCalculado: montoExentoCalculado,
+  //   diferenciaExento: (
+  //     parseFloat(sumaItemsExentos) - parseFloat(montoExentoCalculado)
+  //   ).toFixed(2),
+  // });
 
   // Formatear fecha (DD-MM-YYYY)
   const formatearFecha = (fecha) => {
@@ -1510,11 +1510,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             const montoTotalConImpuestos =
               montoGravadoFinal + itbisCalculado + parseFloat(sumaItemsExentos);
 
-            console.log(`✅ Cálculo final para tipo 45:`, {
-              montoGravadoDetalle: sumaItemsGravados,
-              itbisCalculado: itbisCalculado.toFixed(2),
-              montoTotalConImpuestos: montoTotalConImpuestos.toFixed(2),
-            });
+            // console.log(`✅ Cálculo final para tipo 45:`, {
+            //   montoGravadoDetalle: sumaItemsGravados,
+            //   itbisCalculado: itbisCalculado.toFixed(2),
+            //   montoTotalConImpuestos: montoTotalConImpuestos.toFixed(2),
+            // });
 
             // Estructura específica para tipo 45 con cálculos exactos (PascalCase)
             // NOTA: Solo incluir campos de ITBIS si hay montos gravados
@@ -1604,7 +1604,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 // Controlador para enviar factura a TheFactoryHKA
 const enviarFacturaElectronica = async (req, res) => {
   try {
-    console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
+    // console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
 
     // Obtener token de autenticación
     const token = await obtenerTokenTheFactory();
@@ -1612,10 +1612,10 @@ const enviarFacturaElectronica = async (req, res) => {
     // Transformar el JSON simplificado al formato completo
     const facturaCompleta = transformarFacturaParaTheFactory(req.body, token);
 
-    console.log(
-      'Factura transformada:',
-      JSON.stringify(facturaCompleta, null, 2),
-    );
+    // console.log(
+    //   'Factura transformada:',
+    //   JSON.stringify(facturaCompleta, null, 2),
+    // );
 
     // Enviar a TheFactoryHKA
     const response = await axios.post(THEFACTORY_ENVIAR_URL, facturaCompleta, {
@@ -1625,7 +1625,7 @@ const enviarFacturaElectronica = async (req, res) => {
       timeout: 30000, // 30 segundos de timeout
     });
 
-    console.log('Respuesta de TheFactoryHKA:', response.data);
+    // console.log('Respuesta de TheFactoryHKA:', response.data);
 
     // 🔧 VALIDAR RESPUESTA ANTES DE ACCEDER A PROPIEDADES
     if (!response.data.procesado || response.data.codigo !== 0) {
@@ -1659,7 +1659,7 @@ const enviarFacturaElectronica = async (req, res) => {
     const ncfGenerado = req.body.factura.ncf; // Usar el NCF que enviamos
 
     // 🔍 Consultar estatus inmediatamente (no crítico si falla)
-    console.log('📋 Consultando estatus inmediato post-envío...');
+    // console.log('📋 Consultando estatus inmediato post-envío...');
     const estatusConsulta = await consultarEstatusInmediato(ncfGenerado);
 
     // 📱 Generar URL para QR Code de la DGII

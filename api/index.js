@@ -27,14 +27,14 @@ const app = express();
 app.use(express.json());
 
 // Middleware para logging de todas las peticiones
-app.use((req, res, next) => {
-  console.log(
-    `📥 ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`,
-  );
-  console.log('📦 Body:', req.body);
-  console.log('🔗 Headers:', req.headers);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(
+//     `📥 ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`,
+//   );
+//   console.log('📦 Body:', req.body);
+//   console.log('🔗 Headers:', req.headers);
+//   next();
+// });
 
 // Reemplazo temporal de la configuración de CORS para permitir todos los orígenes
 app.use(
@@ -59,7 +59,7 @@ app.use(errors());
 app.use((err, req, res, next) => {
   // Verifica si el error es un error de Celebrate
   if (err.joi) {
-    console.log('🚫 Error de validación Celebrate:', err.joi.details);
+    // console.log('🚫 Error de validación Celebrate:', err.joi.details);
 
     // Crear un mensaje más amigable basado en los errores
     const errors = err.joi.details.map((detail) => {
@@ -123,7 +123,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-console.log(process.env.PORT);
+// console.log(process.env.PORT);
 
 // Función para iniciar el servidor
 const startServer = async () => {

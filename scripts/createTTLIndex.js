@@ -17,7 +17,7 @@ async function createTTLIndex() {
       { expireAfterSeconds: 3600 }, // 1 hour
     );
 
-    console.log('TTL index created successfully on fingerprints collection');
+    // console.log('TTL index created successfully on fingerprints collection');
     process.exit(0);
   } catch (error) {
     console.error('Error creating TTL index:', error);

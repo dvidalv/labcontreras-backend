@@ -175,7 +175,7 @@ sugerenciasPacientesSchema.post('save', async function (doc) {
 
   try {
     await sgMail.send(msg);
-    console.log('Email de notificación enviado a todos los destinatarios');
+    // console.log('Email de notificación enviado a todos los destinatarios');
   } catch (error) {
     console.error('Error al enviar email:', error.response?.body || error);
   }

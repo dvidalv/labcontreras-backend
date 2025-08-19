@@ -16,7 +16,7 @@ const connectSugerenciasDB = () => {
   });
 
   connection.on('connected', () => {
-    console.log('Conectado a la base de datos: sugerencias');
+    // console.log('Conectado a la base de datos: sugerencias');
   });
 
   connection.on('error', (err) => {

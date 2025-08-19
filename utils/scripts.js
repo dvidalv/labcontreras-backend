@@ -10,8 +10,8 @@ const migrateUsers = async () => {
       { isDisabled: { $exists: false } },
       { $set: { isDisabled: false } },
     );
-    console.log('Migración completada con éxito');
-    console.log(`${result.modifiedCount} usuarios actualizados`);
+    // console.log('Migración completada con éxito');
+    // console.log(`${result.modifiedCount} usuarios actualizados`);
   } catch (error) {
     console.error('Error en la migración:', error);
     process.exit(1);
@@ -24,7 +24,7 @@ const migrateUsers = async () => {
 const runMigration = async () => {
   try {
     await migrateUsers();
-    console.log('Proceso de migración finalizado');
+    // console.log('Proceso de migración finalizado');
     process.exit(0);
   } catch (error) {
     console.error('Error al ejecutar la migración:', error);

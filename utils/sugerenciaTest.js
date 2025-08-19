@@ -14,7 +14,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 mongoose
   .connect(MONGODB_URI)
   .then(() => {
-    console.log('Conectado a MongoDB Atlas');
+    // console.log('Conectado a MongoDB Atlas');
 
     // Crear una nueva sugerencia
     const nuevaSugerencia = new SugerenciasPacientes({
@@ -27,7 +27,7 @@ mongoose
     return nuevaSugerencia.save();
   })
   .then((doc) => {
-    console.log('Sugerencia guardada exitosamente');
+    // console.log('Sugerencia guardada exitosamente');
     // Cerrar la conexión después de guardar
     return mongoose.connection.close();
   })
