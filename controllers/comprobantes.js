@@ -554,10 +554,15 @@ const getAllComprobantes = async (req, res) => {
       vencimiento_proximo,
     } = req.query;
 
+    console.log('estado', estado);
+    console.log('tipo_comprobante', tipo_comprobante);
+    console.log('rnc', rnc);
+    console.log('vencimiento_proximo', vencimiento_proximo);
+
     const skip = (page - 1) * limit;
 
-    // Construir filtros
-    const filters = { usuario: req.user._id };
+    // Construir filtros - REMOVIDO filtro por usuario para mostrar todos los comprobantes
+    const filters = {};
     if (estado) filters.estado = estado;
     if (tipo_comprobante) filters.tipo_comprobante = tipo_comprobante;
     if (rnc) filters.rnc = new RegExp(rnc, 'i');
@@ -899,6 +904,7 @@ const consumirNumero = async (req, res) => {
 const consumirNumeroPorRnc = async (req, res) => {
   try {
     const { rnc, tipo_comprobante } = req.body;
+    console.log('🔍 Datos recibidos en consumirNumeroPorRnc:', req.body);
 
     // Validar que se proporcionen los datos requeridos
     if (!rnc || !tipo_comprobante) {
@@ -910,11 +916,10 @@ const consumirNumeroPorRnc = async (req, res) => {
 
     // console.log(rnc, tipo_comprobante);
 
-    // Buscar un rango activo y válido para este usuario, RNC y tipo de comprobante
+    // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
     const rango = await Comprobante.findOne({
       rnc: rnc,
       tipo_comprobante: tipo_comprobante,
-      usuario: req.user._id,
       estado: 'activo',
       numeros_disponibles: { $gt: 0 }, // Agregado para verificar que haya números disponibles
       fecha_vencimiento: { $gte: new Date() }, // Agregado para verificar que el rango no haya vencido
