@@ -17,6 +17,13 @@ let tokenCache = {
   fechaExpiracion: null,
 };
 
+// Función para limpiar cache del token (útil para debugging)
+const limpiarCacheToken = () => {
+  console.log('🧹 Limpiando cache del token TheFactoryHKA...');
+  tokenCache.token = null;
+  tokenCache.fechaExpiracion = null;
+};
+
 // Función para obtener token de autenticación de TheFactoryHKA
 const obtenerTokenTheFactory = async () => {
   try {
@@ -313,6 +320,12 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
         case 203:
           return 'RECHAZADA'; // Rechazado por DGII
 
+        // ❌ Errores de reglas de negocio DGII (600-699)
+        case 613:
+          return 'RECHAZADA'; // Error específico: comprobantes no pueden reemplazarse entre ellos mismos
+        case 634:
+          return 'RECHAZADA'; // Error específico: fecha de NCF modificado no coincide
+
         // 🚫 Estados de cancelación
         case 300:
         case 301:
@@ -419,6 +432,12 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
       case 202:
       case 203:
         return 'RECHAZADA';
+
+      // ❌ Errores de reglas de negocio DGII (600-699)
+      case 613:
+        return 'RECHAZADA'; // Error específico: comprobantes no pueden reemplazarse entre ellos mismos
+      case 634:
+        return 'RECHAZADA'; // Error específico: fecha de NCF modificado no coincide
 
       // 🚫 Estados de cancelación
       case 300:
@@ -991,15 +1010,53 @@ const stringVacioANull = (valor) => {
 
 // Función para transformar JSON simplificado al formato de TheFactoryHKA
 const transformarFacturaParaTheFactory = (facturaSimple, token) => {
-  const { comprador, emisor, factura, items } = facturaSimple;
+  const { comprador, emisor, factura, items, ItemsDevueltos, modificacion } =
+    facturaSimple;
 
-  // Validar que tenemos los datos básicos necesarios
+  // 🔧 ADAPTACIÓN PARA TIPO 34: Mapear estructura específica de FileMaker
+  let facturaAdaptada = { ...factura };
+  let itemsAdaptados = items;
+
+  // Si es tipo 34 y viene con estructura específica de FileMaker, adaptarla
+  if (factura?.tipo === '34' && modificacion) {
+    console.log('🔧 Adaptando estructura de tipo 34 desde FileMaker...');
+
+    // Mapear campos de modificacion a factura (PascalCase → camelCase)
+    facturaAdaptada = {
+      ...facturaAdaptada,
+      ncfModificado: modificacion.NCFModificado,
+      fechaNCFModificado: modificacion.FechaNCFModificado,
+      codigoModificacion:
+        modificacion.CodigoModificacion?.replace(/^0+/, '') ||
+        modificacion.CodigoModificacion, // Remover ceros iniciales
+      razonModificacion: modificacion.RazonModificacion,
+    };
+
+    console.log('📋 Campos de modificación mapeados:', {
+      ncfModificado: facturaAdaptada.ncfModificado,
+      fechaNCFModificado: facturaAdaptada.fechaNCFModificado,
+      codigoModificacion: facturaAdaptada.codigoModificacion,
+      razonModificacion: facturaAdaptada.razonModificacion,
+    });
+  }
+
+  // Si vienen ItemsDevueltos en lugar de items Y es tipo 34, usarlos
+  if (ItemsDevueltos && ItemsDevueltos.length > 0 && factura?.tipo === '34') {
+    console.log('🔧 Usando ItemsDevueltos como items para tipo 34...');
+    itemsAdaptados = ItemsDevueltos.map((item) => ({
+      nombre: item.nombre,
+      precio: item.montoAcreditar || item.precio, // Usar montoAcreditar si existe, sino precio
+    }));
+    console.log('📋 Items adaptados:', itemsAdaptados);
+  }
+
+  // Validar que tenemos los datos básicos necesarios (usando datos adaptados)
   if (
     !comprador?.rnc ||
     !emisor?.rnc ||
-    !factura?.ncf ||
-    !factura?.tipo ||
-    !items?.length
+    !facturaAdaptada?.ncf ||
+    !facturaAdaptada?.tipo ||
+    !itemsAdaptados?.length
   ) {
     throw new Error('Faltan datos obligatorios en la factura');
   }
@@ -1013,10 +1070,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // Si estamos en diciembre, usar el próximo año para evitar vencimiento inmediato
   const añoVencimiento = mesActual === 12 ? añoActual + 1 : añoActual;
   let fechaVencimientoFormateada = `31-12-${añoVencimiento}`; // Fecha segura y dinámica
-  if (factura.fechaVencNCF) {
+  if (facturaAdaptada.fechaVencNCF) {
     try {
       // Validar formato de fecha (puede venir como DD-MM-YYYY o YYYY-MM-DD)
-      const fecha = factura.fechaVencNCF;
+      const fecha = facturaAdaptada.fechaVencNCF;
       if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
         // Ya está en formato DD-MM-YYYY
         fechaVencimientoFormateada = fecha;
@@ -1035,15 +1092,15 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       );
     }
   } else {
-    // console.log(
-    //   `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
-    // );
+    console.log(
+      `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
+    );
   }
 
   // console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
 
   // Calcular totales PRIMERO
-  const montoTotal = parseFloat(factura.total).toFixed(2);
+  const montoTotal = parseFloat(facturaAdaptada.total).toFixed(2);
 
   // Función para limpiar y parsear montos con comas
   const parsearMonto = (monto) => {
@@ -1057,10 +1114,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // Lógica de cálculo de montos según el tipo de comprobante
   let montoExentoCalculado, montoGravadoCalculado;
 
-  if (factura.tipo === '45') {
+  if (facturaAdaptada.tipo === '45') {
     // Tipo 45 (Gubernamental): Por defecto todos los items son GRAVADOS
     // Solo si se marca explícitamente como exento, se considera exento
-    montoExentoCalculado = items
+    montoExentoCalculado = itemsAdaptados
       .reduce((suma, item) => {
         const precio = parsearMonto(item.precio);
         // Solo si específicamente se marca como exento
@@ -1075,7 +1132,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       }, 0)
       .toFixed(2);
 
-    montoGravadoCalculado = items
+    montoGravadoCalculado = itemsAdaptados
       .reduce((suma, item) => {
         const precio = parsearMonto(item.precio);
         // Si específicamente se marca como exento, no lo incluimos en gravado
@@ -1094,7 +1151,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     // Para otros tipos: servicios médicos generalmente son exentos de ITBIS
     // Si un item tiene .itbis = false o .exento = true, se considera exento
     // Si no tiene esas propiedades, asumimos que es exento (servicios médicos)
-    montoExentoCalculado = items
+    montoExentoCalculado = itemsAdaptados
       .reduce((suma, item) => {
         const precio = parsearMonto(item.precio);
         // Si específicamente se marca como gravado, no lo incluimos en exento
@@ -1107,7 +1164,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       .toFixed(2);
 
     // Calcular monto gravado (lo que no es exento)
-    montoGravadoCalculado = items
+    montoGravadoCalculado = itemsAdaptados
       .reduce((suma, item) => {
         const precio = parsearMonto(item.precio);
         // Solo si específicamente se marca como gravado
@@ -1120,7 +1177,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   }
 
   // console.log(`💰 Cálculo de totales:`, {
-  //   tipoComprobante: factura.tipo,
+  //   tipoComprobante: facturaAdaptada.tipo,
   //   montoTotalFactura: montoTotal,
   //   montoExentoCalculado: montoExentoCalculado,
   //   montoGravadoCalculado: montoGravadoCalculado,
@@ -1135,11 +1192,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   // });
 
   // Construir los detalles de items DESPUÉS de calcular los montos - camelCase según ejemplo oficial
-  const detallesItems = items.map((item, index) => {
+  const detallesItems = itemsAdaptados.map((item, index) => {
     // Determinar si este item específico es gravado o exento
     let itemEsGravado = false;
 
-    if (factura.tipo === '45') {
+    if (facturaAdaptada.tipo === '45') {
       // Tipo 45 (Gubernamental): Servicios médicos son EXENTOS por defecto
       // Solo gravado si se marca explícitamente con itbis=true o gravado=true
       itemEsGravado = item.itbis === true || item.gravado === true;
@@ -1156,9 +1213,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     // Para tipos 41, 46, 47: incluir sección retencion OBLIGATORIA
     // NOTA: Tipos 43, 44 y 45 NO incluyen retención según validación de TheFactoryHKA
     if (
-      factura.tipo === '41' ||
-      factura.tipo === '46' ||
-      factura.tipo === '47'
+      facturaAdaptada.tipo === '41' ||
+      facturaAdaptada.tipo === '46' ||
+      facturaAdaptada.tipo === '47'
     ) {
       itemCompleto.retencion = {
         indicadorAgente: '1',
@@ -1194,7 +1251,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     .toFixed(2);
 
   // 🔧 Para tipo 45: Ajustar montos de items si hay diferencia con total declarado
-  if (factura.tipo === '45') {
+  if (facturaAdaptada.tipo === '45') {
     const totalDeclarado = parseFloat(montoTotal);
     const detalleCalculado = parseFloat(sumaItemsGravados);
     const diferencia = Math.abs(totalDeclarado - detalleCalculado);
@@ -1231,7 +1288,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   }
 
   // console.log(`🔍 Verificación detalle vs totales:`, {
-  //   tipoComprobante: factura.tipo,
+  //   tipoComprobante: facturaAdaptada.tipo,
   //   itemsGravadosDetalle: sumaItemsGravados,
   //   montoGravadoCalculado: montoGravadoCalculado,
   //   diferenciaGravado: (
@@ -1263,10 +1320,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       Encabezado: {
         IdentificacionDocumento: (() => {
           const baseIdDoc = {
-            TipoDocumento: factura.tipo,
-            NCF: factura.ncf,
+            TipoDocumento: facturaAdaptada.tipo,
+            NCF: facturaAdaptada.ncf,
             FechaVencimientoSecuencia: esFechaVencimientoObligatoria(
-              factura.tipo,
+              facturaAdaptada.tipo,
             )
               ? fechaVencimientoFormateada
               : null,
@@ -1274,9 +1331,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
           // Configuración específica por tipo de comprobante
           if (
-            factura.tipo === '31' ||
-            factura.tipo === '32' ||
-            factura.tipo === '33'
+            facturaAdaptada.tipo === '31' ||
+            facturaAdaptada.tipo === '32' ||
+            facturaAdaptada.tipo === '33'
           ) {
             // Tipos 31, 32, 33: Facturas y Notas de Débito - incluyen indicadorEnvioDiferido
             return {
@@ -1293,11 +1350,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
                 },
               ],
             };
-          } else if (factura.tipo === '34') {
+          } else if (facturaAdaptada.tipo === '34') {
             // Tipo 34: Nota de Crédito - estructura especial SIN fechaVencimiento ni indicadorEnvioDiferido
             return {
-              TipoDocumento: factura.tipo,
-              NCF: factura.ncf,
+              TipoDocumento: facturaAdaptada.tipo,
+              NCF: facturaAdaptada.ncf,
               // NO incluir FechaVencimientoSecuencia para tipo 34
               IndicadorMontoGravado:
                 parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
@@ -1305,7 +1362,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               TipoIngresos: '01',
               TipoPago: '1',
             };
-          } else if (factura.tipo === '41') {
+          } else if (facturaAdaptada.tipo === '41') {
             // Tipo 41: Compras - incluyen indicadorMontoGravado pero NO indicadorEnvioDiferido
             return {
               ...baseIdDoc,
@@ -1319,12 +1376,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
                 },
               ],
             };
-          } else if (factura.tipo === '43') {
+          } else if (facturaAdaptada.tipo === '43') {
             // Tipo 43: Gastos Menores - estructura muy simple, solo campos básicos
             return {
               ...baseIdDoc,
             };
-          } else if (factura.tipo === '45') {
+          } else if (facturaAdaptada.tipo === '45') {
             // Tipo 45: Gubernamental - incluye indicadorMontoGravado y tipoIngresos pero NO tablaFormasPago
             return {
               ...baseIdDoc,
@@ -1334,9 +1391,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               TipoPago: '1',
             };
           } else if (
-            factura.tipo === '44' ||
-            factura.tipo === '46' ||
-            factura.tipo === '47'
+            facturaAdaptada.tipo === '44' ||
+            facturaAdaptada.tipo === '46' ||
+            facturaAdaptada.tipo === '47'
           ) {
             // Tipos 44, 46, 47: Regímenes especiales - NO incluyen indicadorMontoGravado ni indicadorEnvioDiferido
             return {
@@ -1372,24 +1429,24 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             Municipio: emisor.municipio || null,
             Provincia: emisor.provincia || null,
             TablaTelefono: emisor.telefono || [],
-            FechaEmision: formatearFecha(factura.fecha),
+            FechaEmision: formatearFecha(facturaAdaptada.fecha),
           };
 
           // Para tipos 31, 32, 33, 34: incluir campos adicionales del emisor
           if (
-            factura.tipo === '31' ||
-            factura.tipo === '32' ||
-            factura.tipo === '33' ||
-            factura.tipo === '34'
+            facturaAdaptada.tipo === '31' ||
+            facturaAdaptada.tipo === '32' ||
+            facturaAdaptada.tipo === '33' ||
+            facturaAdaptada.tipo === '34'
           ) {
             return {
               ...baseEmisor,
               nombreComercial: stringVacioANull(emisor.razonSocial),
               correo: stringVacioANull(emisor.correo),
               webSite: emisor.webSite || null,
-              codigoVendedor: factura.id || null,
-              numeroFacturaInterna: stringVacioANull(factura.id),
-              numeroPedidoInterno: stringVacioANull(factura.id),
+              codigoVendedor: facturaAdaptada.id || null,
+              numeroFacturaInterna: stringVacioANull(facturaAdaptada.id),
+              numeroPedidoInterno: stringVacioANull(facturaAdaptada.id),
               zonaVenta: 'PRINCIPAL',
             };
           }
@@ -1398,7 +1455,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           return baseEmisor;
         })(),
         // Comprador: Tipo 43 NO incluye comprador según estructura oficial
-        ...(factura.tipo !== '43' && {
+        ...(facturaAdaptada.tipo !== '43' && {
           comprador: (() => {
             const baseComprador = {
               rnc: comprador.rnc,
@@ -1411,10 +1468,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
             // Para tipos 31, 32, 33, 34: incluir campos adicionales del comprador
             if (
-              factura.tipo === '31' ||
-              factura.tipo === '32' ||
-              factura.tipo === '33' ||
-              factura.tipo === '34'
+              facturaAdaptada.tipo === '31' ||
+              facturaAdaptada.tipo === '32' ||
+              facturaAdaptada.tipo === '33' ||
+              facturaAdaptada.tipo === '34'
             ) {
               return {
                 ...baseComprador,
@@ -1432,14 +1489,14 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           })(),
         }),
         // informacionesAdicionales solo para tipos 31, 32, 33, 34
-        ...(factura.tipo === '31' ||
-        factura.tipo === '32' ||
-        factura.tipo === '33' ||
-        factura.tipo === '34'
+        ...(facturaAdaptada.tipo === '31' ||
+        facturaAdaptada.tipo === '32' ||
+        facturaAdaptada.tipo === '33' ||
+        facturaAdaptada.tipo === '34'
           ? {
               informacionesAdicionales: {
-                numeroContenedor: factura.numeroContenedor || null,
-                numeroReferencia: stringVacioANull(factura.id),
+                numeroContenedor: facturaAdaptada.numeroContenedor || null,
+                numeroReferencia: stringVacioANull(facturaAdaptada.id),
               },
             }
           : {}),
@@ -1468,10 +1525,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
           // Para tipos 31, 32, 33, 34: Incluir montoExento (según ejemplo oficial)
           if (
-            factura.tipo === '31' ||
-            factura.tipo === '32' ||
-            factura.tipo === '33' ||
-            factura.tipo === '34'
+            facturaAdaptada.tipo === '31' ||
+            facturaAdaptada.tipo === '32' ||
+            facturaAdaptada.tipo === '33' ||
+            facturaAdaptada.tipo === '34'
           ) {
             return {
               ...baseTotales,
@@ -1483,7 +1540,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           }
 
           // Para tipo 43: Gastos Menores - estructura muy simple
-          if (factura.tipo === '43') {
+          if (facturaAdaptada.tipo === '43') {
             return {
               montoExento: montoTotal, // Para tipo 43, todo es monto exento
               montoTotal: montoTotal,
@@ -1491,7 +1548,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           }
 
           // Para tipo 44: Régimen especial - NO incluir campos de retención
-          if (factura.tipo === '44') {
+          if (facturaAdaptada.tipo === '44') {
             return {
               ...baseTotales,
               montoExento:
@@ -1503,7 +1560,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           }
 
           // Para tipo 45: Gubernamental - incluir campos ITBIS pero NO retención
-          if (factura.tipo === '45') {
+          if (facturaAdaptada.tipo === '45') {
             // Después del ajuste de items, usar directamente la suma del detalle
             const montoGravadoFinal = parseFloat(sumaItemsGravados);
             const itbisCalculado = montoGravadoFinal * 0.18;
@@ -1557,29 +1614,29 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       },
       DetallesItems: detallesItems,
       // Para tipo 45: Agregar sección vacía de descuentos/recargos para validación
-      ...(factura.tipo === '45' && {
+      ...(facturaAdaptada.tipo === '45' && {
         DescuentosORecargos: [],
       }),
       // Para tipo 34: Agregar InformacionReferencia OBLIGATORIA (con validación)
-      ...(factura.tipo === '34' &&
+      ...(facturaAdaptada.tipo === '34' &&
         (() => {
           // Validar que se proporcionen los campos obligatorios para tipo 34
-          if (!factura.ncfModificado) {
+          if (!facturaAdaptada.ncfModificado) {
             throw new Error(
               '❌ Tipo 34 requiere "ncfModificado": NCF de la factura original que se está modificando',
             );
           }
-          if (!factura.fechaNCFModificado) {
+          if (!facturaAdaptada.fechaNCFModificado) {
             throw new Error(
               '❌ Tipo 34 requiere "fechaNCFModificado": Fecha de la factura original',
             );
           }
-          if (!factura.codigoModificacion) {
+          if (!facturaAdaptada.codigoModificacion) {
             throw new Error(
               '❌ Tipo 34 requiere "codigoModificacion": Código que indica el tipo de modificación (1,2,3,4)',
             );
           }
-          if (!factura.razonModificacion) {
+          if (!facturaAdaptada.razonModificacion) {
             throw new Error(
               '❌ Tipo 34 requiere "razonModificacion": Razón descriptiva de la modificación',
             );
@@ -1587,11 +1644,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
           return {
             InformacionReferencia: {
-              NCFModificado: factura.ncfModificado,
-              RNCOtroContribuyente: factura.rncOtroContribuyente || emisor.rnc,
-              FechaNCFModificado: formatearFecha(factura.fechaNCFModificado),
-              CodigoModificacion: factura.codigoModificacion,
-              RazonModificacion: factura.razonModificacion,
+              NCFModificado: facturaAdaptada.ncfModificado,
+              FechaNCFModificado: formatearFecha(
+                facturaAdaptada.fechaNCFModificado,
+              ),
+              CodigoModificacion: facturaAdaptada.codigoModificacion,
+              RazonModificacion: facturaAdaptada.razonModificacion,
             },
           };
         })()),
@@ -1604,7 +1662,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 // Controlador para enviar factura a TheFactoryHKA
 const enviarFacturaElectronica = async (req, res) => {
   try {
-    // console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
+    console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
 
     // Obtener token de autenticación
     const token = await obtenerTokenTheFactory();
@@ -1612,17 +1670,17 @@ const enviarFacturaElectronica = async (req, res) => {
     // Transformar el JSON simplificado al formato completo
     const facturaCompleta = transformarFacturaParaTheFactory(req.body, token);
 
-    // console.log(
-    //   'Factura transformada:',
-    //   JSON.stringify(facturaCompleta, null, 2),
-    // );
+    console.log(
+      'Factura transformada:',
+      JSON.stringify(facturaCompleta, null, 2),
+    );
 
     // Enviar a TheFactoryHKA
     const response = await axios.post(THEFACTORY_ENVIAR_URL, facturaCompleta, {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 30000, // 30 segundos de timeout
+      timeout: 60000, // 60 segundos de timeout (aumentado)
     });
 
     // console.log('Respuesta de TheFactoryHKA:', response.data);
@@ -1685,17 +1743,25 @@ const enviarFacturaElectronica = async (req, res) => {
     // Error de autenticación - limpiar cache y reintentar una vez
     if (
       error.message.includes('Error de autenticación') ||
+      error.message.includes('token') ||
+      error.message.includes('expirado') ||
+      error.message.includes('expired') ||
       (error.response &&
         (error.response.status === 401 || error.response.status === 403))
     ) {
+      console.log(
+        '🔄 Error de autenticación detectado, limpiando cache del token...',
+      );
       // Limpiar cache del token
-      tokenCache.token = null;
-      tokenCache.fechaExpiracion = null;
+      limpiarCacheToken();
 
       return res.status(httpStatus.UNAUTHORIZED).json({
         status: 'error',
-        message: 'Error de autenticación con TheFactoryHKA',
-        details: error.message,
+        message: 'Token expirado. Vuelve a intentar la operación',
+        details:
+          'El token de autenticación ha expirado. El sistema lo renovará automáticamente en el próximo intento.',
+        codigo: 'TOKEN_EXPIRADO',
+        sugerencia: 'Reintente la operación en unos segundos',
       });
     }
 
@@ -1710,9 +1776,17 @@ const enviarFacturaElectronica = async (req, res) => {
     }
 
     if (error.code === 'ECONNABORTED') {
+      console.warn(
+        `⏰ TIMEOUT TheFactoryHKA para NCF: ${req.body.factura?.ncf || 'N/A'} - Duración: 60+ segundos`,
+      );
       return res.status(httpStatus.REQUEST_TIMEOUT).json({
         status: 'error',
-        message: 'Timeout al conectar con TheFactoryHKA',
+        message: 'Timeout: TheFactoryHKA tardó más de 60 segundos en responder',
+        details:
+          'El servicio de TheFactoryHKA está experimentando lentitud. La factura puede haberse procesado correctamente. Consulte el estatus del documento.',
+        ncf: req.body.factura?.ncf || null,
+        sugerencia:
+          'Usar el endpoint /consultar-estatus para verificar si la factura fue procesada',
       });
     }
 
@@ -1810,6 +1884,25 @@ const consultarEstatusDocumento = async (req, res) => {
   }
 };
 
+// Endpoint para limpiar cache del token (útil para debugging)
+const limpiarTokenCache = async (req, res) => {
+  try {
+    limpiarCacheToken();
+
+    return res.status(httpStatus.OK).json({
+      status: 'success',
+      message: 'Cache del token limpiado exitosamente',
+      details: 'El próximo envío obtendrá un token nuevo',
+    });
+  } catch (error) {
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error al limpiar cache del token',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -1824,5 +1917,6 @@ module.exports = {
   consultarEstatusDocumento,
   generarUrlQR,
   generarCodigoQR,
+  limpiarTokenCache, // NUEVO: Endpoint para limpiar cache
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
 };

@@ -27,14 +27,14 @@ const app = express();
 app.use(express.json());
 
 // Middleware para logging de todas las peticiones
-// app.use((req, res, next) => {
-//   console.log(
-//     `📥 ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`,
-//   );
-//   console.log('📦 Body:', req.body);
-//   console.log('🔗 Headers:', req.headers);
-//   next();
-// });
+app.use((req, res, next) => {
+  console.log(
+    `📥 ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`,
+  );
+  console.log('📦 Body:', req.body);
+  console.log('🔗 Headers:', req.headers);
+  next();
+});
 
 // Reemplazo temporal de la configuración de CORS para permitir todos los orígenes
 app.use(

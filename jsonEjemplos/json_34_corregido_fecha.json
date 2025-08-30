@@ -1,0 +1,34 @@
+{
+  "comprador": {
+    "correo": "informacion@citopat.com",
+    "nombre": "Citopat Corominas",
+    "rnc": "130824444"
+  },
+  "emisor": {
+    "correo": "informacion@contrerasrobledo.com.do",
+    "direccion": "Av. Juan Pablo Duarte No. 176\rSantiago, Rep. Dom.",
+    "razonSocial": "Clínica Universitaria Unión Médica Torre A",
+    "rnc": "130085765",
+    "telefono": ["809-580-1429"]
+  },
+  "factura": {
+    "fecha": "11-08-2025",
+    "fechaVencNCF": "31/12/2025",
+    "id": "405664",
+    "ncf": "E340000000036",
+    "tipo": "34",
+    "total": "1000.00"
+  },
+  "items": [
+    {
+      "nombre": "Servicios Misceláneos",
+      "precio": "1000.00"
+    }
+  ],
+  "modificacion": {
+    "CodigoModificacion": "03",
+    "FechaNCFModificado": "11-08-2025",
+    "NCFModificado": "E310000000110",
+    "RazonModificacion": "Corrección de errores en la factura"
+  }
+}
