@@ -13,6 +13,7 @@ const {
   enviarFacturaElectronica,
   consultarEstatusDocumento,
   generarCodigoQR,
+  limpiarTokenCache,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -53,5 +54,8 @@ router.post('/:id/consumir', consumirNumero); // POST /comprobantes/:id/consumir
 
 // Ruta para generar código QR según especificaciones DGII
 router.post('/generar-qr', generarCodigoQR); // POST /comprobantes/generar-qr - Generar QR Code versión 8
+
+// Ruta para limpiar cache del token (útil para debugging de problemas de autenticación)
+router.post('/limpiar-token', limpiarTokenCache); // POST /comprobantes/limpiar-token - Limpiar cache del token
 
 module.exports = router;

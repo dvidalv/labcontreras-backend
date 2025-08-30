@@ -453,6 +453,7 @@ const getPublicacionById = async (req, res) => {
 };
 
 const getPdf = async (req, res) => {
+  console.log('getPdf');
   try {
     const pdfUrl = req.body.url; // Reemplaza con la URL de tu PDF
     const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
@@ -461,7 +462,7 @@ const getPdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.send(pdfBuffer); //
   } catch (error) {
-    console.error('Error al cargar el PDF:', error);
+    // console.error('Error al cargar el PDF:', error);
     res
       .status(500)
       .json({ status: 'error', message: 'Error al cargar el PDF' });
