@@ -14,6 +14,7 @@ const {
   consultarEstatusDocumento,
   generarCodigoQR,
   limpiarTokenCache,
+  enviarEmailFactura,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -38,6 +39,9 @@ router.post('/enviar-electronica', enviarFacturaElectronica); // POST /comproban
 
 // Ruta para consultar estatus de documento electrónico
 router.post('/consultar-estatus', consultarEstatusDocumento); // POST /comprobantes/consultar-estatus - Consultar estatus en TheFactoryHKA
+
+// Ruta para enviar email de documento electrónico vía The Factory HKA
+router.post('/enviar-email', enviarEmailFactura); // POST /comprobantes/enviar-email - Enviar email de documento electrónico
 
 // Rutas específicas por ID
 router
