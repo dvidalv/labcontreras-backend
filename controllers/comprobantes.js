@@ -124,24 +124,30 @@ const generarUrlQR = (responseData, facturaOriginal) => {
     const montoTotal = parseFloat(facturaOriginal.factura.total || 0);
     const LIMITE_MONTO = 250000; // RD$250,000
 
-    // URLs oficiales según informe técnico DGII - diferentes endpoints según monto
+    // 🔍 DEBUG: Verificar datos recibidos
+    console.log('🔍 DEBUG generarUrlQR - Datos recibidos:');
+    console.log('responseData:', JSON.stringify(responseData, null, 2));
+    console.log('facturaOriginal:', JSON.stringify(facturaOriginal, null, 2));
+    console.log('montoTotal calculado:', montoTotal);
+
+    // URLs oficiales según informe técnico DGII - USAR SIEMPRE ConsultaTimbre para test
     const esMontoAlto = montoTotal >= LIMITE_MONTO;
     const baseUrl = esMontoAlto
-      ? 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre' // ≥ RD$250,000
-      : 'https://fc.dgii.gov.do/eCF/ConsultaTimbreFC'; // < RD$250,000
+      ? 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre' // ≥ RD$250,000
+      : 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre'; // < RD$250,000 - CORREGIDO: usar mismo endpoint
 
-    // Parámetros según especificación DGII
+    // Parámetros según especificación DGII OFICIAL (COMPLETOS según The Factory HKA)
     const params = new URLSearchParams({
-      rnc: facturaOriginal.emisor.rnc,
-      ncf: facturaOriginal.factura.ncf,
-      codigo: responseData.codigoSeguridad,
-      fecha: responseData.fechaEmision.substring(0, 10), // Solo fecha DD-MM-YYYY
+      RncEmisor: facturaOriginal.emisor.rnc, // ✅ RNC del emisor
+      RncComprador: facturaOriginal.comprador.rnc, // ✅ RNC del comprador (FALTABA)
+      ENCF: facturaOriginal.factura.ncf, // ✅ Número de comprobante
+      FechaEmision: responseData.fechaEmision
+        ? responseData.fechaEmision.substring(0, 10)
+        : facturaOriginal.factura.fecha, // ✅ Fecha emisión (FALTABA)
+      MontoTotal: montoTotal.toFixed(2), // ✅ Monto total
+      FechaFirma: responseData.fechaFirma || responseData.fechaEmision, // ✅ Fecha Y HORA completa (como viene de TheFactory)
+      CodigoSeguridad: responseData.codigoSeguridad, // ✅ Código de seguridad
     });
-
-    // Agregar monto solo para facturas de alto valor (≥ RD$250,000)
-    if (esMontoAlto) {
-      params.append('monto', montoTotal.toFixed(2));
-    }
 
     const urlCompleta = `${baseUrl}?${params.toString()}`;
 
@@ -162,16 +168,32 @@ const generarUrlQR = (responseData, facturaOriginal) => {
 // Función para generar código QR según especificaciones de la DGII
 const generarCodigoQR = async (req, res) => {
   try {
+    // 🔍 DEBUG: Log completo de datos recibidos desde FileMaker
+    console.log('🔍 === DEBUG generarCodigoQR ===');
+    console.log('req.body completo:', JSON.stringify(req.body, null, 2));
+    console.log('req.headers:', JSON.stringify(req.headers, null, 2));
+
     const {
       url,
       rnc,
+      rncComprador, // ✅ Agregar rncComprador a la desestructuración
       ncf,
       codigo,
       fecha,
+      fechaFirma, // ✅ Agregar fechaFirma a la desestructuración
       monto,
       formato = 'png',
       tamaño = 300,
     } = req.body;
+
+    console.log('🔍 Parámetros extraídos:');
+    console.log('rnc:', rnc);
+    console.log('rncComprador:', rncComprador);
+    console.log('ncf:', ncf);
+    console.log('codigo:', codigo);
+    console.log('fecha:', fecha);
+    console.log('fechaFirma:', fechaFirma);
+    console.log('monto:', monto);
 
     let urlParaQR;
 
@@ -180,30 +202,55 @@ const generarCodigoQR = async (req, res) => {
       urlParaQR = url;
     }
     // Opción 2: Parámetros individuales (método mejorado)
-    else if (rnc && ncf && codigo && fecha) {
+    else if (rnc && ncf && codigo) {
+      // Verificar si tenemos todos los datos necesarios
+      if (!rncComprador || !fechaFirma) {
+        console.log('⚠️ ADVERTENCIA: Faltan datos obligatorios para DGII');
+        console.log('- rncComprador:', rncComprador || 'NO ENVIADO');
+        console.log('- fechaFirma:', fechaFirma || 'NO ENVIADO');
+      } else {
+        console.log('✅ Todos los datos necesarios están presentes');
+      }
+
       // URLs oficiales según informe técnico DGII - diferentes endpoints según monto
       const montoTotal = parseFloat(monto || 0);
       const LIMITE_MONTO = 250000; // RD$250,000
 
       const esMontoAlto = montoTotal >= LIMITE_MONTO;
       const baseUrl = esMontoAlto
-        ? 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre' // ≥ RD$250,000
-        : 'https://fc.dgii.gov.do/eCF/ConsultaTimbreFC'; // < RD$250,000
+        ? 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre' // ≥ RD$250,000
+        : 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre'; // < RD$250,000 - CORREGIDO: usar mismo endpoint
 
-      // Parámetros según especificación DGII
+      // Parámetros según especificación DGII OFICIAL
       const params = new URLSearchParams({
-        rnc: rnc,
-        ncf: ncf,
-        codigo: codigo,
-        fecha: fecha.substring(0, 10), // Solo fecha DD-MM-YYYY
+        RncEmisor: rnc, // ✅ RNC del emisor
+        RncComprador: rncComprador || 'SIN_RNC_COMPRADOR', // ✅ RNC del comprador (ahora desestructurado)
+        ENCF: ncf, // ✅ Número de comprobante
+        FechaEmision: fecha ? fecha.substring(0, 10) : '', // ✅ Fecha emisión
+        MontoTotal: montoTotal.toFixed(2), // ✅ Monto total
+        FechaFirma: (() => {
+          // Asegurar que FechaFirma siempre tenga hora
+          if (fechaFirma && fechaFirma.includes(' ')) {
+            return fechaFirma; // Ya tiene hora
+          }
+          const fechaBase = fechaFirma || fecha;
+          return fechaBase + ' 00:00:00'; // Agregar hora por defecto
+        })(), // ✅ Fecha Y HORA completa (DD-MM-YYYY HH:MM:SS)
+        CodigoSeguridad: codigo, // ✅ Código de seguridad
       });
 
-      // Agregar monto solo para facturas de alto valor (≥ RD$250,000)
-      if (esMontoAlto) {
-        params.append('monto', montoTotal.toFixed(2));
-      }
-
       urlParaQR = `${baseUrl}?${params.toString()}`;
+
+      console.log('🎯 URL generada:', urlParaQR);
+      console.log('📅 FechaFirma original recibida:', fechaFirma);
+      console.log('📅 Fecha base:', fecha);
+      console.log('📅 FechaFirma final en URL:', params.get('FechaFirma'));
+      console.log('📅 ¿Incluye hora?', params.get('FechaFirma').includes(' '));
+      if (rncComprador && fechaFirma) {
+        console.log('✅ URL completa - debería funcionar en DGII');
+      } else {
+        console.log('❌ URL incompleta - puede fallar en DGII');
+      }
 
       // console.log(
       //   `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlParaQR}`,
@@ -216,13 +263,13 @@ const generarCodigoQR = async (req, res) => {
         status: 'error',
         message: 'Parámetros insuficientes para generar el código QR',
         details:
-          'Debe proporcionar: url completa O (rnc + ncf + codigo + fecha + monto opcional)',
+          'Debe proporcionar: url completa O (rnc + ncf + codigo + monto + rncComprador opcional + fechaFirma opcional)',
       });
     }
 
-    // Configuración según recomendaciones de la DGII
+    // Configuración según recomendaciones de la DGII (ajustada para URLs largas)
     const opcionesQR = {
-      version: 8, // Versión 8 recomendada por la DGII
+      // No especificar version para que se calcule automáticamente según el contenido
       errorCorrectionLevel: 'M', // Nivel medio de corrección de errores
       type: formato === 'svg' ? 'svg' : 'image/png',
       quality: 0.92,
@@ -254,12 +301,12 @@ const generarCodigoQR = async (req, res) => {
         qrCode: qrData,
         formato: formato,
         tamaño: tamaño,
-        version: 8,
+        versionCalculada: 'auto', // Se calcula automáticamente según el contenido
         parametrosUsados: url ? 'URL completa' : 'Parámetros individuales',
         especificaciones: {
           errorCorrection: 'M',
           cumpleNormativaDGII: true,
-          versionRecomendada: 8,
+          versionOptimizada: true,
         },
         timestamp: new Date().toISOString(),
       },
@@ -1903,6 +1950,13 @@ const limpiarTokenCache = async (req, res) => {
   }
 };
 
+// 📧 Endpoint para enviar email de documento electrónico vía The Factory HKA
+const enviarEmailFactura = async (req, res) => {
+  // Importación lazy para evitar dependencia circular
+  const { enviarEmailDocumento } = require('../api/thefactory-email');
+  return await enviarEmailDocumento(req, res);
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -1919,4 +1973,5 @@ module.exports = {
   generarCodigoQR,
   limpiarTokenCache, // NUEVO: Endpoint para limpiar cache
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
+  enviarEmailFactura, // NUEVO: Endpoint para enviar emails vía The Factory HKA
 };

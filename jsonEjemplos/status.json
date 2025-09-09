@@ -1,0 +1,28 @@
+{
+	"data" : 
+	{
+		"datosCompletos" : 
+		{
+			"codigo" : 2,
+			"codigoSeguridad" : "RatkJ+",
+			"fechaEmision" : "03-02-2025 00:00:00",
+			"fechaFirma" : "02-09-2025 10:45:06",
+			"mensaje" : "Rechazado",
+			"observaciones" : 
+			[
+				{
+					"codigo" : 613,
+					"mensaje" : "Los comprobantes electrónicos no pueden reemplazarse entre ellos mismos."
+				}
+			],
+			"procesado" : true
+		},
+		"estado" : "EN_PROCESO",
+		"estadoOriginal" : "Rechazado",
+		"fechaConsulta" : "2025-09-02T14:46:12.294Z",
+		"mensaje" : "Rechazado",
+		"ncf" : "E340000000049"
+	},
+	"message" : "Consulta de estatus realizada exitosamente",
+	"status" : "success"
+}

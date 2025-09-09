@@ -1,0 +1,195 @@
+#####################################################################
+# SCRIPT FILEMAKER: Envío de Email Independiente
+# Descripción: Envía email de documento electrónico ya procesado
+# Endpoint: /comprobantes/enviar-email
+# Versión: 1.0
+#####################################################################
+
+# ===============================
+# CONFIGURACIÓN INICIAL
+# ===============================
+Set Variable [ $servidor ; Value: "https://tu-servidor.com" ]
+Set Variable [ $token ; Value: "tu_token_bearer_aqui" ]
+
+# ===============================
+# VALIDACIONES PREVIAS
+# ===============================
+# Verificar que la factura esté procesada
+If [ IsEmpty ( Facturas::NCF ) or IsEmpty ( Facturas::EstadoEnvio ) or Facturas::EstadoEnvio ≠ "Enviado Exitosamente" ]
+    Show Custom Dialog [ "Factura No Procesada" ; "❌ Esta factura no está procesada electrónicamente¶¶Primero debe:¶• Enviar la factura a DGII¶• Esperar confirmación exitosa¶¶Luego podrá enviar el email" ]
+    Exit Script [ Text Result: "Error: Factura no procesada" ]
+End If
+
+# Verificar email del comprador
+If [ IsEmpty ( Facturas::CompradorCorreo ) or PatternCount ( Facturas::CompradorCorreo ; "@" ) = 0 ]
+    Show Custom Dialog [ "Email Requerido" ; "❌ No hay email válido del comprador¶¶Email actual: " & Facturas::CompradorCorreo & "¶¶Por favor ingrese un email válido." ; "Ingresar Email" ; "Cancelar" ]
+    
+    If [ Get ( LastMessageChoice ) = 1 ]
+        # Permitir ingresar email
+        Show Custom Dialog [ "Ingresar Email" ; "📧 Email del comprador:" ; Facturas::CompradorCorreo ]
+        Set Field [ Facturas::CompradorCorreo ; Get ( LastMessageChoice ) ]
+        
+        # Verificar nuevo email
+        If [ IsEmpty ( Facturas::CompradorCorreo ) or PatternCount ( Facturas::CompradorCorreo ; "@" ) = 0 ]
+            Show Custom Dialog [ "Email Inválido" ; "❌ El email ingresado no es válido" ]
+            Exit Script [ Text Result: "Error: Email inválido" ]
+        End If
+    Else
+        Exit Script [ Text Result: "Cancelado por usuario" ]
+    End If
+End If
+
+# ===============================
+# CONFIRMACIÓN DE ENVÍO
+# ===============================
+Show Custom Dialog [ "Confirmar Envío de Email" ; 
+    "📧 ¿Enviar email del documento?¶¶" &
+    "📄 DATOS:¶" &
+    "• NCF: " & Facturas::NCF & "¶" &
+    "• Cliente: " & Facturas::CompradorNombre & "¶" &
+    "• Email: " & Facturas::CompradorCorreo & "¶" &
+    "• Total: RD$ " & Facturas::Total & "¶¶" &
+    "El cliente recibirá la factura electrónica por email."
+    ; "Enviar Email" ; "Cancelar" 
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "Cancelado por usuario" ]
+End If
+
+# ===============================
+# PREPARAR DATOS PARA EMAIL
+# ===============================
+Set Variable [ $email_json ; Value: JSONSetElement ( "{}" ;
+    [ "documento" ; Facturas::NCF ; JSONString ] ;
+    [ "correos[0]" ; Facturas::CompradorCorreo ; JSONString ] ;
+    [ "rnc" ; "130085765" ; JSONString ]
+) ]
+
+# Para múltiples emails (opcional)
+# Si tienes un campo con emails separados por comas o punto y coma
+If [ not IsEmpty ( Facturas::EmailsAdicionales ) ]
+    Set Variable [ $emails_adicionales ; Value: Substitute ( Facturas::EmailsAdicionales ; [ "," ; "¶" ] ; [ ";" ; "¶" ] ) ]
+    Set Variable [ $contador_email ; Value: 1 ]
+    
+    Loop
+        Exit Loop If [ ValueCount ( $emails_adicionales ) < $contador_email ]
+        Set Variable [ $email_adicional ; Value: GetValue ( $emails_adicionales ; $contador_email ) ]
+        
+        # Solo agregar si el email es válido
+        If [ PatternCount ( $email_adicional ; "@" ) > 0 ]
+            Set Variable [ $email_json ; Value: JSONSetElement ( $email_json ;
+                [ "correos[" & $contador_email & "]" ; Trim ( $email_adicional ) ; JSONString ]
+            ) ]
+        End If
+        
+        Set Variable [ $contador_email ; Value: $contador_email + 1 ]
+    End Loop
+End If
+
+# ===============================
+# ENVIAR EMAIL
+# ===============================
+# Configurar cURL options (MÉTODO RECOMENDADO - Headers separados)
+Set Variable [ $curl_options ; Value:
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--data-raw " & Quote($email_json)
+]
+
+# Mostrar progreso
+Show Custom Dialog [ "Enviando Email" ; "📤 Enviando email...¶Por favor espere..." ; "" ; "⏳" ]
+
+# Ejecutar envío
+Insert from URL [ Select ; With dialog: Off ; Target: $resultado ; $servidor & "/comprobantes/enviar-email" ; cURL options: $curl_options ]
+
+# ===============================
+# PROCESAR RESPUESTA
+# ===============================
+Set Variable [ $status ; Value: JSONGetElement ( $resultado ; "status" ) ]
+Set Variable [ $mensaje ; Value: JSONGetElement ( $resultado ; "message" ) ]
+
+If [ $status = "success" ]
+    # ===========================
+    # EMAIL ENVIADO EXITOSAMENTE
+    # ===========================
+    Set Variable [ $emails_enviados ; Value: JSONGetElement ( $resultado ; "data.correos" ) ]
+    Set Variable [ $documento_enviado ; Value: JSONGetElement ( $resultado ; "data.documento" ) ]
+    
+    # Guardar estado del email en formato JSON (MÉTODO MEJORADO)
+    Set Variable [ $email_resultado_json ; Value: JSONSetElement ( "{}" ;
+        [ "status" ; "success" ; JSONString ] ;
+        [ "fechaEnvio" ; Get ( CurrentTimeStamp ) ; JSONString ] ;
+        [ "mensaje" ; $mensaje ; JSONString ] ;
+        [ "documento" ; $documento_enviado ; JSONString ] ;
+        [ "destinatarios" ; $emails_enviados ; JSONString ] ;
+        [ "respuestaCompleta" ; $resultado ; JSONString ] ;
+        [ "metodo" ; "TheFactoryHKA" ; JSONString ] ;
+        [ "intentos" ; 1 ; JSONNumber ]
+    ) ]
+    
+    # Guardar JSON completo en un solo campo
+    Set Field [ Facturas::EmailResultado ; $email_resultado_json ]
+    
+    # Mantener campos de consulta rápida (opcionales)
+    Set Field [ Facturas::EmailEnviado ; True ]
+    Set Field [ Facturas::FechaEmail ; Get ( CurrentTimeStamp ) ]
+    
+    # Mostrar confirmación
+    Show Custom Dialog [ "Email Enviado Exitosamente" ; 
+        "✅ ¡Email enviado correctamente!¶¶" &
+        "📄 Documento: " & $documento_enviado & "¶" &
+        "📧 Enviado a: " & $emails_enviados & "¶¶" &
+        "📋 Detalles:¶" &
+        $mensaje & "¶¶" &
+        "🕒 Enviado: " & Get ( CurrentTimeStamp )
+    ]
+    
+Else
+    # ===========================
+    # ERROR EN EL ENVÍO
+    # ===========================
+    Set Variable [ $error_details ; Value: JSONGetElement ( $resultado ; "details" ) ]
+    
+    # Guardar error en formato JSON (MÉTODO MEJORADO)
+    Set Variable [ $email_error_json ; Value: JSONSetElement ( "{}" ;
+        [ "status" ; "error" ; JSONString ] ;
+        [ "fechaError" ; Get ( CurrentTimeStamp ) ; JSONString ] ;
+        [ "mensaje" ; $mensaje ; JSONString ] ;
+        [ "detalles" ; $error_details ; JSONString ] ;
+        [ "respuestaCompleta" ; $resultado ; JSONString ] ;
+        [ "metodo" ; "TheFactoryHKA" ; JSONString ] ;
+        [ "intentos" ; 1 ; JSONNumber ]
+    ) ]
+    
+    # Guardar JSON completo en un solo campo
+    Set Field [ Facturas::EmailResultado ; $email_error_json ]
+    
+    # Mantener campos de consulta rápida (opcionales)
+    Set Field [ Facturas::EmailEnviado ; False ]
+    Set Field [ Facturas::FechaEmail ; Get ( CurrentTimeStamp ) ]
+    
+    # Mostrar error
+    Show Custom Dialog [ "Error al Enviar Email" ; 
+        "❌ No se pudo enviar el email¶¶" &
+        "Error: " & $mensaje & "¶" &
+        If ( not IsEmpty ( $error_details ) ; "Detalles: " & $error_details & "¶" ; "" ) & "¶" &
+        "🔧 Posibles soluciones:¶" &
+        "• Verificar el email del comprador¶" &
+        "• Comprobar que la factura esté aceptada en DGII¶" &
+        "• Verificar conexión a internet¶" &
+        "• Intentar nuevamente en unos minutos"
+    ]
+End If
+
+# ===============================
+# LIMPIEZA FINAL
+# ===============================
+# Limpiar variables sensibles
+Set Variable [ $token ; Value: "" ]
+Set Variable [ $curl_options ; Value: "" ]
+
+#####################################################################
+# FIN DEL SCRIPT
+#####################################################################
