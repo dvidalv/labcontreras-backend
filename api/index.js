@@ -1,5 +1,5 @@
 const express = require('express');
-const connectDB = require('../lib/db');
+const { connectDB } = require('../lib/db');
 const dotenv = require('dotenv');
 const path = require('path');
 

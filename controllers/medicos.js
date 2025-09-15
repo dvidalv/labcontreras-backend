@@ -4,12 +4,16 @@ const bcrypt = require('bcryptjs');
 const { MedicosWhiteList } = require('../models/medicosWhiteList');
 const { Medico } = require('../models/medico');
 const { cli } = require('winston/lib/winston/config');
+const { ensureConnection } = require('../lib/db');
 
 // const bcrypt = require('bcryptjs');
 // const { Medico } = require('../models/medico');
 
 const getAllMedicosWhiteList = async (req, res) => {
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const medicos = await MedicosWhiteList.find({});
 
     return res.status(httpStatus.OK).json(medicos);
@@ -22,8 +26,10 @@ const getAllMedicosWhiteList = async (req, res) => {
 };
 
 const getAllMedicos = async (req, res) => {
-
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const medicos = await Medico.find({});
     // console.log(medicos);
     res.setHeader('Cache-Control', 'no-store');
@@ -38,6 +44,9 @@ const getAllMedicos = async (req, res) => {
 
 const getMedicoById = async (req, res) => {
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const { id } = req.params;
     const medico = await Medico.findById(id);
     if (!medico) {
@@ -56,15 +65,11 @@ const getMedicoById = async (req, res) => {
 
 const createMedico = async (req, res) => {
   try {
-    const {
-      nombre,
-      apellido,
-      especialidad,
-      telefono,
-      celular,
-      email,
-      url,
-    } = req.body;
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
+    const { nombre, apellido, especialidad, telefono, celular, email, url } =
+      req.body;
     const medico = new Medico({
       nombre,
       apellido,
@@ -91,6 +96,9 @@ const createMedico = async (req, res) => {
 // Middleware para verificar la identidad del médico
 async function verifyIdentity(req, res, next) {
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const { id } = req.params;
     const { password } = req.body;
 
@@ -107,18 +115,19 @@ async function verifyIdentity(req, res, next) {
     //   // Si la contraseña coincide, procede al siguiente middleware
     next();
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: 'Error al verificar la identidad del médico',
-        error: error.message,
-      });
+    res.status(500).json({
+      message: 'Error al verificar la identidad del médico',
+      error: error.message,
+    });
   }
 }
 
 // Función para actualizar un médico
 async function editMedico(req, res) {
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const { id } = req.params;
     let updateData = { ...req.body };
     delete updateData.password; // Excluye la contraseña de los datos de actualización
@@ -139,6 +148,9 @@ async function editMedico(req, res) {
 
 const deleteMedico = async (req, res) => {
   try {
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
+
     const { id } = req.params;
     const medico = await Medico.findByIdAndDelete(id);
     if (!medico) {
