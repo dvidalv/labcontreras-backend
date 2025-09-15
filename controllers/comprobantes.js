@@ -1098,14 +1098,40 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   }
 
   // Validar que tenemos los datos básicos necesarios (usando datos adaptados)
-  if (
-    !comprador?.rnc ||
-    !emisor?.rnc ||
-    !facturaAdaptada?.ncf ||
-    !facturaAdaptada?.tipo ||
-    !itemsAdaptados?.length
-  ) {
-    throw new Error('Faltan datos obligatorios en la factura');
+  const camposFaltantes = [];
+
+  // 🔍 Validación específica por tipo de comprobante para RNC del comprador
+  if (facturaAdaptada?.tipo === '32') {
+    // Tipo 32 (Consumo): RNC del comprador debe ser null (consumidor final)
+    // No validamos comprador.rnc para tipo 32
+    console.log(
+      '📋 Tipo 32 detectado - RNC comprador será null (consumidor final)',
+    );
+  } else {
+    // Otros tipos (31, 33, 34, 41, 43, 44, 45): RNC del comprador es obligatorio
+    if (!comprador?.rnc) camposFaltantes.push('comprador.rnc');
+  }
+
+  // Validaciones obligatorias para TODOS los tipos
+  if (!emisor?.rnc) camposFaltantes.push('emisor.rnc');
+  if (!facturaAdaptada?.ncf) camposFaltantes.push('factura.ncf');
+  if (!facturaAdaptada?.tipo) camposFaltantes.push('factura.tipo');
+  if (!itemsAdaptados?.length)
+    camposFaltantes.push('items (debe tener al menos 1 elemento)');
+
+  if (camposFaltantes.length > 0) {
+    console.error('❌ Validación fallida - Campos faltantes:', camposFaltantes);
+    console.error('📋 Datos recibidos:', {
+      'comprador.rnc': comprador?.rnc || 'FALTANTE (null para tipo 32)',
+      'emisor.rnc': emisor?.rnc || 'FALTANTE',
+      'factura.ncf': facturaAdaptada?.ncf || 'FALTANTE',
+      'factura.tipo': facturaAdaptada?.tipo || 'FALTANTE',
+      'items.length': itemsAdaptados?.length || 0,
+      tipoComprobante: facturaAdaptada?.tipo,
+    });
+    throw new Error(
+      `Faltan datos obligatorios en la factura: ${camposFaltantes.join(', ')}`,
+    );
   }
 
   // 📅 Formatear y validar fecha de vencimiento del NCF
@@ -1505,7 +1531,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         ...(facturaAdaptada.tipo !== '43' && {
           comprador: (() => {
             const baseComprador = {
-              rnc: comprador.rnc,
+              rnc: facturaAdaptada.tipo === '32' ? null : comprador.rnc, // 🔧 Para tipo 32: null (consumidor final)
               razonSocial: stringVacioANull(comprador.nombre),
               correo: stringVacioANull(comprador.correo),
               direccion: stringVacioANull(comprador.direccion),
@@ -1527,7 +1553,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
                 fechaEntrega: comprador.fechaEntrega || null,
                 fechaOrden: comprador.fechaOrden || null,
                 numeroOrden: comprador.numeroOrden || null,
-                codigoInterno: comprador.codigoInterno || comprador.rnc,
+                codigoInterno:
+                  comprador.codigoInterno ||
+                  (facturaAdaptada.tipo === '32' ? null : comprador.rnc), // 🔧 Para tipo 32: null
               };
             }
 
