@@ -118,40 +118,73 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
   return esObligatorio;
 };
 
-// Función para generar URL del QR Code para la DGII según el monto
+// Función para generar URL del QR Code para la DGII según el tipo de comprobante
 const generarUrlQR = (responseData, facturaOriginal) => {
   try {
     const montoTotal = parseFloat(facturaOriginal.factura.total || 0);
+    const tipoComprobante = facturaOriginal.factura.tipo;
 
     // 🔍 DEBUG: Verificar datos recibidos
     console.log('🔍 DEBUG generarUrlQR - Datos recibidos:');
     console.log('responseData:', JSON.stringify(responseData, null, 2));
     console.log('facturaOriginal:', JSON.stringify(facturaOriginal, null, 2));
     console.log('montoTotal calculado:', montoTotal);
+    console.log('tipoComprobante:', tipoComprobante);
 
-    // URL oficial DGII - usar siempre el mismo endpoint
-    const baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+    // Determinar endpoint y parámetros según el tipo de comprobante
+    let baseUrl, params;
 
-    // Parámetros BÁSICOS según ejemplo oficial DGII (solo los esenciales)
-    const params = new URLSearchParams({
-      RncEmisor: facturaOriginal.emisor.rnc, // ✅ RNC del emisor (OBLIGATORIO)
-      ENCF: facturaOriginal.factura.ncf, // ✅ Número de comprobante (OBLIGATORIO)
-      MontoTotal: montoTotal.toFixed(2), // ✅ Monto total (OBLIGATORIO)
-      CodigoSeguridad: responseData.codigoSeguridad, // ✅ Código de seguridad (OBLIGATORIO)
-    });
+    if (tipoComprobante === '32' || !facturaOriginal.comprador?.rnc) {
+      // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
+      baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+      params = new URLSearchParams({
+        RncEmisor: facturaOriginal.emisor.rnc,
+        ENCF: facturaOriginal.factura.ncf,
+        MontoTotal: montoTotal.toFixed(2),
+        CodigoSeguridad: responseData.codigoSeguridad,
+      });
 
-    // Solo incluir RncComprador si está disponible Y no es tipo 32 (consumo final)
-    if (
-      facturaOriginal.comprador?.rnc &&
-      facturaOriginal.factura.tipo !== '32'
-    ) {
-      params.append('RncComprador', facturaOriginal.comprador.rnc);
+      console.log(
+        '📋 Usando endpoint ConsultaTimbreFC (consumo final/sin RNC comprador)',
+      );
+    } else {
+      // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
+      baseUrl = 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre';
+
+      // Formatear fechas
+      const formatearFechaUrl = (fecha) => {
+        if (!fecha) return '';
+        // Si viene en formato DD-MM-YYYY, mantenerlo
+        if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          return fecha;
+        }
+        // Si viene en otro formato, convertirlo
+        const date = new Date(fecha);
+        return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+      };
+
+      params = new URLSearchParams({
+        RncEmisor: facturaOriginal.emisor.rnc,
+        RncComprador: facturaOriginal.comprador.rnc,
+        ENCF: facturaOriginal.factura.ncf,
+        FechaEmision: responseData.fechaEmision
+          ? formatearFechaUrl(responseData.fechaEmision)
+          : formatearFechaUrl(facturaOriginal.factura.fecha),
+        MontoTotal: montoTotal.toFixed(2),
+        FechaFirma: responseData.fechaFirma || responseData.fechaEmision,
+        CodigoSeguridad: responseData.codigoSeguridad,
+      });
+
+      console.log(
+        '📋 Usando endpoint ConsultaTimbre (con RNC comprador y fechas)',
+      );
     }
 
     const urlCompleta = `${baseUrl}?${params.toString()}`;
 
-    console.log(`📱 URL QR DGII simplificada: ${urlCompleta}`);
-    console.log(`📊 Parámetros incluidos: ${params.toString()}`);
+    console.log(`📱 URL QR DGII generada: ${urlCompleta}`);
+    console.log(`📊 Endpoint: ${baseUrl}`);
+    console.log(`📊 Parámetros: ${params.toString()}`);
 
     return urlCompleta;
   } catch (error) {
@@ -177,6 +210,7 @@ const generarCodigoQR = async (req, res) => {
       fecha,
       fechaFirma, // ✅ Agregar fechaFirma a la desestructuración
       monto,
+      tipo, // ✅ Agregar tipo de comprobante
       formato = 'png',
       tamaño = 300,
     } = req.body;
@@ -189,6 +223,7 @@ const generarCodigoQR = async (req, res) => {
     console.log('fecha:', fecha);
     console.log('fechaFirma:', fechaFirma);
     console.log('monto:', monto);
+    console.log('tipo:', tipo);
 
     let urlParaQR;
 
@@ -198,41 +233,64 @@ const generarCodigoQR = async (req, res) => {
     }
     // Opción 2: Parámetros individuales (método mejorado)
     else if (rnc && ncf && codigo) {
-      // Verificar si tenemos todos los datos necesarios
-      if (!rncComprador || !fechaFirma) {
-        console.log('⚠️ ADVERTENCIA: Faltan datos obligatorios para DGII');
-        console.log('- rncComprador:', rncComprador || 'NO ENVIADO');
-        console.log('- fechaFirma:', fechaFirma || 'NO ENVIADO');
-      } else {
-        console.log('✅ Todos los datos necesarios están presentes');
-      }
-
-      // URL oficial DGII - usar siempre el mismo endpoint
+      // Determinar endpoint y parámetros según el tipo de comprobante
       const montoTotal = parseFloat(monto || 0);
-      const baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+      let baseUrl, params;
 
-      // Parámetros BÁSICOS según ejemplo oficial DGII (solo los esenciales)
-      const params = new URLSearchParams({
-        RncEmisor: rnc, // ✅ RNC del emisor (OBLIGATORIO)
-        ENCF: ncf, // ✅ Número de comprobante (OBLIGATORIO)
-        MontoTotal: montoTotal.toFixed(2), // ✅ Monto total (OBLIGATORIO)
-        CodigoSeguridad: codigo, // ✅ Código de seguridad (OBLIGATORIO)
-      });
+      if (
+        tipo === '32' ||
+        !rncComprador ||
+        rncComprador === 'SIN_RNC_COMPRADOR'
+      ) {
+        // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
+        baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+        params = new URLSearchParams({
+          RncEmisor: rnc,
+          ENCF: ncf,
+          MontoTotal: montoTotal.toFixed(2),
+          CodigoSeguridad: codigo,
+        });
 
-      // Solo incluir RncComprador si está disponible (opcional)
-      if (rncComprador && rncComprador !== 'SIN_RNC_COMPRADOR') {
-        params.append('RncComprador', rncComprador);
+        console.log(
+          '📋 Usando endpoint ConsultaTimbreFC (consumo final/sin RNC comprador)',
+        );
+      } else {
+        // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
+        baseUrl = 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre';
+
+        // Formatear fechas
+        const formatearFechaUrl = (fecha) => {
+          if (!fecha) return '';
+          // Si viene en formato DD-MM-YYYY, mantenerlo
+          if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+            return fecha;
+          }
+          // Si viene en otro formato, convertirlo
+          const date = new Date(fecha);
+          return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+        };
+
+        params = new URLSearchParams({
+          RncEmisor: rnc,
+          RncComprador: rncComprador,
+          ENCF: ncf,
+          FechaEmision: formatearFechaUrl(fecha),
+          MontoTotal: montoTotal.toFixed(2),
+          FechaFirma: fechaFirma || fecha,
+          CodigoSeguridad: codigo,
+        });
+
+        console.log(
+          '📋 Usando endpoint ConsultaTimbre (con RNC comprador y fechas)',
+        );
       }
 
       urlParaQR = `${baseUrl}?${params.toString()}`;
 
-      console.log('🎯 URL QR simplificada generada:', urlParaQR);
-      console.log('📊 Parámetros básicos incluidos:', params.toString());
-      if (rncComprador) {
-        console.log('✅ Incluye RncComprador:', rncComprador);
-      } else {
-        console.log('ℹ️ Sin RncComprador (consumo final o no proporcionado)');
-      }
+      console.log('🎯 URL QR generada según tipo:', urlParaQR);
+      console.log('📊 Endpoint usado:', baseUrl);
+      console.log('📊 Parámetros incluidos:', params.toString());
+      console.log('📋 Tipo comprobante:', tipo || 'NO ESPECIFICADO');
 
       // console.log(
       //   `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlParaQR}`,
