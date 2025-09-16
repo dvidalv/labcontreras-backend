@@ -122,7 +122,6 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
 const generarUrlQR = (responseData, facturaOriginal) => {
   try {
     const montoTotal = parseFloat(facturaOriginal.factura.total || 0);
-    const LIMITE_MONTO = 250000; // RD$250,000
 
     // 🔍 DEBUG: Verificar datos recibidos
     console.log('🔍 DEBUG generarUrlQR - Datos recibidos:');
@@ -130,33 +129,29 @@ const generarUrlQR = (responseData, facturaOriginal) => {
     console.log('facturaOriginal:', JSON.stringify(facturaOriginal, null, 2));
     console.log('montoTotal calculado:', montoTotal);
 
-    // URLs oficiales según informe técnico DGII - USAR SIEMPRE ConsultaTimbre para test
-    const esMontoAlto = montoTotal >= LIMITE_MONTO;
-    const baseUrl = esMontoAlto
-      ? 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre' // ≥ RD$250,000
-      : 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre'; // < RD$250,000 - CORREGIDO: usar mismo endpoint
+    // URL oficial DGII - usar siempre el mismo endpoint
+    const baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
 
-    // Parámetros según especificación DGII OFICIAL (COMPLETOS según The Factory HKA)
+    // Parámetros BÁSICOS según ejemplo oficial DGII (solo los esenciales)
     const params = new URLSearchParams({
-      RncEmisor: facturaOriginal.emisor.rnc, // ✅ RNC del emisor
-      RncComprador: facturaOriginal.comprador.rnc, // ✅ RNC del comprador (FALTABA)
-      ENCF: facturaOriginal.factura.ncf, // ✅ Número de comprobante
-      FechaEmision: responseData.fechaEmision
-        ? responseData.fechaEmision.substring(0, 10)
-        : facturaOriginal.factura.fecha, // ✅ Fecha emisión (FALTABA)
-      MontoTotal: montoTotal.toFixed(2), // ✅ Monto total
-      FechaFirma: responseData.fechaFirma || responseData.fechaEmision, // ✅ Fecha Y HORA completa (como viene de TheFactory)
-      CodigoSeguridad: responseData.codigoSeguridad, // ✅ Código de seguridad
+      RncEmisor: facturaOriginal.emisor.rnc, // ✅ RNC del emisor (OBLIGATORIO)
+      ENCF: facturaOriginal.factura.ncf, // ✅ Número de comprobante (OBLIGATORIO)
+      MontoTotal: montoTotal.toFixed(2), // ✅ Monto total (OBLIGATORIO)
+      CodigoSeguridad: responseData.codigoSeguridad, // ✅ Código de seguridad (OBLIGATORIO)
     });
+
+    // Solo incluir RncComprador si está disponible Y no es tipo 32 (consumo final)
+    if (
+      facturaOriginal.comprador?.rnc &&
+      facturaOriginal.factura.tipo !== '32'
+    ) {
+      params.append('RncComprador', facturaOriginal.comprador.rnc);
+    }
 
     const urlCompleta = `${baseUrl}?${params.toString()}`;
 
-    // console.log(
-    //   `📱 URL QR oficial DGII para monto RD$${montoTotal.toLocaleString()}: ${urlCompleta}`,
-    // );
-    // console.log(
-    //   `📊 Endpoint: ${esMontoAlto ? 'ALTO VALOR (≥$250K)' : 'ESTÁNDAR (<$250K)'} - ${baseUrl}`,
-    // );
+    console.log(`📱 URL QR DGII simplificada: ${urlCompleta}`);
+    console.log(`📊 Parámetros incluidos: ${params.toString()}`);
 
     return urlCompleta;
   } catch (error) {
@@ -212,44 +207,31 @@ const generarCodigoQR = async (req, res) => {
         console.log('✅ Todos los datos necesarios están presentes');
       }
 
-      // URLs oficiales según informe técnico DGII - diferentes endpoints según monto
+      // URL oficial DGII - usar siempre el mismo endpoint
       const montoTotal = parseFloat(monto || 0);
-      const LIMITE_MONTO = 250000; // RD$250,000
+      const baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
 
-      const esMontoAlto = montoTotal >= LIMITE_MONTO;
-      const baseUrl = esMontoAlto
-        ? 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre' // ≥ RD$250,000
-        : 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre'; // < RD$250,000 - CORREGIDO: usar mismo endpoint
-
-      // Parámetros según especificación DGII OFICIAL
+      // Parámetros BÁSICOS según ejemplo oficial DGII (solo los esenciales)
       const params = new URLSearchParams({
-        RncEmisor: rnc, // ✅ RNC del emisor
-        RncComprador: rncComprador || 'SIN_RNC_COMPRADOR', // ✅ RNC del comprador (ahora desestructurado)
-        ENCF: ncf, // ✅ Número de comprobante
-        FechaEmision: fecha ? fecha.substring(0, 10) : '', // ✅ Fecha emisión
-        MontoTotal: montoTotal.toFixed(2), // ✅ Monto total
-        FechaFirma: (() => {
-          // Asegurar que FechaFirma siempre tenga hora
-          if (fechaFirma && fechaFirma.includes(' ')) {
-            return fechaFirma; // Ya tiene hora
-          }
-          const fechaBase = fechaFirma || fecha;
-          return fechaBase + ' 00:00:00'; // Agregar hora por defecto
-        })(), // ✅ Fecha Y HORA completa (DD-MM-YYYY HH:MM:SS)
-        CodigoSeguridad: codigo, // ✅ Código de seguridad
+        RncEmisor: rnc, // ✅ RNC del emisor (OBLIGATORIO)
+        ENCF: ncf, // ✅ Número de comprobante (OBLIGATORIO)
+        MontoTotal: montoTotal.toFixed(2), // ✅ Monto total (OBLIGATORIO)
+        CodigoSeguridad: codigo, // ✅ Código de seguridad (OBLIGATORIO)
       });
+
+      // Solo incluir RncComprador si está disponible (opcional)
+      if (rncComprador && rncComprador !== 'SIN_RNC_COMPRADOR') {
+        params.append('RncComprador', rncComprador);
+      }
 
       urlParaQR = `${baseUrl}?${params.toString()}`;
 
-      console.log('🎯 URL generada:', urlParaQR);
-      console.log('📅 FechaFirma original recibida:', fechaFirma);
-      console.log('📅 Fecha base:', fecha);
-      console.log('📅 FechaFirma final en URL:', params.get('FechaFirma'));
-      console.log('📅 ¿Incluye hora?', params.get('FechaFirma').includes(' '));
-      if (rncComprador && fechaFirma) {
-        console.log('✅ URL completa - debería funcionar en DGII');
+      console.log('🎯 URL QR simplificada generada:', urlParaQR);
+      console.log('📊 Parámetros básicos incluidos:', params.toString());
+      if (rncComprador) {
+        console.log('✅ Incluye RncComprador:', rncComprador);
       } else {
-        console.log('❌ URL incompleta - puede fallar en DGII');
+        console.log('ℹ️ Sin RncComprador (consumo final o no proporcionado)');
       }
 
       // console.log(
