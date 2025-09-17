@@ -1329,27 +1329,41 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   if (descuentosParaProcesar) {
     // Si descuentos es un array
     if (Array.isArray(descuentosParaProcesar)) {
-      descuentosArray = descuentosParaProcesar.map((descuento, index) => {
-        // Manejo flexible de diferentes campos para el monto
+      // Filtrar descuentos con monto mayor a cero
+      const descuentosValidos = descuentosParaProcesar.filter((descuento) => {
         const montoDescuento = parsearMonto(
           descuento.Monto || descuento.monto || descuento.valor || 0,
         );
-        totalDescuentos += montoDescuento;
-
-        return {
-          NumeroLinea: (index + 1).toString(),
-          TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
-          IndicadorFacturacion: descuento.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
-          Descripcion:
-            descuento.Descripcion ||
-            descuento.descripcion ||
-            descuento.concepto ||
-            'Descuento aplicado',
-          TipoValor: '$', // $ = Monto en pesos (requerido por DGII)
-          Valor: montoDescuento.toFixed(2),
-          Monto: montoDescuento.toFixed(2),
-        };
+        return montoDescuento > 0;
       });
+
+      console.log(
+        `💸 Descuentos totales: ${descuentosParaProcesar.length}, válidos (>0): ${descuentosValidos.length}`,
+      );
+
+      if (descuentosValidos.length > 0) {
+        descuentosArray = descuentosValidos.map((descuento, index) => {
+          // Manejo flexible de diferentes campos para el monto
+          const montoDescuento = parsearMonto(
+            descuento.Monto || descuento.monto || descuento.valor || 0,
+          );
+          totalDescuentos += montoDescuento;
+
+          return {
+            NumeroLinea: (index + 1).toString(),
+            TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
+            IndicadorFacturacion: descuento.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
+            Descripcion:
+              descuento.Descripcion ||
+              descuento.descripcion ||
+              descuento.concepto ||
+              'Descuento aplicado',
+            TipoValor: '$', // $ = Monto en pesos (requerido por DGII)
+            Valor: montoDescuento.toFixed(2),
+            Monto: montoDescuento.toFixed(2),
+          };
+        });
+      }
     }
     // Si descuentos es un objeto con descuento global
     else if (
@@ -1379,26 +1393,37 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         );
       }
 
-      totalDescuentos = montoDescuento;
+      // Solo agregar descuento si el monto es mayor a cero
+      if (montoDescuento > 0) {
+        totalDescuentos = montoDescuento;
 
-      descuentosArray = [
-        {
-          NumeroLinea: '1',
-          TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
-          IndicadorFacturacion:
-            descuentosParaProcesar.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
-          Descripcion:
-            descuentosParaProcesar.Descripcion ||
-            descuentosParaProcesar.descripcion ||
-            descuentosParaProcesar.concepto ||
-            'Descuento global',
-          TipoValor: descuentosParaProcesar.porcentaje ? '%' : '$', // % = Porcentaje, $ = Monto en pesos
-          Valor: descuentosParaProcesar.porcentaje
-            ? parseFloat(descuentosParaProcesar.porcentaje).toFixed(2)
-            : montoDescuento.toFixed(2),
-          Monto: montoDescuento.toFixed(2),
-        },
-      ];
+        descuentosArray = [
+          {
+            NumeroLinea: '1',
+            TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
+            IndicadorFacturacion:
+              descuentosParaProcesar.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
+            Descripcion:
+              descuentosParaProcesar.Descripcion ||
+              descuentosParaProcesar.descripcion ||
+              descuentosParaProcesar.concepto ||
+              'Descuento global',
+            TipoValor: descuentosParaProcesar.porcentaje ? '%' : '$', // % = Porcentaje, $ = Monto en pesos
+            Valor: descuentosParaProcesar.porcentaje
+              ? parseFloat(descuentosParaProcesar.porcentaje).toFixed(2)
+              : montoDescuento.toFixed(2),
+            Monto: montoDescuento.toFixed(2),
+          },
+        ];
+
+        console.log(
+          `💸 Descuento global válido agregado: ${montoDescuento.toFixed(2)}`,
+        );
+      } else {
+        console.log(
+          `💸 Descuento global ignorado (monto cero): ${montoDescuento.toFixed(2)}`,
+        );
+      }
     }
 
     // Calcular monto total después de descuentos
