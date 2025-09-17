@@ -1345,6 +1345,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             descuento.descripcion ||
             descuento.concepto ||
             'Descuento aplicado',
+          TipoValor: '$', // $ = Monto en pesos (requerido por DGII)
+          Valor: montoDescuento.toFixed(2),
           Monto: montoDescuento.toFixed(2),
         };
       });
@@ -1390,6 +1392,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             descuentosParaProcesar.descripcion ||
             descuentosParaProcesar.concepto ||
             'Descuento global',
+          TipoValor: descuentosParaProcesar.porcentaje ? '%' : '$', // % = Porcentaje, $ = Monto en pesos
+          Valor: descuentosParaProcesar.porcentaje
+            ? parseFloat(descuentosParaProcesar.porcentaje).toFixed(2)
+            : montoDescuento.toFixed(2),
           Monto: montoDescuento.toFixed(2),
         },
       ];
