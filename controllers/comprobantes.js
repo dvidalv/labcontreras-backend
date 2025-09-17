@@ -1562,6 +1562,85 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     }
   }
 
+  // 💸 AJUSTAR ITEMS PROPORCIONALMENTE POR DESCUENTOS
+  if (totalDescuentos > 0) {
+    console.log('💸 Ajustando items por descuentos aplicados...');
+
+    // Calcular la suma total de los items antes del ajuste
+    const sumaItemsAntes = detallesItems.reduce(
+      (suma, item) => suma + parseFloat(item.Monto),
+      0,
+    );
+
+    // Calcular factor de ajuste por descuento
+    const factorAjustePorDescuento = montoTotalConDescuentos / sumaItemsAntes;
+
+    console.log(
+      `💸 Factor de ajuste por descuento: ${factorAjustePorDescuento.toFixed(4)}`,
+    );
+    console.log(`💸 Suma items antes: ${sumaItemsAntes.toFixed(2)}`);
+    console.log(
+      `💸 Total con descuentos: ${montoTotalConDescuentos.toFixed(2)}`,
+    );
+
+    // Ajustar cada item proporcionalmente
+    detallesItems.forEach((item, index) => {
+      const montoOriginal = parseFloat(item.Monto);
+      const montoAjustado = (montoOriginal * factorAjustePorDescuento).toFixed(
+        2,
+      );
+      item.Monto = montoAjustado;
+      item.PrecioUnitario = montoAjustado; // También ajustar precio unitario
+
+      console.log(
+        `   Item ${index + 1}: ${montoOriginal.toFixed(2)} → ${montoAjustado}`,
+      );
+    });
+
+    // 🔧 AJUSTE FINAL: Corregir diferencias de redondeo
+    const sumaItemsAjustados = detallesItems.reduce(
+      (suma, item) => suma + parseFloat(item.Monto),
+      0,
+    );
+    const diferenciaPorRedondeo = montoTotalConDescuentos - sumaItemsAjustados;
+
+    if (Math.abs(diferenciaPorRedondeo) > 0.001) {
+      // Ajustar el último item para que la suma sea exacta
+      const ultimoItem = detallesItems[detallesItems.length - 1];
+      const montoCorregido = (
+        parseFloat(ultimoItem.Monto) + diferenciaPorRedondeo
+      ).toFixed(2);
+      ultimoItem.Monto = montoCorregido;
+      ultimoItem.PrecioUnitario = montoCorregido;
+
+      console.log(
+        `🔧 Ajuste de redondeo en último item: ${diferenciaPorRedondeo.toFixed(4)}`,
+      );
+      console.log(`   Último item ajustado: ${montoCorregido}`);
+    }
+
+    // Recalcular sumas después del ajuste por descuentos
+    sumaItemsGravados = detallesItems
+      .filter((item) => item.IndicadorFacturacion === '1')
+      .reduce((suma, item) => suma + parseFloat(item.Monto), 0)
+      .toFixed(2);
+
+    sumaItemsExentos = detallesItems
+      .filter((item) => item.IndicadorFacturacion === '4')
+      .reduce((suma, item) => suma + parseFloat(item.Monto), 0)
+      .toFixed(2);
+
+    const sumaItemsDespues = detallesItems.reduce(
+      (suma, item) => suma + parseFloat(item.Monto),
+      0,
+    );
+
+    console.log(`💸 Suma items después: ${sumaItemsDespues.toFixed(2)}`);
+    console.log(
+      `💸 Diferencia final: ${Math.abs(sumaItemsDespues - montoTotalConDescuentos).toFixed(4)}`,
+    );
+  }
+
   // console.log(`🔍 Verificación detalle vs totales:`, {
   //   tipoComprobante: facturaAdaptada.tipo,
   //   itemsGravadosDetalle: sumaItemsGravados,
