@@ -1338,13 +1338,15 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
 
         return {
           NumeroLinea: (index + 1).toString(),
-          TipoAjuste: '1', // 1 = Descuento
-          IndicadorFacturacion: descuento.indicadorFacturacion || '1', // 1 = Gravado por defecto
+          TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
+          IndicadorFacturacion: descuento.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
           Descripcion:
             descuento.Descripcion ||
             descuento.descripcion ||
             descuento.concepto ||
             'Descuento aplicado',
+          TipoValor: 'M', // M = Monto (valor absoluto)
+          Valor: montoDescuento.toFixed(2),
           Monto: montoDescuento.toFixed(2),
         };
       });
@@ -1382,14 +1384,18 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       descuentosArray = [
         {
           NumeroLinea: '1',
-          TipoAjuste: '1', // 1 = Descuento
+          TipoAjuste: 'D', // D = Descuento (formato TheFactoryHKA)
           IndicadorFacturacion:
-            descuentosParaProcesar.indicadorFacturacion || '1', // 1 = Gravado por defecto
+            descuentosParaProcesar.indicadorFacturacion || '4', // 4 = Exento por defecto para descuentos
           Descripcion:
             descuentosParaProcesar.Descripcion ||
             descuentosParaProcesar.descripcion ||
             descuentosParaProcesar.concepto ||
             'Descuento global',
+          TipoValor: descuentosParaProcesar.porcentaje ? '%' : 'M', // % = Porcentaje, M = Monto
+          Valor: descuentosParaProcesar.porcentaje
+            ? parseFloat(descuentosParaProcesar.porcentaje).toFixed(2)
+            : montoDescuento.toFixed(2),
           Monto: montoDescuento.toFixed(2),
         },
       ];
