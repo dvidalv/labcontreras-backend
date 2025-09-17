@@ -1097,8 +1097,16 @@ const stringVacioANull = (valor) => {
 
 // Función para transformar JSON simplificado al formato de TheFactoryHKA
 const transformarFacturaParaTheFactory = (facturaSimple, token) => {
-  const { comprador, emisor, factura, items, ItemsDevueltos, modificacion } =
-    facturaSimple;
+  const {
+    comprador,
+    emisor,
+    factura,
+    items,
+    ItemsDevueltos,
+    modificacion,
+    descuentos,
+    DescuentosORecargos,
+  } = facturaSimple;
 
   // 🔧 ADAPTACIÓN PARA TIPO 34: Mapear estructura específica de FileMaker
   let facturaAdaptada = { ...factura };
@@ -1289,11 +1297,121 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       .toFixed(2);
   }
 
+  // 💰 MANEJO DE DESCUENTOS GLOBALES
+  let descuentosArray = [];
+  let totalDescuentos = 0;
+  let montoTotalConDescuentos = parseFloat(montoTotal);
+
+  // Procesar descuentos desde diferentes estructuras
+  let descuentosParaProcesar = null;
+
+  // Prioridad 1: Nueva estructura desde FileMaker (DescuentosORecargos.Descuentos)
+  if (DescuentosORecargos?.Descuentos) {
+    descuentosParaProcesar = DescuentosORecargos.Descuentos;
+    console.log(
+      '💸 Procesando descuentos desde DescuentosORecargos.Descuentos:',
+      descuentosParaProcesar,
+    );
+  }
+  // Prioridad 2: Estructura anterior (campo descuentos directo)
+  else if (
+    descuentos &&
+    (Array.isArray(descuentos) || typeof descuentos === 'object')
+  ) {
+    descuentosParaProcesar = descuentos;
+    console.log(
+      '💸 Procesando descuentos desde campo descuentos:',
+      descuentosParaProcesar,
+    );
+  }
+
+  // Procesar descuentos si se encontraron
+  if (descuentosParaProcesar) {
+    // Si descuentos es un array
+    if (Array.isArray(descuentosParaProcesar)) {
+      descuentosArray = descuentosParaProcesar.map((descuento, index) => {
+        // Manejo flexible de diferentes campos para el monto
+        const montoDescuento = parsearMonto(
+          descuento.Monto || descuento.monto || descuento.valor || 0,
+        );
+        totalDescuentos += montoDescuento;
+
+        return {
+          NumeroLinea: (index + 1).toString(),
+          TipoAjuste: '1', // 1 = Descuento
+          IndicadorFacturacion: descuento.indicadorFacturacion || '1', // 1 = Gravado por defecto
+          Descripcion:
+            descuento.Descripcion ||
+            descuento.descripcion ||
+            descuento.concepto ||
+            'Descuento aplicado',
+          Monto: montoDescuento.toFixed(2),
+        };
+      });
+    }
+    // Si descuentos es un objeto con descuento global
+    else if (
+      descuentosParaProcesar.Monto ||
+      descuentosParaProcesar.monto ||
+      descuentosParaProcesar.valor ||
+      descuentosParaProcesar.porcentaje
+    ) {
+      let montoDescuento = 0;
+
+      if (descuentosParaProcesar.porcentaje) {
+        // Calcular descuento por porcentaje
+        const porcentaje = parseFloat(descuentosParaProcesar.porcentaje);
+        montoDescuento = (parseFloat(montoTotal) * porcentaje) / 100;
+        console.log(
+          `💸 Descuento por porcentaje: ${porcentaje}% de ${montoTotal} = ${montoDescuento.toFixed(2)}`,
+        );
+      } else {
+        // Descuento por monto fijo
+        montoDescuento = parsearMonto(
+          descuentosParaProcesar.Monto ||
+            descuentosParaProcesar.monto ||
+            descuentosParaProcesar.valor,
+        );
+        console.log(
+          `💸 Descuento por monto fijo: ${montoDescuento.toFixed(2)}`,
+        );
+      }
+
+      totalDescuentos = montoDescuento;
+
+      descuentosArray = [
+        {
+          NumeroLinea: '1',
+          TipoAjuste: '1', // 1 = Descuento
+          IndicadorFacturacion:
+            descuentosParaProcesar.indicadorFacturacion || '1', // 1 = Gravado por defecto
+          Descripcion:
+            descuentosParaProcesar.Descripcion ||
+            descuentosParaProcesar.descripcion ||
+            descuentosParaProcesar.concepto ||
+            'Descuento global',
+          Monto: montoDescuento.toFixed(2),
+        },
+      ];
+    }
+
+    // Calcular monto total después de descuentos
+    montoTotalConDescuentos = parseFloat(montoTotal) - totalDescuentos;
+
+    console.log(`💸 Total descuentos aplicados: ${totalDescuentos.toFixed(2)}`);
+    console.log(`💰 Monto total original: ${montoTotal}`);
+    console.log(
+      `💰 Monto total con descuentos: ${montoTotalConDescuentos.toFixed(2)}`,
+    );
+  }
+
   // console.log(`💰 Cálculo de totales:`, {
   //   tipoComprobante: facturaAdaptada.tipo,
   //   montoTotalFactura: montoTotal,
   //   montoExentoCalculado: montoExentoCalculado,
   //   montoGravadoCalculado: montoGravadoCalculado,
+  //   totalDescuentos: totalDescuentos.toFixed(2),
+  //   montoTotalConDescuentos: montoTotalConDescuentos.toFixed(2),
   //   sumaCalculada: (
   //     parseFloat(montoExentoCalculado) + parseFloat(montoGravadoCalculado)
   //   ).toFixed(2),
@@ -1459,7 +1577,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               TablaFormasPago: [
                 {
                   Forma: '1',
-                  Monto: montoTotal,
+                  Monto: montoTotalConDescuentos.toFixed(2),
                 },
               ],
             };
@@ -1485,7 +1603,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               TablaFormasPago: [
                 {
                   Forma: '1',
-                  Monto: montoTotal,
+                  Monto: montoTotalConDescuentos.toFixed(2),
                 },
               ],
             };
@@ -1516,7 +1634,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               TablaFormasPago: [
                 {
                   Forma: '1',
-                  Monto: montoTotal,
+                  Monto: montoTotalConDescuentos.toFixed(2),
                 },
               ],
             };
@@ -1635,7 +1753,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               parseFloat(montoGravadoCalculado) > 0
                 ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
                 : null,
-            montoTotal: montoTotal,
+            montoTotal: montoTotalConDescuentos.toFixed(2),
           };
 
           // Para tipos 31, 32, 33, 34: Incluir montoExento (según ejemplo oficial)
@@ -1657,8 +1775,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           // Para tipo 43: Gastos Menores - estructura muy simple
           if (facturaAdaptada.tipo === '43') {
             return {
-              montoExento: montoTotal, // Para tipo 43, todo es monto exento
-              montoTotal: montoTotal,
+              montoExento: montoTotalConDescuentos.toFixed(2), // Para tipo 43, todo es monto exento
+              montoTotal: montoTotalConDescuentos.toFixed(2),
             };
           }
 
@@ -1670,7 +1788,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
                 parseFloat(montoExentoCalculado) > 0
                   ? montoExentoCalculado
                   : null,
-              valorPagar: montoTotal,
+              valorPagar: montoTotalConDescuentos.toFixed(2),
             };
           }
 
@@ -1728,10 +1846,15 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         })(),
       },
       DetallesItems: detallesItems,
-      // Para tipo 45: Agregar sección vacía de descuentos/recargos para validación
-      ...(facturaAdaptada.tipo === '45' && {
-        DescuentosORecargos: [],
+      // Agregar sección de descuentos/recargos si existen
+      ...(descuentosArray.length > 0 && {
+        DescuentosORecargos: descuentosArray,
       }),
+      // Para tipo 45: Agregar sección vacía de descuentos/recargos para validación (si no hay descuentos)
+      ...(facturaAdaptada.tipo === '45' &&
+        descuentosArray.length === 0 && {
+          DescuentosORecargos: [],
+        }),
       // Para tipo 34: Agregar InformacionReferencia OBLIGATORIA (con validación)
       ...(facturaAdaptada.tipo === '34' &&
         (() => {
