@@ -1405,6 +1405,50 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     );
   }
 
+  // 🧮 AJUSTAR MONTOS EXENTOS Y GRAVADOS DESPUÉS DE DESCUENTOS
+  // Para servicios médicos, la mayoría son exentos, así que simplificamos:
+  // Si hay descuentos, el monto exento es igual al monto total con descuentos
+  let montoExentoConDescuentos = parseFloat(montoExentoCalculado);
+  let montoGravadoConDescuentos = parseFloat(montoGravadoCalculado);
+
+  if (totalDescuentos > 0) {
+    // Para servicios médicos (principalmente exentos), ajustar de manera simple:
+    // - Si todo es exento, el monto exento = monto total con descuentos
+    // - Si hay montos gravados, aplicar proporción
+
+    if (parseFloat(montoGravadoCalculado) === 0) {
+      // Solo hay montos exentos: el exento final = total con descuentos
+      montoExentoConDescuentos = montoTotalConDescuentos;
+      montoGravadoConDescuentos = 0;
+
+      console.log(`💰 Ajuste simple para servicios exentos:`);
+      console.log(
+        `   - Todo es exento, monto exento = monto total con descuentos`,
+      );
+      console.log(
+        `   - Monto exento final: ${montoExentoConDescuentos.toFixed(2)}`,
+      );
+    } else {
+      // Hay montos gravados y exentos: aplicar proporción
+      const proporcionDescuento = totalDescuentos / parseFloat(montoTotal);
+      montoExentoConDescuentos =
+        parseFloat(montoExentoCalculado) * (1 - proporcionDescuento);
+      montoGravadoConDescuentos =
+        parseFloat(montoGravadoCalculado) * (1 - proporcionDescuento);
+
+      console.log(`💰 Ajuste proporcional para montos mixtos:`);
+      console.log(
+        `   - Monto exento con descuento: ${montoExentoConDescuentos.toFixed(2)}`,
+      );
+      console.log(
+        `   - Monto gravado con descuento: ${montoGravadoConDescuentos.toFixed(2)}`,
+      );
+      console.log(
+        `   - Proporción descuento: ${(proporcionDescuento * 100).toFixed(2)}%`,
+      );
+    }
+  }
+
   // console.log(`💰 Cálculo de totales:`, {
   //   tipoComprobante: facturaAdaptada.tipo,
   //   montoTotalFactura: montoTotal,
@@ -1737,21 +1781,21 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           // Estructura según ejemplo oficial de TheFactoryHKA (camelCase)
           const baseTotales = {
             montoGravadoTotal:
-              parseFloat(montoGravadoCalculado) > 0
-                ? montoGravadoCalculado
+              parseFloat(montoGravadoConDescuentos) > 0
+                ? montoGravadoConDescuentos.toFixed(2)
                 : null,
             montoGravadoI1:
-              parseFloat(montoGravadoCalculado) > 0
-                ? montoGravadoCalculado
+              parseFloat(montoGravadoConDescuentos) > 0
+                ? montoGravadoConDescuentos.toFixed(2)
                 : null,
-            itbiS1: parseFloat(montoGravadoCalculado) > 0 ? '18' : null,
+            itbiS1: parseFloat(montoGravadoConDescuentos) > 0 ? '18' : null,
             totalITBIS:
-              parseFloat(montoGravadoCalculado) > 0
-                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              parseFloat(montoGravadoConDescuentos) > 0
+                ? (parseFloat(montoGravadoConDescuentos) * 0.18).toFixed(2)
                 : null,
             totalITBIS1:
-              parseFloat(montoGravadoCalculado) > 0
-                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              parseFloat(montoGravadoConDescuentos) > 0
+                ? (parseFloat(montoGravadoConDescuentos) * 0.18).toFixed(2)
                 : null,
             montoTotal: montoTotalConDescuentos.toFixed(2),
           };
@@ -1766,8 +1810,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             return {
               ...baseTotales,
               montoExento:
-                parseFloat(montoExentoCalculado) > 0
-                  ? montoExentoCalculado
+                parseFloat(montoExentoConDescuentos) > 0
+                  ? montoExentoConDescuentos.toFixed(2)
                   : null,
             };
           }
@@ -1785,8 +1829,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             return {
               ...baseTotales,
               montoExento:
-                parseFloat(montoExentoCalculado) > 0
-                  ? montoExentoCalculado
+                parseFloat(montoExentoConDescuentos) > 0
+                  ? montoExentoConDescuentos.toFixed(2)
                   : null,
               valorPagar: montoTotalConDescuentos.toFixed(2),
             };
@@ -1833,13 +1877,13 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           return {
             ...baseTotales,
             montoExento:
-              parseFloat(montoExentoCalculado) > 0
-                ? montoExentoCalculado
+              parseFloat(montoExentoConDescuentos) > 0
+                ? montoExentoConDescuentos.toFixed(2)
                 : null,
-            valorPagar: montoTotal,
+            valorPagar: montoTotalConDescuentos.toFixed(2),
             totalITBISRetenido:
-              parseFloat(montoGravadoCalculado) > 0
-                ? (parseFloat(montoGravadoCalculado) * 0.18).toFixed(2)
+              parseFloat(montoGravadoConDescuentos) > 0
+                ? (parseFloat(montoGravadoConDescuentos) * 0.18).toFixed(2)
                 : '0.00',
             totalISRRetencion: '0.00',
           };
