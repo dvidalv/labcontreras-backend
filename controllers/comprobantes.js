@@ -1297,10 +1297,35 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       .toFixed(2);
   }
 
+  // 🔧 VERIFICAR Y CORREGIR MONTO TOTAL
+  // Calcular el total real basado en la suma de items
+  const montoTotalCalculado = (
+    parseFloat(montoExentoCalculado) + parseFloat(montoGravadoCalculado)
+  ).toFixed(2);
+  const montoTotalDeclarado = parseFloat(montoTotal).toFixed(2);
+
+  // Si hay una diferencia significativa, usar el total calculado de items como fuente de verdad
+  let montoTotalCorregido = montoTotal;
+  if (
+    Math.abs(
+      parseFloat(montoTotalCalculado) - parseFloat(montoTotalDeclarado),
+    ) > 0.01
+  ) {
+    console.log(`⚠️ INCONSISTENCIA EN MONTO TOTAL:`);
+    console.log(`   - Total declarado por FileMaker: ${montoTotalDeclarado}`);
+    console.log(`   - Total calculado de items: ${montoTotalCalculado}`);
+    console.log(
+      `   - Diferencia: ${(parseFloat(montoTotalDeclarado) - parseFloat(montoTotalCalculado)).toFixed(2)}`,
+    );
+    console.log(`   - Usando total calculado de items para DGII`);
+
+    montoTotalCorregido = montoTotalCalculado;
+  }
+
   // 💰 MANEJO DE DESCUENTOS GLOBALES
   let descuentosArray = [];
   let totalDescuentos = 0;
-  let montoTotalConDescuentos = parseFloat(montoTotal);
+  let montoTotalConDescuentos = parseFloat(montoTotalCorregido);
 
   // Procesar descuentos desde diferentes estructuras
   let descuentosParaProcesar = null;
@@ -1377,9 +1402,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       if (descuentosParaProcesar.porcentaje) {
         // Calcular descuento por porcentaje
         const porcentaje = parseFloat(descuentosParaProcesar.porcentaje);
-        montoDescuento = (parseFloat(montoTotal) * porcentaje) / 100;
+        montoDescuento = (parseFloat(montoTotalCorregido) * porcentaje) / 100;
         console.log(
-          `💸 Descuento por porcentaje: ${porcentaje}% de ${montoTotal} = ${montoDescuento.toFixed(2)}`,
+          `💸 Descuento por porcentaje: ${porcentaje}% de ${montoTotalCorregido} = ${montoDescuento.toFixed(2)}`,
         );
       } else {
         // Descuento por monto fijo
@@ -1427,10 +1452,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
     }
 
     // Calcular monto total después de descuentos
-    montoTotalConDescuentos = parseFloat(montoTotal) - totalDescuentos;
+    montoTotalConDescuentos = parseFloat(montoTotalCorregido) - totalDescuentos;
 
     console.log(`💸 Total descuentos aplicados: ${totalDescuentos.toFixed(2)}`);
-    console.log(`💰 Monto total original: ${montoTotal}`);
+    console.log(`💰 Monto total original: ${montoTotalCorregido}`);
     console.log(
       `💰 Monto total con descuentos: ${montoTotalConDescuentos.toFixed(2)}`,
     );
@@ -1461,7 +1486,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       );
     } else {
       // Hay montos gravados y exentos: aplicar proporción
-      const proporcionDescuento = totalDescuentos / parseFloat(montoTotal);
+      const proporcionDescuento =
+        totalDescuentos / parseFloat(montoTotalCorregido);
       montoExentoConDescuentos =
         parseFloat(montoExentoCalculado) * (1 - proporcionDescuento);
       montoGravadoConDescuentos =
@@ -1801,7 +1827,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
             TablaFormasPago: [
               {
                 Forma: '1',
-                Monto: montoTotal,
+                Monto: montoTotalConDescuentos.toFixed(2),
               },
             ],
           };
