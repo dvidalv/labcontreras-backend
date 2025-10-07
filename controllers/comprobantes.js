@@ -1055,6 +1055,13 @@ const consumirNumeroPorRnc = async (req, res) => {
     // Formatear el número según estructura e-CF
     const numeroFormateado = rango.formatearNumeroECF(numeroConsumido);
 
+    // Formatear fecha de vencimiento a formato DD-MM-YYYY
+    const fechaVenc = new Date(rango.fecha_vencimiento);
+    const dia = fechaVenc.getDate().toString().padStart(2, '0');
+    const mes = (fechaVenc.getMonth() + 1).toString().padStart(2, '0');
+    const año = fechaVenc.getFullYear();
+    const fechaVencimientoFormateada = `${dia}-${mes}-${año}`;
+
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
@@ -1062,7 +1069,7 @@ const consumirNumeroPorRnc = async (req, res) => {
         numeroConsumido: numeroConsumido,
         numeroFormateado: numeroFormateado,
         numerosDisponibles: rango.numeros_disponibles,
-        fechaVencimiento: rango.fecha_vencimiento,
+        fechaVencimiento: fechaVencimientoFormateada,
         estadoRango: rango.estado,
         rnc: rango.rnc,
         tipoComprobante: rango.tipo_comprobante,
