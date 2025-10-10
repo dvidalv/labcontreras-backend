@@ -9,7 +9,9 @@ Backend del sistema de gestión para Lab Contreras, desarrollado con Node.js, Ex
 - **Envío de emails** con Brevo (transaccionales y notificaciones)
 - **Upload de archivos** con Cloudinary
 - **Base de datos** MongoDB con Mongoose
-- **QR Code** generación para comprobantes
+- **Facturación Electrónica** integración con TheFactory HKA (DGII)
+- **QR Code** generación para comprobantes según especificaciones DGII
+- **Anulación de NCF** con validaciones automáticas
 
 ## 📧 Sistema de Emails
 
@@ -21,6 +23,22 @@ El sistema utiliza **Brevo** para el envío de emails transaccionales:
 - Emails de contacto desde el sitio web
 
 Ver documentación completa en [docs/BREVO_SETUP.md](docs/BREVO_SETUP.md)
+
+## 🧾 Facturación Electrónica
+
+El sistema se integra con **TheFactory HKA** para la gestión de comprobantes fiscales electrónicos (e-CF):
+
+- Envío de facturas electrónicas a la DGII
+- Generación de códigos QR según especificaciones oficiales
+- Consulta de estatus de documentos
+- Anulación de secuencias de NCF con validaciones automáticas
+- Envío de emails de facturas electrónicas
+
+Ver documentación completa en:
+
+- [docs/ANULACION_COMPROBANTES.md](docs/ANULACION_COMPROBANTES.md) - Guía de anulación de NCF
+- [docs/FACTURACION_ELECTRONICA.md](docs/FACTURACION_ELECTRONICA.md) - Guía general de facturación
+- [docs/QR_DGII_OFICIAL.md](docs/QR_DGII_OFICIAL.md) - Generación de códigos QR
 
 ## 🛠️ Instalación
 
@@ -56,6 +74,11 @@ BREVO_FROM_NAME=Lab Contreras
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+# TheFactory HKA (Facturación Electrónica)
+THEFACTORY_USUARIO=your_thefactory_username
+THEFACTORY_CLAVE=your_thefactory_password
+THEFACTORY_RNC=your_company_rnc
 
 # Servidor
 PORT=3000
@@ -121,11 +144,24 @@ npm start
 
 - `POST /api/contact` - Enviar email de contacto
 
-### Otros
+### Médicos
 
 - `GET /medicos` - Listado de médicos
+
+### Sugerencias
+
 - `POST /api/sugerencias` - Enviar sugerencias
-- `POST /comprobantes` - Generar comprobantes con QR
+
+### Comprobantes Fiscales
+
+- `POST /comprobantes` - Crear rango de comprobantes
+- `GET /comprobantes` - Obtener todos los rangos
+- `POST /comprobantes/consumir` - Consumir número de NCF
+- `POST /comprobantes/enviar-electronica` - Enviar factura electrónica a TheFactory HKA
+- `POST /comprobantes/consultar-estatus` - Consultar estatus de documento
+- `POST /comprobantes/anular` - Anular secuencias de NCF
+- `POST /comprobantes/generar-qr` - Generar código QR según DGII
+- `POST /comprobantes/enviar-email` - Enviar email de documento
 
 ## 🔐 Seguridad
 
@@ -164,6 +200,14 @@ Variables de entorno necesarias en Vercel:
 5. Crear Pull Request
 
 ## 📝 Changelog
+
+### v2.1.0 (Octubre 2024)
+
+- ✨ Nuevo endpoint de anulación de comprobantes fiscales
+- 🔍 Validaciones automáticas de formato NCF
+- 📊 Transformación automática de formato simplificado a TheFactory HKA
+- 📝 Documentación completa de anulación de NCF
+- 🔧 Cálculo automático de cantidades y fechas
 
 ### v2.0.0 (2024)
 

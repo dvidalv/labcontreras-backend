@@ -6,6 +6,7 @@ const {
   THEFACTORY_AUTH_URL,
   THEFACTORY_ENVIAR_URL,
   THEFACTORY_ESTATUS_URL,
+  THEFACTORY_ANULACION_URL,
   THEFACTORY_USUARIO,
   THEFACTORY_CLAVE,
   THEFACTORY_RNC,
@@ -2335,6 +2336,293 @@ const enviarEmailFactura = async (req, res) => {
   return await enviarEmailDocumento(req, res);
 };
 
+// Función para anular comprobantes fiscales
+const anularComprobantes = async (req, res) => {
+  try {
+    console.log(
+      '📋 Solicitud de anulación recibida:',
+      JSON.stringify(req.body, null, 2),
+    );
+
+    const { rnc, anulaciones, fechaHoraAnulacion } = req.body;
+
+    // ====== VALIDACIONES ======
+
+    // 1. Validar campos requeridos
+    if (!rnc) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El campo RNC es obligatorio',
+      });
+    }
+
+    if (
+      !anulaciones ||
+      !Array.isArray(anulaciones) ||
+      anulaciones.length === 0
+    ) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message:
+          'El campo anulaciones es obligatorio y debe ser un array con al menos una anulación',
+      });
+    }
+
+    // 2. Validar tipos de documentos permitidos
+    const tiposDocumentosValidos = [
+      '31',
+      '32',
+      '33',
+      '34',
+      '41',
+      '43',
+      '44',
+      '45',
+      '46',
+      '47',
+    ];
+
+    // 3. Validar formato de NCF (E + 2 dígitos + 8 dígitos)
+    const ncfRegex = /^E\d{2}\d{8}$/;
+
+    // 4. Validar cada anulación
+    for (let i = 0; i < anulaciones.length; i++) {
+      const anulacion = anulaciones[i];
+
+      if (!anulacion.tipoDocumento) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: El campo tipoDocumento es obligatorio`,
+        });
+      }
+
+      if (!tiposDocumentosValidos.includes(anulacion.tipoDocumento)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: Tipo de documento inválido. Debe ser uno de: ${tiposDocumentosValidos.join(', ')}`,
+        });
+      }
+
+      // 🔧 MEJORA: Soportar diferentes formatos de entrada
+      // Opción 1: { ncf: "E310000000098" } - anular un solo comprobante
+      // Opción 2: { ncfDesde: "E310000000098" } - anular un solo comprobante (sin ncfHasta)
+      // Opción 3: { ncfDesde: "E310000000098", ncfHasta: "E310000000099" } - anular rango
+
+      if (anulacion.ncf && !anulacion.ncfDesde) {
+        // Si usa 'ncf', copiarlo a ncfDesde y ncfHasta
+        anulacion.ncfDesde = anulacion.ncf;
+        anulacion.ncfHasta = anulacion.ncf;
+      } else if (anulacion.ncfDesde && !anulacion.ncfHasta) {
+        // Si solo proporciona ncfDesde, asumir que es un solo comprobante
+        anulacion.ncfHasta = anulacion.ncfDesde;
+      }
+
+      // Validar que al menos tengamos ncfDesde
+      if (!anulacion.ncfDesde) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: Debe proporcionar 'ncf' o 'ncfDesde' (o ambos 'ncfDesde' y 'ncfHasta' para un rango)`,
+        });
+      }
+
+      // Asegurar que ncfHasta existe
+      if (!anulacion.ncfHasta) {
+        anulacion.ncfHasta = anulacion.ncfDesde;
+      }
+
+      // Validar formato de NCF
+      if (!ncfRegex.test(anulacion.ncfDesde)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: NCF Desde tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8 dígitos). Ejemplo: E310000000098`,
+        });
+      }
+
+      if (!ncfRegex.test(anulacion.ncfHasta)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: NCF Hasta tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8 dígitos). Ejemplo: E310000000099`,
+        });
+      }
+
+      // Validar que el tipo de documento coincida con el prefijo del NCF
+      const tipoEnNCFDesde = anulacion.ncfDesde.substring(1, 3);
+      const tipoEnNCFHasta = anulacion.ncfHasta.substring(1, 3);
+
+      if (tipoEnNCFDesde !== anulacion.tipoDocumento) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: El tipo de documento (${anulacion.tipoDocumento}) no coincide con el prefijo del NCF Desde (${tipoEnNCFDesde})`,
+        });
+      }
+
+      if (tipoEnNCFHasta !== anulacion.tipoDocumento) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: El tipo de documento (${anulacion.tipoDocumento}) no coincide con el prefijo del NCF Hasta (${tipoEnNCFHasta})`,
+        });
+      }
+
+      // Validar que ncfHasta >= ncfDesde
+      const secuenciaDesde = parseInt(anulacion.ncfDesde.substring(3), 10);
+      const secuenciaHasta = parseInt(anulacion.ncfHasta.substring(3), 10);
+
+      if (secuenciaHasta < secuenciaDesde) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: `Anulación ${i + 1}: NCF Hasta debe ser mayor o igual a NCF Desde`,
+        });
+      }
+    }
+
+    // ====== TRANSFORMACIÓN AL FORMATO DE THEFACTORY ======
+
+    // Generar fecha/hora de anulación en formato DD-MM-YYYY HH:mm:ss
+    let fechaFormateada;
+    if (fechaHoraAnulacion) {
+      // Si el usuario proporciona la fecha, validar formato
+      const fechaRegex = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$/;
+      if (!fechaRegex.test(fechaHoraAnulacion)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: 'Formato de fecha inválido. Debe ser DD-MM-YYYY HH:mm:ss',
+        });
+      }
+      fechaFormateada = fechaHoraAnulacion;
+    } else {
+      // Generar fecha/hora actual
+      const ahora = new Date();
+      const dia = String(ahora.getDate()).padStart(2, '0');
+      const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+      const anio = ahora.getFullYear();
+      const horas = String(ahora.getHours()).padStart(2, '0');
+      const minutos = String(ahora.getMinutes()).padStart(2, '0');
+      const segundos = String(ahora.getSeconds()).padStart(2, '0');
+      fechaFormateada = `${dia}-${mes}-${anio} ${horas}:${minutos}:${segundos}`;
+    }
+
+    // Calcular cantidad total de NCFs a anular
+    let cantidadTotal = 0;
+    const detallesAnulacion = anulaciones.map((anulacion, index) => {
+      const secuenciaDesde = parseInt(anulacion.ncfDesde.substring(3), 10);
+      const secuenciaHasta = parseInt(anulacion.ncfHasta.substring(3), 10);
+      const cantidad = secuenciaHasta - secuenciaDesde + 1;
+      cantidadTotal += cantidad;
+
+      return {
+        NumeroLinea: String(index + 1),
+        TipoDocumento: anulacion.tipoDocumento,
+        TablaSecuenciasAnuladas: [
+          {
+            NCFDesde: anulacion.ncfDesde,
+            NCFHasta: anulacion.ncfHasta,
+          },
+        ],
+        Cantidad: String(cantidad).padStart(2, '0'),
+      };
+    });
+
+    // Obtener token de autenticación
+    console.log('🔑 Obteniendo token de autenticación...');
+    const token = await obtenerTokenTheFactory();
+
+    // Construir payload completo para TheFactoryHKA
+    const payloadAnulacion = {
+      token: token,
+      Anulacion: {
+        Encabezado: {
+          RNC: rnc,
+          Cantidad: String(cantidadTotal).padStart(2, '0'),
+          FechaHoraAnulacioneNCF: fechaFormateada,
+        },
+        DetallesAnulacion: detallesAnulacion,
+      },
+    };
+
+    console.log(
+      '📤 Enviando anulación a TheFactoryHKA:',
+      JSON.stringify(payloadAnulacion, null, 2),
+    );
+
+    // Enviar a TheFactoryHKA
+    const response = await axios.post(
+      THEFACTORY_ANULACION_URL,
+      payloadAnulacion,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 segundos de timeout
+      },
+    );
+
+    console.log(
+      '📥 Respuesta de TheFactoryHKA:',
+      JSON.stringify(response.data, null, 2),
+    );
+
+    // Verificar respuesta
+    if (response.data.codigo === 0) {
+      // Éxito
+      return res.status(httpStatus.OK).json({
+        status: 'success',
+        message: 'Secuencias anuladas exitosamente',
+        data: {
+          codigo: response.data.codigo,
+          mensaje: response.data.mensaje,
+          procesado: response.data.procesado,
+          cantidadAnulada: cantidadTotal,
+          detalles: anulaciones.map((a, i) => ({
+            tipoDocumento: a.tipoDocumento,
+            ncfDesde: a.ncfDesde,
+            ncfHasta: a.ncfHasta,
+            cantidad: detallesAnulacion[i].Cantidad,
+          })),
+        },
+      });
+    } else {
+      // Error de negocio de TheFactoryHKA
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: `Error al anular: ${response.data.mensaje}`,
+        details: {
+          codigo: response.data.codigo,
+          mensaje: response.data.mensaje,
+          procesado: response.data.procesado,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error al anular comprobantes:', error);
+
+    // Manejo de errores de axios
+    if (error.response) {
+      return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+        status: 'error',
+        message: 'Error en la respuesta de TheFactoryHKA',
+        details: {
+          status: error.response.status,
+          data: error.response.data,
+        },
+      });
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      return res.status(httpStatus.REQUEST_TIMEOUT).json({
+        status: 'error',
+        message: 'Timeout al conectar con TheFactoryHKA',
+      });
+    }
+
+    // Error genérico
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno al procesar la anulación',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -2352,4 +2640,5 @@ module.exports = {
   limpiarTokenCache, // NUEVO: Endpoint para limpiar cache
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
   enviarEmailFactura, // NUEVO: Endpoint para enviar emails vía The Factory HKA
+  anularComprobantes, // NUEVO: Endpoint para anular comprobantes fiscales
 };
