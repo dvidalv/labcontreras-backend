@@ -1,0 +1,109 @@
+{
+  "descripcion": "Ejemplo de petición para anular comprobantes fiscales",
+  "endpoint": "POST /comprobantes/anular",
+  "headers": {
+    "Authorization": "Bearer {token}",
+    "Content-Type": "application/json"
+  },
+  "ejemplo_un_comprobante": {
+    "descripcion": "Forma más simple - anular UN solo comprobante (lo más común)",
+    "rnc": "130960054",
+    "anulaciones": [
+      {
+        "tipoDocumento": "31",
+        "ncf": "E310000000098"
+      }
+    ]
+  },
+  "ejemplo_un_comprobante_alternativo": {
+    "descripcion": "Alternativa - enviar solo ncfDesde para un comprobante",
+    "rnc": "130960054",
+    "anulaciones": [
+      {
+        "tipoDocumento": "31",
+        "ncfDesde": "E310000000098"
+      }
+    ]
+  },
+  "ejemplo_rango": {
+    "descripcion": "Anular un RANGO de comprobantes",
+    "rnc": "130960054",
+    "anulaciones": [
+      {
+        "tipoDocumento": "31",
+        "ncfDesde": "E310000000098",
+        "ncfHasta": "E310000000099"
+      }
+    ]
+  },
+  "ejemplo_multiple": {
+    "rnc": "130960054",
+    "anulaciones": [
+      {
+        "tipoDocumento": "31",
+        "ncfDesde": "E310000000098",
+        "ncfHasta": "E310000000099"
+      },
+      {
+        "tipoDocumento": "33",
+        "ncfDesde": "E330000000050",
+        "ncfHasta": "E330000000052"
+      }
+    ]
+  },
+  "ejemplo_con_fecha": {
+    "rnc": "130960054",
+    "fechaHoraAnulacion": "16-06-2022 09:23:59",
+    "anulaciones": [
+      {
+        "tipoDocumento": "31",
+        "ncfDesde": "E310000000098",
+        "ncfHasta": "E310000000099"
+      }
+    ]
+  },
+  "respuesta_exitosa": {
+    "status": "success",
+    "message": "Secuencias anuladas exitosamente",
+    "data": {
+      "codigo": 0,
+      "mensaje": "Secuencias anuladas exitosamente",
+      "procesado": false,
+      "cantidadAnulada": 2,
+      "detalles": [
+        {
+          "tipoDocumento": "31",
+          "ncfDesde": "E310000000098",
+          "ncfHasta": "E310000000099",
+          "cantidad": "02"
+        }
+      ]
+    }
+  },
+  "respuesta_error": {
+    "status": "error",
+    "message": "Error al anular: [mensaje de error]",
+    "details": {
+      "codigo": 123,
+      "mensaje": "Error específico de TheFactoryHKA",
+      "procesado": false
+    }
+  },
+  "notas": [
+    "El campo 'fechaHoraAnulacion' es opcional. Si no se proporciona, se usa la fecha/hora actual",
+    "El formato de fecha debe ser: DD-MM-YYYY HH:mm:ss",
+    "El formato de NCF es: E + tipo (2 dígitos) + secuencia (8 dígitos)",
+    "Tipos de documento válidos: 31, 32, 33, 34, 41, 43, 44, 45, 46, 47",
+    "ncfHasta debe ser mayor o igual a ncfDesde",
+    "El endpoint requiere autenticación con JWT token"
+  ],
+  "validaciones_implementadas": [
+    "Validación de campos requeridos (rnc, anulaciones)",
+    "Validación de formato de NCF",
+    "Validación de tipos de documento permitidos",
+    "Validación de rangos de NCF (desde <= hasta)",
+    "Validación de coincidencia entre tipo de documento y prefijo NCF",
+    "Validación de formato de fecha (si se proporciona)",
+    "Cálculo automático de cantidades por rango"
+  ]
+}

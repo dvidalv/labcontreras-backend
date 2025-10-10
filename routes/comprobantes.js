@@ -15,6 +15,7 @@ const {
   generarCodigoQR,
   limpiarTokenCache,
   enviarEmailFactura,
+  anularComprobantes,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -42,6 +43,9 @@ router.post('/consultar-estatus', consultarEstatusDocumento); // POST /comproban
 
 // Ruta para enviar email de documento electrónico vía The Factory HKA
 router.post('/enviar-email', enviarEmailFactura); // POST /comprobantes/enviar-email - Enviar email de documento electrónico
+
+// Ruta para anular comprobantes fiscales
+router.post('/anular', anularComprobantes); // POST /comprobantes/anular - Anular secuencias de NCF
 
 // Rutas específicas por ID
 router

@@ -1,0 +1,173 @@
+# ==========================================
+# SCRIPT: Anular UN Comprobante Fiscal (NCF) - VERSIÓN SIMPLE
+# ==========================================
+# Descripción: Anula un solo comprobante fiscal (caso más común)
+# Utiliza: Funciones JSON nativas de FileMaker (JSONSetElement, JSONGetElement)
+# Requiere: FileMaker 16 o superior
+# Fecha: Octubre 2024
+# ==========================================
+
+# ------------------------------------------
+# CONFIGURACIÓN
+# ------------------------------------------
+
+Set Variable [ $url ; Value: Globals::gURLBase & "/comprobantes/anular" ]
+Set Variable [ $token ; Value: Globals::gTokenJWT ]
+
+# Validar token
+If [ IsEmpty ( $token ) ]
+    Show Custom Dialog [ "Error" ; "No hay token de autenticación. Por favor inicie sesión." ]
+    Exit Script [ Text Result: "error_auth" ]
+End If
+
+# ------------------------------------------
+# OBTENER DATOS
+# ------------------------------------------
+
+Set Variable [ $rnc ; Value: Comprobantes::RNC ]
+Set Variable [ $tipoDocumento ; Value: Comprobantes::TipoDocumento ]
+Set Variable [ $ncf ; Value: Comprobantes::NCF ]
+
+# ------------------------------------------
+# VALIDACIONES BÁSICAS
+# ------------------------------------------
+
+# Validar campos requeridos
+If [ IsEmpty ( $rnc ) or IsEmpty ( $tipoDocumento ) or IsEmpty ( $ncf ) ]
+    Show Custom Dialog [ "Error" ; "RNC, Tipo de Documento y NCF son obligatorios." ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# Validar formato NCF (11 caracteres, comienza con E)
+If [ Length ( $ncf ) ≠ 11 or Left ( $ncf ; 1 ) ≠ "E" ]
+    Show Custom Dialog [ "Error" ; "NCF debe tener 11 caracteres y comenzar con 'E'." ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# ------------------------------------------
+# CONFIRMACIÓN
+# ------------------------------------------
+
+Show Custom Dialog [ "Confirmar Anulación" ;
+    "¿Anular el comprobante " & $ncf & "?" & ¶ & ¶ &
+    "Esta acción NO se puede revertir."
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "cancelado" ]
+End If
+
+# ------------------------------------------
+# CONSTRUIR JSON (Funciones Nativas)
+# ------------------------------------------
+
+# Inicializar JSON vacío
+Set Variable [ $json ; Value: "{}" ]
+
+# Construir JSON usando JSONSetElement
+Set Variable [ $json ; Value: JSONSetElement ( $json ;
+    [ "rnc" ; $rnc ; JSONString ] ;
+    [ "anulaciones[0].tipoDocumento" ; $tipoDocumento ; JSONString ] ;
+    [ "anulaciones[0].ncf" ; $ncf ; JSONString ]
+) ]
+
+# Guardar para debugging
+Set Variable [ $$ultimoJSON ; Value: $json ]
+Set Variable [ $$ultimoJSONFormateado ; Value: JSONFormatElements ( $json ) ]
+
+# ------------------------------------------
+# PREPARAR CURL
+# ------------------------------------------
+
+Set Variable [ $curlOptions ; Value:
+    "-X POST" &
+    " -H \"Authorization: Bearer " & $token & "\"" &
+    " -H \"Content-Type: application/json\"" &
+    " --data-binary @$"
+]
+
+# ------------------------------------------
+# ENVIAR PETICIÓN
+# ------------------------------------------
+
+Set Variable [ $$resultado ; Value: "" ]
+
+Insert from URL [
+    With Dialog: Off ;
+    Target: $$resultado ;
+    $url ;
+    Verify SSL Certificates ;
+    cURL options: $curlOptions
+]
+
+# Verificar error de conexión
+If [ Get ( LastError ) ≠ 0 ]
+    Show Custom Dialog [ "Error de Conexión" ;
+        "No se pudo conectar con el servidor." & ¶ &
+        "Error: " & Get ( LastError )
+    ]
+    Exit Script [ Text Result: "error_conexion" ]
+End If
+
+# ------------------------------------------
+# PROCESAR RESPUESTA (usando JSONGetElement)
+# ------------------------------------------
+
+Set Variable [ $status ; Value: JSONGetElement ( $$resultado ; "status" ) ]
+Set Variable [ $mensaje ; Value: JSONGetElement ( $$resultado ; "message" ) ]
+
+If [ $status = "success" ]
+
+    # Extraer datos adicionales
+    Set Variable [ $cantidadAnulada ; Value: JSONGetElement ( $$resultado ; "data.cantidadAnulada" ) ]
+    Set Variable [ $codigo ; Value: JSONGetElement ( $$resultado ; "data.codigo" ) ]
+
+    # Actualizar registro en FileMaker
+    Set Field [ Comprobantes::Estado ; "ANULADO" ]
+    Set Field [ Comprobantes::FechaAnulacion ; Get ( CurrentDate ) ]
+    Set Field [ Comprobantes::HoraAnulacion ; Get ( CurrentTime ) ]
+    Set Field [ Comprobantes::UsuarioAnulacion ; Get ( AccountName ) ]
+    Set Field [ Comprobantes::RespuestaAPI ; $$resultado ]
+
+    Commit Records/Requests [ With dialog: Off ]
+
+    # Mostrar éxito
+    Show Custom Dialog [ "✅ Anulación Exitosa" ;
+        $mensaje & ¶ & ¶ &
+        "NCF anulado: " & $ncf & ¶ &
+        "Código: " & $codigo
+    ]
+
+    Refresh Window
+
+    Exit Script [ Text Result: "success" ]
+
+Else
+
+    # Error de la API
+    Set Variable [ $detallesError ; Value: JSONGetElement ( $$resultado ; "details.mensaje" ) ]
+
+    # Registrar error
+    Set Field [ Comprobantes::UltimoError ; $mensaje ]
+    Set Field [ Comprobantes::FechaUltimoError ; Get ( CurrentTimeStamp ) ]
+
+    Commit Records/Requests [ With dialog: Off ]
+
+    # Mostrar error
+    If [ not IsEmpty ( $detallesError ) ]
+        Show Custom Dialog [ "❌ Error al Anular" ;
+            $mensaje & ¶ & ¶ &
+            "Detalles: " & $detallesError
+        ]
+    Else
+        Show Custom Dialog [ "❌ Error al Anular" ; $mensaje ]
+    End If
+
+    Exit Script [ Text Result: "error_api" ]
+
+End If
+
+# ------------------------------------------
+# FIN DEL SCRIPT
+# ------------------------------------------
+
