@@ -80,10 +80,10 @@ Set Variable [ $$ultimoJSONFormateado ; Value: JSONFormatElements ( $json ) ]
 # ------------------------------------------
 
 Set Variable [ $curlOptions ; Value:
-    "-X POST" &
-    " -H \"Authorization: Bearer " & $token & "\"" &
-    " -H \"Content-Type: application/json\"" &
-    " --data-binary @$"
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--data-raw " & Quote ( $json )
 ]
 
 # ------------------------------------------

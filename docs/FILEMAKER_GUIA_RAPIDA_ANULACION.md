@@ -47,7 +47,7 @@ Set Variable [ $curlOptions ; Value:
     "-X POST" &
     " -H \"Authorization: Bearer " & $token & "\"" &
     " -H \"Content-Type: application/json\"" &
-    " --data-binary @$"
+    " --data '" & $json & "'"
 ]
 ```
 
