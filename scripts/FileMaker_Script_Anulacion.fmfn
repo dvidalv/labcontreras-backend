@@ -177,6 +177,8 @@ If [ $status = "success" ]
     Set Variable [ $mensaje ; Value: JSONGetElement ( $$resultadoAnulacion ; "message" ) ]
     Set Variable [ $cantidadAnulada ; Value: JSONGetElement ( $$resultadoAnulacion ; "data.cantidadAnulada" ) ]
     Set Variable [ $codigoRespuesta ; Value: JSONGetElement ( $$resultadoAnulacion ; "data.codigo" ) ]
+    Set Variable [ $procesado ; Value: JSONGetElement ( $$resultadoAnulacion ; "data.procesado" ) ]
+    Set Variable [ $xmlBase64 ; Value: JSONGetElement ( $$resultadoAnulacion ; "data.xmlBase64" ) ]
     
     # Actualizar el registro en FileMaker
     Set Field [ Comprobantes::Estado ; "ANULADO" ]
@@ -184,7 +186,9 @@ If [ $status = "success" ]
     Set Field [ Comprobantes::HoraAnulacion ; Get ( CurrentTime ) ]
     Set Field [ Comprobantes::UsuarioAnulacion ; Get ( AccountName ) ]
     Set Field [ Comprobantes::CantidadAnulada ; $cantidadAnulada ]
+    Set Field [ Comprobantes::CodigoDGII ; $codigoRespuesta ]
     Set Field [ Comprobantes::RespuestaAPI ; $$resultadoAnulacion ]
+    Set Field [ Comprobantes::XMLAnulacion ; $xmlBase64 ]
     
     Commit Records/Requests [ With dialog: Off ]
     
@@ -192,7 +196,8 @@ If [ $status = "success" ]
     Show Custom Dialog [ "Anulación Exitosa" ; 
         $mensaje & ¶ & ¶ &
         "Cantidad de NCF anulados: " & $cantidadAnulada & ¶ &
-        "Código de respuesta: " & $codigoRespuesta
+        "Código DGII: " & $codigoRespuesta & ¶ &
+        "Procesado: " & $procesado
     ]
     
     # Refrescar la ventana
