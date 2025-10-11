@@ -2382,8 +2382,9 @@ const anularComprobantes = async (req, res) => {
       '47',
     ];
 
-    // 3. Validar formato de NCF (E + 2 dígitos + 8 dígitos)
-    const ncfRegex = /^E\d{2}\d{8}$/;
+    // 3. Validar formato de NCF (E + 2 dígitos + 8-10 dígitos de secuencia)
+    // Acepta tanto NCF estándar (11 caracteres) como NCF extendido (13 caracteres)
+    const ncfRegex = /^E\d{2}\d{8,10}$/;
 
     // 4. Validar cada anulación
     for (let i = 0; i < anulaciones.length; i++) {
@@ -2434,14 +2435,14 @@ const anularComprobantes = async (req, res) => {
       if (!ncfRegex.test(anulacion.ncfDesde)) {
         return res.status(httpStatus.BAD_REQUEST).json({
           status: 'error',
-          message: `Anulación ${i + 1}: NCF Desde tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8 dígitos). Ejemplo: E310000000098`,
+          message: `Anulación ${i + 1}: NCF Desde tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8-10 dígitos). Ejemplos: E310000000098 o E310000000147`,
         });
       }
 
       if (!ncfRegex.test(anulacion.ncfHasta)) {
         return res.status(httpStatus.BAD_REQUEST).json({
           status: 'error',
-          message: `Anulación ${i + 1}: NCF Hasta tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8 dígitos). Ejemplo: E310000000099`,
+          message: `Anulación ${i + 1}: NCF Hasta tiene formato inválido. Debe ser E + tipo (2 dígitos) + secuencia (8-10 dígitos). Ejemplos: E310000000099 o E310000000148`,
         });
       }
 
