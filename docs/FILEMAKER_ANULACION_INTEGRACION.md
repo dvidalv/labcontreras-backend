@@ -39,7 +39,7 @@ Insert from URL [
     With Dialog: Off ;
     Target: $$respuestaLogin ;
     $urlLogin ;
-    cURL options: "-X POST -H \"Content-Type: application/json\" --data-binary @$"
+    cURL options: "-X POST -H \"Content-Type: application/json\" --data '" & $jsonLogin & "'"
 ]
 
 # Extraer y guardar el token
@@ -198,7 +198,7 @@ Insert from URL [
         "-X POST" &
         " -H \"Authorization: Bearer " & Globals::gTokenJWT & "\"" &
         " -H \"Content-Type: application/json\"" &
-        " --data-binary @$"
+        " --data '" & $json & "'"
 ]
 
 # 6. Si fue exitoso, actualizar todos los registros
@@ -651,7 +651,7 @@ Set Variable [ $curlOptions ; Value:
     " -H \"Content-Type: application/json\"" &
     " --connect-timeout 30" &
     " --max-time 30" &
-    " --data-binary @$"
+    " --data '" & $json & "'"
 ]
 ```
 
