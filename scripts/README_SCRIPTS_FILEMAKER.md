@@ -78,18 +78,25 @@ NCF Hasta: E310000000105
 ```
 RNC                  (Texto, 9-11 caracteres)
 TipoDocumento        (Texto, 2 caracteres: "31", "32", etc.)
-NCF                  (Texto, 11 caracteres) - Para script simple
-NCF_Desde            (Texto, 11 caracteres) - Para script completo
-NCF_Hasta            (Texto, 11 caracteres) - Para script completo
-Estado               (Texto: "ACTIVO", "ANULADO")
+NCF                  (Texto, 11-13 caracteres) - Para script simple
+NCF_Desde            (Texto, 11-13 caracteres) - Para script completo
+NCF_Hasta            (Texto, 11-13 caracteres) - Para script completo
+Estado               (Texto: "ACTIVO", "ANULADO", "CONSUMIDO")
 FechaAnulacion       (Fecha)
 HoraAnulacion        (Hora)
 UsuarioAnulacion     (Texto)
 CantidadAnulada      (Número)
-RespuestaAPI         (Texto, para JSON completo)
+CodigoDGII           (Número, código de respuesta: 100=éxito)
+XMLAnulacion         (Texto, XML firmado en Base64)
+RespuestaAPI         (Texto, JSON completo de respuesta)
 UltimoError          (Texto)
 FechaUltimoError     (Marca de tiempo)
 ```
+
+**Formatos NCF soportados**:
+
+- Estándar: 11 caracteres (E + 2 + 8) ej: `E3100000098`
+- Extendido: 13 caracteres (E + 2 + 10) ej: `E310000000147`
 
 **Tabla: Globals**
 

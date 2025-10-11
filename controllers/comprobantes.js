@@ -2563,7 +2563,13 @@ const anularComprobantes = async (req, res) => {
     );
 
     // Verificar respuesta
-    if (response.data.codigo === 0) {
+    // TheFactory usa procesado:true y código 100 para éxito en anulaciones
+    // (diferente a código 0 en otros endpoints)
+    if (
+      response.data.procesado === true ||
+      response.data.codigo === 0 ||
+      response.data.codigo === 100
+    ) {
       // Éxito
       return res.status(httpStatus.OK).json({
         status: 'success',
@@ -2572,6 +2578,7 @@ const anularComprobantes = async (req, res) => {
           codigo: response.data.codigo,
           mensaje: response.data.mensaje,
           procesado: response.data.procesado,
+          xmlBase64: response.data.xmlBase64, // XML firmado de la anulación
           cantidadAnulada: cantidadTotal,
           detalles: anulaciones.map((a, i) => ({
             tipoDocumento: a.tipoDocumento,

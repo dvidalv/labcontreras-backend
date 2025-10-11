@@ -352,20 +352,33 @@ End If
 
 ```
 Tabla: Comprobantes
-├── RNC (texto, 11 caracteres)
+├── RNC (texto, 9-11 caracteres)
 ├── TipoDocumento (texto, 2 caracteres: "31", "32", etc.)
-├── NCF_Desde (texto, 11 caracteres: "E310000000098")
-├── NCF_Hasta (texto, 11 caracteres: "E310000000099")
-├── Estado (texto: "ACTIVO" | "ANULADO")
+├── NCF (texto, 11-13 caracteres: "E310000000147") - Para anular UN comprobante
+├── NCF_Desde (texto, 11-13 caracteres: "E310000000147") - Para rangos
+├── NCF_Hasta (texto, 11-13 caracteres: "E310000000148") - Para rangos
+├── Estado (texto: "ACTIVO" | "ANULADO" | "CONSUMIDO")
 ├── FechaAnulacion (fecha)
+├── HoraAnulacion (hora)
 ├── UsuarioAnulacion (texto)
-└── RespuestaAPI (texto, para guardar JSON completo)
+├── CantidadAnulada (número)
+├── CodigoDGII (número, 100=éxito)
+├── XMLAnulacion (texto, XML firmado en Base64)
+├── RespuestaAPI (texto, JSON completo de respuesta)
+├── UltimoError (texto)
+└── FechaUltimoError (marca de tiempo)
 
 Tabla: Globals
 ├── gTokenJWT (global, texto)
 ├── gURLBase (global, texto: "https://tu-api.com")
 └── gRNC (global, texto: "130960054")
 ```
+
+**Notas sobre NCF**:
+
+- Formato estándar: 11 caracteres (E + 2 tipo + 8 secuencia) ej: `E3100000098`
+- Formato extendido: 13 caracteres (E + 2 tipo + 10 secuencia) ej: `E310000000147`
+- Ambos formatos son válidos
 
 ---
 

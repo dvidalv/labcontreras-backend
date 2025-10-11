@@ -185,21 +185,28 @@ El endpoint transforma automáticamente la entrada simplificada al formato reque
   "status": "success",
   "message": "Secuencias anuladas exitosamente",
   "data": {
-    "codigo": 0,
+    "codigo": 100,
     "mensaje": "Secuencias anuladas exitosamente",
-    "procesado": false,
+    "procesado": true,
+    "xmlBase64": "PEFORUNGIHhtbG5zOnhzaT0i...",
     "cantidadAnulada": 2,
     "detalles": [
       {
         "tipoDocumento": "31",
-        "ncfDesde": "E310000000098",
-        "ncfHasta": "E310000000099",
+        "ncfDesde": "E310000000147",
+        "ncfHasta": "E310000000148",
         "cantidad": "02"
       }
     ]
   }
 }
 ```
+
+**Nota**: TheFactory retorna:
+
+- `codigo: 100` para anulaciones exitosas (no `0`)
+- `procesado: true` cuando se procesó correctamente
+- `xmlBase64`: XML firmado de la anulación (para auditoría DGII)
 
 ### Respuesta de Error de Validación (400 Bad Request)
 

@@ -126,13 +126,17 @@ If [ $status = "success" ]
     # Extraer datos adicionales
     Set Variable [ $cantidadAnulada ; Value: JSONGetElement ( $$resultado ; "data.cantidadAnulada" ) ]
     Set Variable [ $codigo ; Value: JSONGetElement ( $$resultado ; "data.codigo" ) ]
+    Set Variable [ $procesado ; Value: JSONGetElement ( $$resultado ; "data.procesado" ) ]
+    Set Variable [ $xmlBase64 ; Value: JSONGetElement ( $$resultado ; "data.xmlBase64" ) ]
 
     # Actualizar registro en FileMaker
     Set Field [ Comprobantes::Estado ; "ANULADO" ]
     Set Field [ Comprobantes::FechaAnulacion ; Get ( CurrentDate ) ]
     Set Field [ Comprobantes::HoraAnulacion ; Get ( CurrentTime ) ]
     Set Field [ Comprobantes::UsuarioAnulacion ; Get ( AccountName ) ]
+    Set Field [ Comprobantes::CodigoDGII ; $codigo ]
     Set Field [ Comprobantes::RespuestaAPI ; $$resultado ]
+    Set Field [ Comprobantes::XMLAnulacion ; $xmlBase64 ]
 
     Commit Records/Requests [ With dialog: Off ]
 
@@ -140,7 +144,9 @@ If [ $status = "success" ]
     Show Custom Dialog [ "✅ Anulación Exitosa" ;
         $mensaje & ¶ & ¶ &
         "NCF anulado: " & $ncf & ¶ &
-        "Código: " & $codigo
+        "Cantidad: " & $cantidadAnulada & ¶ &
+        "Código DGII: " & $codigo & ¶ &
+        "Procesado: " & $procesado
     ]
 
     Refresh Window
