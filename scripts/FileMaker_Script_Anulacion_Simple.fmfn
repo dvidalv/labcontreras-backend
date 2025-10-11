@@ -38,9 +38,14 @@ If [ IsEmpty ( $rnc ) or IsEmpty ( $tipoDocumento ) or IsEmpty ( $ncf ) ]
     Exit Script [ Text Result: "error_validacion" ]
 End If
 
-# Validar formato NCF (11 caracteres, comienza con E)
-If [ Length ( $ncf ) ≠ 11 or Left ( $ncf ; 1 ) ≠ "E" ]
-    Show Custom Dialog [ "Error" ; "NCF debe tener 11 caracteres y comenzar con 'E'." ]
+# Validar formato NCF (11 o 13 caracteres, comienza con E)
+If [ ( Length ( $ncf ) ≠ 11 and Length ( $ncf ) ≠ 13 ) or Left ( $ncf ; 1 ) ≠ "E" ]
+    Show Custom Dialog [ "Error" ; 
+        "NCF debe tener 11 o 13 caracteres y comenzar con 'E'." & ¶ &
+        "Formatos válidos:" & ¶ &
+        "- E + tipo (2) + secuencia (8): E3100000098" & ¶ &
+        "- E + tipo (2) + secuencia (10): E310000000147"
+    ]
     Exit Script [ Text Result: "error_validacion" ]
 End If
 

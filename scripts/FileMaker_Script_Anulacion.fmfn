@@ -55,9 +55,14 @@ If [ Length ( $rnc ) ≠ 9 and Length ( $rnc ) ≠ 11 ]
     Exit Script [ Text Result: "error" ]
 End If
 
-# Validar formato de NCF (debe tener 11 caracteres)
-If [ Length ( $ncfDesde ) ≠ 11 or Length ( $ncfHasta ) ≠ 11 ]
-    Show Custom Dialog [ "Error" ; "Los NCF deben tener exactamente 11 caracteres (E + tipo + secuencia)." ]
+# Validar formato de NCF (debe tener 11 o 13 caracteres)
+If [ ( Length ( $ncfDesde ) ≠ 11 and Length ( $ncfDesde ) ≠ 13 ) or ( Length ( $ncfHasta ) ≠ 11 and Length ( $ncfHasta ) ≠ 13 ) ]
+    Show Custom Dialog [ "Error" ; 
+        "Los NCF deben tener 11 o 13 caracteres." & ¶ &
+        "Formatos válidos:" & ¶ &
+        "- 11 caracteres: E3100000098 (E + tipo + 8 dígitos)" & ¶ &
+        "- 13 caracteres: E310000000147 (E + tipo + 10 dígitos)"
+    ]
     Exit Script [ Text Result: "error" ]
 End If
 

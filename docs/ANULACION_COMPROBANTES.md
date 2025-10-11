@@ -104,10 +104,12 @@ Tipos válidos: `31`, `32`, `33`, `34`, `41`, `43`, `44`, `45`, `46`, `47`
 
 ### 3. Validación de Formato NCF
 
-- Formato: `E` + tipo (2 dígitos) + secuencia (8 dígitos)
-- Ejemplo válido: `E310000000098`
-- Total: 11 caracteres
+- **Formato estándar**: `E` + tipo (2 dígitos) + secuencia (8 dígitos) = **11 caracteres**
+  - Ejemplo: `E3100000098`
+- **Formato extendido**: `E` + tipo (2 dígitos) + secuencia (10 dígitos) = **13 caracteres**
+  - Ejemplo: `E310000000147`
 - El tipo en el NCF debe coincidir con el `tipoDocumento`
+- Se aceptan ambos formatos (11 o 13 caracteres)
 
 ### 4. Validación de Rangos
 
