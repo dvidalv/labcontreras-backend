@@ -1,0 +1,291 @@
+# ==========================================
+# SCRIPT: Descargar Archivos Automáticamente - XML y PDF
+# ==========================================
+# Descripción: Descarga automáticamente ambos archivos (XML y PDF) de un e-NCF
+# Uso: Ideal para ejecutar después de enviar una factura electrónica
+# Requiere: FileMaker 16 o superior
+# Fecha: Octubre 2024
+# Características:
+#   - Descarga XML y PDF automáticamente
+#   - Sin intervención del usuario
+#   - Registra actividad en log
+#   - Manejo de errores robusto
+# ==========================================
+
+# ------------------------------------------
+# PARÁMETROS DE ENTRADA (Opcional)
+# ------------------------------------------
+
+# Puede recibir parámetros del script que lo llama:
+# Formato: RNC|eNCF
+# Ejemplo: "130960088|E310000000033"
+
+Set Variable [ $parametros ; Value: Get ( ScriptParameter ) ]
+
+# Si hay parámetros, parsearlos
+If [ not IsEmpty ( $parametros ) ]
+    Set Variable [ $rnc ; Value: GetValue ( Substitute ( $parametros ; "|" ; ¶ ) ; 1 ) ]
+    Set Variable [ $documento ; Value: GetValue ( Substitute ( $parametros ; "|" ; ¶ ) ; 2 ) ]
+Else
+    # Si no hay parámetros, usar el registro actual
+    Set Variable [ $rnc ; Value: Facturas::RNC ]
+    Set Variable [ $documento ; Value: Facturas::eNCF ]
+End If
+
+# ------------------------------------------
+# CONFIGURACIÓN
+# ------------------------------------------
+
+Set Variable [ $url ; Value: Globals::gURLBase & "/comprobantes/descargar-archivo" ]
+Set Variable [ $token ; Value: Globals::gTokenJWT ]
+Set Variable [ $inicioScript ; Value: Get ( CurrentTimestamp ) ]
+
+# Validaciones básicas
+If [ IsEmpty ( $token ) or IsEmpty ( $rnc ) or IsEmpty ( $documento ) ]
+    # Registrar en log
+    Set Field [ Logs::Fecha ; Get ( CurrentTimestamp ) ]
+    Set Field [ Logs::Accion ; "Descarga Automática - Error Validación" ]
+    Set Field [ Logs::Detalle ; "Token, RNC o e-NCF faltante" ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# ------------------------------------------
+# FUNCIÓN AUXILIAR: Descargar Archivo
+# ------------------------------------------
+
+# Esta función se ejecutará dos veces (una para XML, otra para PDF)
+# Parámetros: $tipoArchivo ("xml" o "pdf")
+
+Set Variable [ $descargasExitosas ; Value: 0 ]
+Set Variable [ $erroresDescarga ; Value: "" ]
+
+# ------------------------------------------
+# DESCARGA 1: ARCHIVO XML
+# ------------------------------------------
+
+Set Variable [ $extension ; Value: "xml" ]
+
+# Construir JSON
+Set Variable [ $json ; Value: "{}" ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "rnc" ; $rnc ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "documento" ; $documento ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension ; JSONString ) ]
+
+# Configurar cURL
+Set Variable [ $curlOptions ; Value:
+    "--request POST" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--connect-timeout 30" & " " &
+    "--max-time 60" & " " &
+    "--data-raw " & Quote($json)
+]
+
+# Realizar petición
+Set Error Capture [ On ]
+Insert from URL [ 
+    Select ; 
+    With dialog: Off ; 
+    Target: Facturas::g_ResponseJSON ; 
+    $url ; 
+    Verify SSL Certificates ; 
+    cURL options: $curlOptions
+]
+
+# Verificar error de conexión
+Set Variable [ $fmError ; Value: Get ( LastError ) ]
+
+If [ $fmError = 0 ]
+    # Procesar respuesta
+    Set Variable [ $response ; Value: Facturas::g_ResponseJSON ]
+    Set Variable [ $status ; Value: JSONGetElement ( $response ; "status" ) ]
+    
+    If [ $status = "success" ]
+        # Extraer archivo
+        Set Variable [ $archivoBase64 ; Value: JSONGetElement ( $response ; "data.archivo" ) ]
+        
+        # Guardar en campos
+        Set Field [ Facturas::ArchivoXML_Base64 ; $archivoBase64 ]
+        Set Field [ Facturas::TieneXML ; True ]
+        Set Field [ Facturas::FechaDescargaXML ; Get ( CurrentTimestamp ) ]
+        
+        # Decodificar si es FileMaker 19+
+        Set Variable [ $versionFM ; Value: Left ( Get ( ApplicationVersion ) ; 2 ) ]
+        If [ $versionFM ≥ 19 ]
+            Set Variable [ $contenidoDecodificado ; Value: Base64Decode ( $archivoBase64 ; "archivo.xml" ) ]
+            Set Field [ Facturas::ArchivoXML ; $contenidoDecodificado ]
+        End If
+        
+        Set Variable [ $descargasExitosas ; Value: $descargasExitosas + 1 ]
+    Else
+        # Error en descarga XML
+        Set Variable [ $mensaje ; Value: JSONGetElement ( $response ; "message" ) ]
+        Set Variable [ $erroresDescarga ; Value: $erroresDescarga & "XML: " & $mensaje & ¶ ]
+    End If
+Else
+    # Error de conexión XML
+    Set Variable [ $erroresDescarga ; Value: $erroresDescarga & "XML: Error de conexión (" & $fmError & ")" & ¶ ]
+End If
+
+# ------------------------------------------
+# DESCARGA 2: ARCHIVO PDF
+# ------------------------------------------
+
+Set Variable [ $extension ; Value: "pdf" ]
+
+# Construir JSON
+Set Variable [ $json ; Value: "{}" ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "rnc" ; $rnc ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "documento" ; $documento ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension ; JSONString ) ]
+
+# Configurar cURL
+Set Variable [ $curlOptions ; Value:
+    "--request POST" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--connect-timeout 30" & " " &
+    "--max-time 60" & " " &
+    "--data-raw " & Quote($json)
+]
+
+# Realizar petición
+Set Error Capture [ On ]
+Insert from URL [ 
+    Select ; 
+    With dialog: Off ; 
+    Target: Facturas::g_ResponseJSON ; 
+    $url ; 
+    Verify SSL Certificates ; 
+    cURL options: $curlOptions
+]
+
+# Verificar error de conexión
+Set Variable [ $fmError ; Value: Get ( LastError ) ]
+
+If [ $fmError = 0 ]
+    # Procesar respuesta
+    Set Variable [ $response ; Value: Facturas::g_ResponseJSON ]
+    Set Variable [ $status ; Value: JSONGetElement ( $response ; "status" ) ]
+    
+    If [ $status = "success" ]
+        # Extraer archivo
+        Set Variable [ $archivoBase64 ; Value: JSONGetElement ( $response ; "data.archivo" ) ]
+        
+        # Guardar en campos
+        Set Field [ Facturas::ArchivoPDF_Base64 ; $archivoBase64 ]
+        Set Field [ Facturas::TienePDF ; True ]
+        Set Field [ Facturas::FechaDescargaPDF ; Get ( CurrentTimestamp ) ]
+        
+        # Decodificar si es FileMaker 19+
+        Set Variable [ $versionFM ; Value: Left ( Get ( ApplicationVersion ) ; 2 ) ]
+        If [ $versionFM ≥ 19 ]
+            Set Variable [ $contenidoDecodificado ; Value: Base64Decode ( $archivoBase64 ; "archivo.pdf" ) ]
+            Set Field [ Facturas::ArchivoPDF ; $contenidoDecodificado ]
+        End If
+        
+        Set Variable [ $descargasExitosas ; Value: $descargasExitosas + 1 ]
+    Else
+        # Error en descarga PDF
+        Set Variable [ $mensaje ; Value: JSONGetElement ( $response ; "message" ) ]
+        Set Variable [ $erroresDescarga ; Value: $erroresDescarga & "PDF: " & $mensaje & ¶ ]
+    End If
+Else
+    # Error de conexión PDF
+    Set Variable [ $erroresDescarga ; Value: $erroresDescarga & "PDF: Error de conexión (" & $fmError & ")" & ¶ ]
+End If
+
+# ------------------------------------------
+# ACTUALIZAR CAMPOS COMUNES
+# ------------------------------------------
+
+Set Field [ Facturas::UltimaDescarga ; Get ( CurrentTimestamp ) ]
+Set Field [ Facturas::DescargasExitosas ; $descargasExitosas ]
+
+# ------------------------------------------
+# REGISTRAR EN LOG
+# ------------------------------------------
+
+Set Field [ Logs::Fecha ; Get ( CurrentTimestamp ) ]
+Set Field [ Logs::Usuario ; Get ( AccountName ) ]
+Set Field [ Logs::Accion ; "Descarga Automática XML/PDF" ]
+Set Field [ Logs::Detalle ; 
+    "Documento: " & $documento & ¶ &
+    "RNC: " & $rnc & ¶ &
+    "Exitosas: " & $descargasExitosas & "/2" & ¶ &
+    If ( not IsEmpty ( $erroresDescarga ) ; "Errores: " & ¶ & $erroresDescarga ; "Sin errores" )
+]
+Set Field [ Logs::Resultado ; 
+    If ( $descargasExitosas = 2 ; "Exitoso" ; 
+        If ( $descargasExitosas = 0 ; "Error" ; "Parcial" )
+    )
+]
+
+# ------------------------------------------
+# RESULTADO FINAL
+# ------------------------------------------
+
+# Calcular tiempo
+Set Variable [ $tiempoTotal ; Value: Get ( CurrentTimestamp ) - $inicioScript ]
+
+If [ $descargasExitosas = 2 ]
+    # Ambas descargas exitosas
+    Exit Script [ Text Result: "success|Ambos archivos descargados|" & $tiempoTotal ]
+    
+Else If [ $descargasExitosas = 1 ]
+    # Solo una descarga exitosa
+    Exit Script [ Text Result: "parcial|" & $erroresDescarga & "|" & $tiempoTotal ]
+    
+Else
+    # Ninguna descarga exitosa
+    Exit Script [ Text Result: "error|" & $erroresDescarga & "|" & $tiempoTotal ]
+End If
+
+# ==========================================
+# FIN DEL SCRIPT
+# ==========================================
+
+# NOTAS DE USO:
+#
+# 1. LLAMAR DESDE OTRO SCRIPT:
+#    Perform Script [ "Descargar Archivos Automáticamente" ; Parameter: $rnc & "|" & $eNCF ]
+#
+# 2. CAMPOS REQUERIDOS:
+#    - Facturas::RNC
+#    - Facturas::eNCF
+#    - Facturas::ArchivoXML_Base64
+#    - Facturas::ArchivoPDF_Base64
+#    - Facturas::TieneXML (número/booleano)
+#    - Facturas::TienePDF (número/booleano)
+#    - Facturas::FechaDescargaXML (timestamp)
+#    - Facturas::FechaDescargaPDF (timestamp)
+#    - Facturas::UltimaDescarga (timestamp)
+#    - Facturas::DescargasExitosas (número)
+#    - Facturas::ArchivoXML (contenedor) - FileMaker 19+
+#    - Facturas::ArchivoPDF (contenedor) - FileMaker 19+
+#    - Facturas::g_ResponseJSON (texto global)
+#
+# 3. INTERPRETAR RESULTADO:
+#    Set Variable [ $resultado ; Value: Get ( ScriptResult ) ]
+#    Set Variable [ $estado ; Value: GetValue ( Substitute ( $resultado ; "|" ; ¶ ) ; 1 ) ]
+#    
+#    If [ $estado = "success" ]
+#       # Ambos archivos descargados
+#    Else If [ $estado = "parcial" ]
+#       # Solo un archivo descargado
+#    Else
+#       # Ningún archivo descargado
+#    End If
+#
+# 4. USO RECOMENDADO:
+#    Llamar este script inmediatamente después de enviar una factura electrónica
+#    para tener los archivos XML y PDF disponibles automáticamente.
+#
+# 5. FLUJO COMPLETO:
+#    1. Enviar Factura Electrónica
+#    2. Esperar confirmación de envío
+#    3. Llamar este script para descargar archivos
+#    4. Opcionalmente enviar email con archivos adjuntos
+

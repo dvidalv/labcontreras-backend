@@ -16,6 +16,7 @@ const {
   limpiarTokenCache,
   enviarEmailFactura,
   anularComprobantes,
+  descargarArchivo,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -46,6 +47,9 @@ router.post('/enviar-email', enviarEmailFactura); // POST /comprobantes/enviar-e
 
 // Ruta para anular comprobantes fiscales
 router.post('/anular', anularComprobantes); // POST /comprobantes/anular - Anular secuencias de NCF
+
+// Ruta para descargar archivo XML o PDF de documento electrónico
+router.post('/descargar-archivo', descargarArchivo); // POST /comprobantes/descargar-archivo - Descargar archivo XML/PDF
 
 // Rutas específicas por ID
 router

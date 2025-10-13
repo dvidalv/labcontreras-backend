@@ -7,6 +7,7 @@ const {
   THEFACTORY_ENVIAR_URL,
   THEFACTORY_ESTATUS_URL,
   THEFACTORY_ANULACION_URL,
+  THEFACTORY_DESCARGA_URL,
   THEFACTORY_USUARIO,
   THEFACTORY_CLAVE,
   THEFACTORY_RNC,
@@ -2631,6 +2632,142 @@ const anularComprobantes = async (req, res) => {
   }
 };
 
+/**
+ * @description Descarga archivo XML o PDF de un documento electrónico desde TheFactoryHKA
+ * @route POST /comprobantes/descargar-archivo
+ * @access Privado (requiere autenticación)
+ */
+const descargarArchivo = async (req, res) => {
+  try {
+    const { rnc, documento, extension } = req.body;
+
+    // Validar parámetros requeridos
+    if (!rnc) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El parámetro "rnc" es obligatorio',
+      });
+    }
+
+    if (!documento) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El parámetro "documento" es obligatorio (número de e-NCF)',
+      });
+    }
+
+    if (!extension) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message:
+          'El parámetro "extension" es obligatorio (valores permitidos: "xml" o "pdf")',
+      });
+    }
+
+    // Validar que la extensión sea válida
+    const extensionesPermitidas = ['xml', 'pdf'];
+    if (!extensionesPermitidas.includes(extension.toLowerCase())) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: 'El parámetro "extension" debe ser "xml" o "pdf"',
+      });
+    }
+
+    console.log('📥 Descargando archivo desde TheFactoryHKA...');
+    console.log(`   RNC: ${rnc}`);
+    console.log(`   Documento: ${documento}`);
+    console.log(`   Extensión: ${extension}`);
+
+    // Obtener token de autenticación
+    const token = await obtenerTokenTheFactory();
+
+    // Preparar request para TheFactoryHKA
+    const descargaRequest = {
+      token: token,
+      rnc: rnc,
+      documento: documento,
+      extension: extension.toLowerCase(),
+    };
+
+    console.log('📤 Enviando solicitud de descarga a TheFactoryHKA...');
+
+    // Enviar solicitud a TheFactoryHKA
+    const response = await axios.post(
+      THEFACTORY_DESCARGA_URL,
+      descargaRequest,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 segundos para descarga
+      },
+    );
+
+    console.log('✅ Respuesta de TheFactoryHKA recibida');
+    console.log(`   Código: ${response.data.codigo}`);
+    console.log(`   Mensaje: ${response.data.mensaje}`);
+    console.log(`   Procesado: ${response.data.procesado}`);
+
+    // Verificar respuesta exitosa
+    if (response.data.codigo === 130 && response.data.procesado) {
+      // Descarga exitosa
+      return res.status(httpStatus.OK).json({
+        status: 'success',
+        message: 'Archivo descargado exitosamente',
+        data: {
+          archivo: response.data.archivo, // Base64 del archivo
+          extension: extension.toLowerCase(),
+          documento: documento,
+          rnc: rnc,
+          procesado: response.data.procesado,
+          codigo: response.data.codigo,
+          mensaje: response.data.mensaje,
+        },
+      });
+    } else {
+      // Error en la descarga
+      console.error('❌ Error en la descarga:', response.data.mensaje);
+      return res.status(httpStatus.BAD_REQUEST).json({
+        status: 'error',
+        message: `Error al descargar archivo: ${response.data.mensaje}`,
+        details: {
+          codigo: response.data.codigo,
+          mensaje: response.data.mensaje,
+          procesado: response.data.procesado,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error al descargar archivo:', error);
+
+    // Manejo de errores de axios
+    if (error.response) {
+      return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+        status: 'error',
+        message: 'Error en la respuesta de TheFactoryHKA',
+        details: {
+          status: error.response.status,
+          data: error.response.data,
+        },
+      });
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      return res.status(httpStatus.REQUEST_TIMEOUT).json({
+        status: 'error',
+        message: 'Timeout al conectar con TheFactoryHKA',
+      });
+    }
+
+    // Error genérico
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error interno al procesar la descarga',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -2649,4 +2786,5 @@ module.exports = {
   obtenerTokenTheFactory, // Exportar también la función de autenticación para posibles usos externos
   enviarEmailFactura, // NUEVO: Endpoint para enviar emails vía The Factory HKA
   anularComprobantes, // NUEVO: Endpoint para anular comprobantes fiscales
+  descargarArchivo, // NUEVO: Endpoint para descargar archivos XML/PDF
 };
