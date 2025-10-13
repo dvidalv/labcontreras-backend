@@ -32,11 +32,13 @@ El sistema se integra con **TheFactory HKA** para la gestión de comprobantes fi
 - Generación de códigos QR según especificaciones oficiales
 - Consulta de estatus de documentos
 - Anulación de secuencias de NCF con validaciones automáticas
+- Descarga de archivos XML/PDF de documentos electrónicos
 - Envío de emails de facturas electrónicas
 
 Ver documentación completa en:
 
 - [docs/ANULACION_COMPROBANTES.md](docs/ANULACION_COMPROBANTES.md) - Guía de anulación de NCF
+- [docs/DESCARGAR_ARCHIVO_GUIA.md](docs/DESCARGAR_ARCHIVO_GUIA.md) - Guía de descarga de archivos XML/PDF
 - [docs/FACTURACION_ELECTRONICA.md](docs/FACTURACION_ELECTRONICA.md) - Guía general de facturación
 - [docs/QR_DGII_OFICIAL.md](docs/QR_DGII_OFICIAL.md) - Generación de códigos QR
 
@@ -160,6 +162,7 @@ npm start
 - `POST /comprobantes/enviar-electronica` - Enviar factura electrónica a TheFactory HKA
 - `POST /comprobantes/consultar-estatus` - Consultar estatus de documento
 - `POST /comprobantes/anular` - Anular secuencias de NCF
+- `POST /comprobantes/descargar-archivo` - Descargar archivo XML/PDF de documento
 - `POST /comprobantes/generar-qr` - Generar código QR según DGII
 - `POST /comprobantes/enviar-email` - Enviar email de documento
 
@@ -200,6 +203,14 @@ Variables de entorno necesarias en Vercel:
 5. Crear Pull Request
 
 ## 📝 Changelog
+
+### v2.2.0 (Octubre 2024)
+
+- ✨ Nuevo endpoint de descarga de archivos XML/PDF desde TheFactoryHKA
+- 📥 Descarga de documentos electrónicos en formato Base64
+- ✅ Validación completa de parámetros (RNC, documento, extensión)
+- 📝 Documentación completa con ejemplos en múltiples lenguajes
+- 🧪 Script de prueba incluido para testing del endpoint
 
 ### v2.1.0 (Octubre 2024)
 

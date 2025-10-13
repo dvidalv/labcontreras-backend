@@ -1,10 +1,25 @@
-# Scripts de FileMaker para Anulación de Comprobantes
+# Scripts de FileMaker - Facturación Electrónica
 
 ## 📋 Descripción
 
-Esta carpeta contiene scripts de FileMaker listos para usar que integran con el endpoint de anulación de comprobantes fiscales (NCF).
+Esta carpeta contiene scripts de FileMaker listos para usar que integran con los endpoints de facturación electrónica:
 
-## ✅ Scripts Disponibles
+- **Anulación** de comprobantes fiscales (NCF)
+- **Descarga** de archivos XML y PDF de documentos electrónicos
+
+## 📂 Categorías de Scripts
+
+### 🚫 Scripts de Anulación de Comprobantes
+
+- [Ver documentación completa de Anulación →](#scripts-de-anulación)
+
+### 📥 Scripts de Descarga de Archivos
+
+- [Ver documentación completa de Descarga →](#scripts-de-descarga-de-archivos)
+
+---
+
+## 🚫 Scripts de Anulación
 
 ### 1. `FileMaker_Script_Anulacion_Simple.fmfn` ⭐ RECOMENDADO
 
@@ -55,6 +70,102 @@ NCF: E310000000098
 NCF Desde: E310000000098
 NCF Hasta: E310000000105
 ```
+
+---
+
+## 📥 Scripts de Descarga de Archivos
+
+### 1. `FileMaker_Script_DescargarArchivo_Simple.fmfn` ⭐ RECOMENDADO
+
+**Uso**: Descargar **UN** tipo de archivo (XML o PDF) de un e-NCF.
+
+**Características**:
+
+- ✅ Versión simplificada
+- ✅ Descarga XML o PDF (configurable)
+- ✅ Guardado automático en campos
+- ✅ Ideal para uso manual ocasional
+
+**Campos requeridos**:
+
+- `Facturas::RNC`
+- `Facturas::eNCF`
+- `Facturas::ArchivoXML_Base64` o `Facturas::ArchivoPDF_Base64`
+
+**Ejemplo de uso**:
+
+```
+eNCF: E310000000033
+Extensión: xml (o pdf)
+```
+
+---
+
+### 2. `FileMaker_Script_DescargarArchivo_Completo.fmfn`
+
+**Uso**: Descargar archivos con interfaz completa y opciones.
+
+**Características**:
+
+- ✅ Permite elegir entre XML o PDF
+- ✅ Validaciones exhaustivas
+- ✅ Opción de exportar archivo a disco
+- ✅ Decodificación automática (FileMaker 19+)
+- ✅ Registro en log de actividades
+- ✅ Ideal para usuarios finales
+
+**Campos requeridos**:
+
+- `Facturas::RNC`
+- `Facturas::eNCF`
+- `Facturas::ArchivoXML_Base64`, `Facturas::ArchivoXML`
+- `Facturas::ArchivoPDF_Base64`, `Facturas::ArchivoPDF`
+- `Facturas::TieneXML`, `Facturas::TienePDF`
+- `Facturas::FechaDescargaXML`, `Facturas::FechaDescargaPDF`
+
+**Ejemplo de uso**:
+
+```
+1. Usuario elige XML o PDF
+2. Archivo se descarga
+3. Opcionalmente se exporta a disco
+```
+
+---
+
+### 3. `FileMaker_Script_DescargarArchivo_Automatico.fmfn`
+
+**Uso**: Descargar **AMBOS** archivos (XML y PDF) automáticamente.
+
+**Características**:
+
+- ✅ Descarga XML y PDF en un solo script
+- ✅ Sin intervención del usuario
+- ✅ Ideal para procesos automatizados
+- ✅ Retorna resultado detallado
+- ✅ Perfecto para llamar después de enviar factura
+
+**Campos requeridos**:
+
+- Mismos campos que el script completo
+- `Facturas::DescargasExitosas` (contador)
+
+**Ejemplo de uso**:
+
+```
+Perform Script [ "Descargar Archivos Automáticamente" ]
+Set Variable [ $resultado ; Value: Get ( ScriptResult ) ]
+
+# Resultado: "success|mensaje|tiempo" o "error|mensaje|tiempo"
+```
+
+---
+
+### 📚 Documentación de Descarga de Archivos
+
+- **[README Completo](./README_SCRIPTS_DESCARGAR_ARCHIVO.md)** - Guía rápida de scripts
+- **[Guía FileMaker](../docs/FILEMAKER_DESCARGAR_ARCHIVO.md)** - Documentación exhaustiva
+- **[Guía API](../docs/DESCARGAR_ARCHIVO_GUIA.md)** - Detalles del endpoint
 
 ---
 
@@ -375,10 +486,19 @@ El script detecta errores de conexión y muestra un mensaje apropiado. No se act
 
 ## 📚 Documentación Relacionada
 
+### Anulación de Comprobantes
+
 - **Guía Rápida FileMaker**: `docs/FILEMAKER_GUIA_RAPIDA_ANULACION.md`
 - **Guía Completa**: `docs/FILEMAKER_ANULACION_INTEGRACION.md`
 - **Comparación JSON**: `docs/FILEMAKER_JSON_COMPARACION.md`
 - **API Backend**: `docs/ANULACION_COMPROBANTES.md`
+
+### Descarga de Archivos
+
+- **Guía FileMaker**: `docs/FILEMAKER_DESCARGAR_ARCHIVO.md`
+- **README Scripts**: `scripts/README_SCRIPTS_DESCARGAR_ARCHIVO.md`
+- **Guía API**: `docs/DESCARGAR_ARCHIVO_GUIA.md`
+- **Quick Start**: `docs/DESCARGAR_ARCHIVO_QUICK_START.md`
 
 ---
 
@@ -390,6 +510,14 @@ El script detecta errores de conexión y muestra un mensaje apropiado. No se act
 ---
 
 ## 📝 Changelog
+
+### v2.2 (Octubre 2024)
+
+- ✨ **NUEVO**: Scripts de descarga de archivos XML/PDF
+- ✨ 3 versiones: Simple, Completo y Automático
+- 📥 Descarga desde TheFactoryHKA
+- 🔄 Decodificación Base64 automática (FM 19+)
+- 📝 Documentación completa FileMaker
 
 ### v2.0 (Octubre 2024)
 

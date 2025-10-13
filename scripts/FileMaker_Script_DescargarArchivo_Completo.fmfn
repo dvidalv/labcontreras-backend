@@ -1,0 +1,409 @@
+# ==========================================
+# SCRIPT: Descargar Archivo XML/PDF - VERSIÓN COMPLETA
+# ==========================================
+# Descripción: Descarga archivos XML o PDF con todas las opciones y manejo de errores
+# Utiliza: Funciones JSON nativas de FileMaker
+# Requiere: FileMaker 16 o superior
+# Fecha: Octubre 2024
+# Características:
+#   - Permite elegir tipo de archivo (XML o PDF)
+#   - Descarga y decodifica automáticamente
+#   - Exporta archivo a disco (opcional)
+#   - Manejo completo de errores
+#   - Registro de actividad en log
+# ==========================================
+
+# ------------------------------------------
+# CONFIGURACIÓN INICIAL
+# ------------------------------------------
+
+Set Variable [ $url ; Value: Globals::gURLBase & "/comprobantes/descargar-archivo" ]
+Set Variable [ $token ; Value: Globals::gTokenJWT ]
+Set Variable [ $inicioScript ; Value: Get ( CurrentTimestamp ) ]
+
+# Validar token
+If [ IsEmpty ( $token ) ]
+    Show Custom Dialog [ "Error de Autenticación" ; 
+        "No hay token de autenticación válido." & ¶ &
+        "Por favor inicie sesión nuevamente."
+    ]
+    Exit Script [ Text Result: "error_auth" ]
+End If
+
+# ------------------------------------------
+# OBTENER DATOS DEL REGISTRO
+# ------------------------------------------
+
+Set Variable [ $rnc ; Value: Facturas::RNC ]
+Set Variable [ $documento ; Value: Facturas::eNCF ]
+Set Variable [ $registroID ; Value: Facturas::ID ]
+
+# ------------------------------------------
+# VALIDACIONES PREVIAS
+# ------------------------------------------
+
+# Validar campos requeridos
+If [ IsEmpty ( $rnc ) ]
+    Show Custom Dialog [ "Campo Requerido" ; "El campo RNC es obligatorio." ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+If [ IsEmpty ( $documento ) ]
+    Show Custom Dialog [ "Campo Requerido" ; "El campo e-NCF es obligatorio." ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# Validar formato e-NCF
+If [ Left ( $documento ; 1 ) ≠ "E" ]
+    Show Custom Dialog [ "Formato Inválido" ; 
+        "El número de documento debe ser un e-NCF válido." & ¶ &
+        "Los e-NCF comienzan con la letra 'E'." & ¶ & ¶ &
+        "Ejemplos válidos:" & ¶ &
+        "  E3100000098 (11 caracteres)" & ¶ &
+        "  E310000000147 (13 caracteres)"
+    ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# Validar longitud del e-NCF
+Set Variable [ $longitudNCF ; Value: Length ( $documento ) ]
+If [ $longitudNCF < 11 or $longitudNCF > 13 ]
+    Show Custom Dialog [ "Longitud Inválida" ; 
+        "El e-NCF debe tener entre 11 y 13 caracteres." & ¶ &
+        "Longitud actual: " & $longitudNCF
+    ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# ------------------------------------------
+# SELECCIONAR TIPO DE ARCHIVO
+# ------------------------------------------
+
+Show Custom Dialog [ "Seleccionar Tipo de Archivo" ; 
+    "¿Qué tipo de archivo desea descargar?" & ¶ &
+    "Documento: " & $documento & ¶ & ¶ &
+    "XML: Estructura del documento (datos)" & ¶ &
+    "PDF: Representación visual (para imprimir)"
+]
+
+# Botón 1 = XML, Botón 2 = PDF, Botón 3 = Cancelar
+If [ Get ( LastMessageChoice ) = 1 ]
+    Set Variable [ $extension ; Value: "xml" ]
+    Set Variable [ $tipoArchivo ; Value: "XML" ]
+Else If [ Get ( LastMessageChoice ) = 2 ]
+    Set Variable [ $extension ; Value: "pdf" ]
+    Set Variable [ $tipoArchivo ; Value: "PDF" ]
+Else
+    Exit Script [ Text Result: "cancelado" ]
+End If
+
+# ------------------------------------------
+# CONSTRUIR REQUEST JSON
+# ------------------------------------------
+
+Set Variable [ $json ; Value: "{}" ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "rnc" ; $rnc ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "documento" ; $documento ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension ; JSONString ) ]
+
+# ------------------------------------------
+# CONFIRMACIÓN FINAL
+# ------------------------------------------
+
+Show Custom Dialog [ "Confirmar Descarga" ; 
+    "Está a punto de descargar:" & ¶ & ¶ &
+    "Tipo: Archivo " & $tipoArchivo & ¶ &
+    "RNC: " & $rnc & ¶ &
+    "Documento: " & $documento & ¶ & ¶ &
+    "¿Desea continuar?"
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "cancelado" ]
+End If
+
+# ------------------------------------------
+# MOSTRAR PROGRESO
+# ------------------------------------------
+
+Show Custom Dialog [ "Descargando..." ; 
+    "Por favor espere mientras se descarga el archivo." & ¶ &
+    "Esto puede tomar unos segundos..."
+]
+
+# ------------------------------------------
+# REALIZAR PETICIÓN A LA API
+# ------------------------------------------
+
+# Configurar opciones cURL
+Set Variable [ $curlOptions ; Value:
+    "--request POST" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--connect-timeout 30" & " " &
+    "--max-time 60" & " " &
+    "--data-raw " & Quote($json)
+]
+
+# Limpiar campo de respuesta anterior
+Set Field [ Facturas::g_ResponseJSON ; "" ]
+
+# Realizar petición
+Set Error Capture [ On ]
+Insert from URL [ 
+    Select ; 
+    With dialog: Off ; 
+    Target: Facturas::g_ResponseJSON ; 
+    $url ; 
+    Verify SSL Certificates ; 
+    cURL options: $curlOptions
+]
+
+# Capturar código de error de FileMaker
+Set Variable [ $fmError ; Value: Get ( LastError ) ]
+
+# ------------------------------------------
+# VERIFICAR ERRORES DE CONEXIÓN
+# ------------------------------------------
+
+If [ $fmError ≠ 0 ]
+    Show Custom Dialog [ "Error de Conexión" ; 
+        "No se pudo conectar con el servidor." & ¶ & ¶ &
+        "Código de error: " & $fmError & ¶ & ¶ &
+        "Posibles causas:" & ¶ &
+        "- No hay conexión a internet" & ¶ &
+        "- El servidor no está disponible" & ¶ &
+        "- Timeout de conexión" & ¶ & ¶ &
+        "Por favor, intente nuevamente."
+    ]
+    
+    # Registrar en log
+    Set Field [ Logs::Fecha ; Get ( CurrentTimestamp ) ]
+    Set Field [ Logs::Accion ; "Descarga Archivo - Error Conexión" ]
+    Set Field [ Logs::Detalle ; "Error FM: " & $fmError & " | URL: " & $url ]
+    
+    Exit Script [ Text Result: "error_conexion" ]
+End If
+
+# ------------------------------------------
+# PROCESAR RESPUESTA
+# ------------------------------------------
+
+Set Variable [ $response ; Value: Facturas::g_ResponseJSON ]
+
+# Validar que haya respuesta
+If [ IsEmpty ( $response ) ]
+    Show Custom Dialog [ "Error" ; 
+        "No se recibió respuesta del servidor." & ¶ &
+        "Verifique su conexión a internet."
+    ]
+    Exit Script [ Text Result: "error_respuesta_vacia" ]
+End If
+
+# Parsear respuesta JSON
+Set Variable [ $status ; Value: JSONGetElement ( $response ; "status" ) ]
+Set Variable [ $message ; Value: JSONGetElement ( $response ; "message" ) ]
+
+# ------------------------------------------
+# VERIFICAR RESULTADO
+# ------------------------------------------
+
+If [ $status = "success" ]
+    # ======================================
+    # DESCARGA EXITOSA
+    # ======================================
+    
+    # Extraer datos
+    Set Variable [ $archivoBase64 ; Value: JSONGetElement ( $response ; "data.archivo" ) ]
+    Set Variable [ $procesado ; Value: JSONGetElement ( $response ; "data.procesado" ) ]
+    Set Variable [ $codigo ; Value: JSONGetElement ( $response ; "data.codigo" ) ]
+    Set Variable [ $mensajeAPI ; Value: JSONGetElement ( $response ; "data.mensaje" ) ]
+    
+    # Validar que se recibió el archivo
+    If [ IsEmpty ( $archivoBase64 ) ]
+        Show Custom Dialog [ "Error" ; 
+            "No se recibió el contenido del archivo." & ¶ &
+            "Intente nuevamente."
+        ]
+        Exit Script [ Text Result: "error_archivo_vacio" ]
+    End If
+    
+    # ------------------------------------------
+    # GUARDAR EN CAMPOS
+    # ------------------------------------------
+    
+    # Determinar qué campo usar según la extensión
+    If [ $extension = "xml" ]
+        Set Field [ Facturas::ArchivoXML_Base64 ; $archivoBase64 ]
+        Set Field [ Facturas::TieneXML ; True ]
+        Set Field [ Facturas::FechaDescargaXML ; Get ( CurrentTimestamp ) ]
+    Else If [ $extension = "pdf" ]
+        Set Field [ Facturas::ArchivoPDF_Base64 ; $archivoBase64 ]
+        Set Field [ Facturas::TienePDF ; True ]
+        Set Field [ Facturas::FechaDescargaPDF ; Get ( CurrentTimestamp ) ]
+    End If
+    
+    # Campos comunes
+    Set Field [ Facturas::UltimaDescarga ; Get ( CurrentTimestamp ) ]
+    Set Field [ Facturas::CodigoDescarga ; $codigo ]
+    
+    # ------------------------------------------
+    # DECODIFICAR BASE64 (FileMaker 19+)
+    # ------------------------------------------
+    
+    # Verificar si FileMaker soporta Base64Decode
+    Set Variable [ $versionFM ; Value: Get ( ApplicationVersion ) ]
+    Set Variable [ $versionNumero ; Value: Left ( $versionFM ; 2 ) ]
+    
+    If [ $versionNumero ≥ 19 ]
+        # Decodificar Base64 a contenedor
+        Set Variable [ $contenidoDecodificado ; Value: Base64Decode ( $archivoBase64 ; "archivo." & $extension ) ]
+        
+        # Guardar en campo contenedor
+        If [ $extension = "xml" ]
+            Set Field [ Facturas::ArchivoXML ; $contenidoDecodificado ]
+        Else
+            Set Field [ Facturas::ArchivoPDF ; $contenidoDecodificado ]
+        End If
+    End If
+    
+    # ------------------------------------------
+    # REGISTRAR EN LOG
+    # ------------------------------------------
+    
+    Set Field [ Logs::Fecha ; Get ( CurrentTimestamp ) ]
+    Set Field [ Logs::Usuario ; Get ( AccountName ) ]
+    Set Field [ Logs::Accion ; "Descarga Archivo " & Upper ( $extension ) ]
+    Set Field [ Logs::Detalle ; 
+        "Documento: " & $documento & ¶ &
+        "RNC: " & $rnc & ¶ &
+        "Código: " & $codigo & ¶ &
+        "Tamaño Base64: " & Length ( $archivoBase64 ) & " caracteres"
+    ]
+    Set Field [ Logs::Resultado ; "Exitoso" ]
+    
+    # ------------------------------------------
+    # PREGUNTAR SI EXPORTAR ARCHIVO
+    # ------------------------------------------
+    
+    Show Custom Dialog [ "✅ Descarga Exitosa" ; 
+        "El archivo " & Upper ( $extension ) & " se ha descargado correctamente." & ¶ & ¶ &
+        "Documento: " & $documento & ¶ &
+        "Código respuesta: " & $codigo & ¶ &
+        "Tamaño: " & Length ( $archivoBase64 ) & " caracteres en Base64" & ¶ & ¶ &
+        "¿Desea exportar el archivo a su computadora?"
+    ]
+    
+    If [ Get ( LastMessageChoice ) = 1 ]
+        # ------------------------------------------
+        # EXPORTAR ARCHIVO
+        # ------------------------------------------
+        
+        # Nombre sugerido para el archivo
+        Set Variable [ $nombreArchivo ; Value: $documento & "." & $extension ]
+        
+        # Exportar campo contenedor (FileMaker 19+)
+        If [ $versionNumero ≥ 19 ]
+            If [ $extension = "xml" ]
+                Export Field Contents [ Facturas::ArchivoXML ; "$nombreArchivo" ]
+            Else
+                Export Field Contents [ Facturas::ArchivoPDF ; "$nombreArchivo" ]
+            End If
+            
+            # Verificar si se exportó correctamente
+            Set Variable [ $exportError ; Value: Get ( LastError ) ]
+            
+            If [ $exportError = 0 ]
+                Show Custom Dialog [ "Archivo Exportado" ; 
+                    "El archivo se ha guardado exitosamente." & ¶ &
+                    "Nombre: " & $nombreArchivo
+                ]
+            Else
+                Show Custom Dialog [ "Error al Exportar" ; 
+                    "No se pudo exportar el archivo." & ¶ &
+                    "Error: " & $exportError
+                ]
+            End If
+        Else
+            # Para versiones anteriores a FileMaker 19
+            Show Custom Dialog [ "Versión de FileMaker" ; 
+                "Su versión de FileMaker no soporta decodificación automática." & ¶ &
+                "El archivo Base64 está guardado en el registro." & ¶ & ¶ &
+                "Para decodificarlo, use una herramienta externa o actualice a FileMaker 19+."
+            ]
+        End If
+    End If
+    
+    # Calcular tiempo de ejecución
+    Set Variable [ $tiempoEjecucion ; Value: Get ( CurrentTimestamp ) - $inicioScript ]
+    
+    # Mensaje final
+    Show Custom Dialog [ "Proceso Completado" ; 
+        "La descarga se completó exitosamente." & ¶ &
+        "Tiempo: " & $tiempoEjecucion & " segundos"
+    ]
+    
+    Exit Script [ Text Result: "success" ]
+    
+Else
+    # ======================================
+    # ERROR EN LA DESCARGA
+    # ======================================
+    
+    # Extraer detalles del error
+    Set Variable [ $errorCodigo ; Value: JSONGetElement ( $response ; "details.codigo" ) ]
+    Set Variable [ $errorMensaje ; Value: JSONGetElement ( $response ; "details.mensaje" ) ]
+    
+    # Si no hay detalles, usar el mensaje principal
+    If [ IsEmpty ( $errorMensaje ) ]
+        Set Variable [ $errorMensaje ; Value: $message ]
+    End If
+    
+    # Determinar tipo de error y mensaje apropiado
+    If [ $errorCodigo = 404 ]
+        Set Variable [ $mensajeUsuario ; Value: 
+            "El documento no fue encontrado en el sistema." & ¶ & ¶ &
+            "Verifique que:" & ¶ &
+            "- El e-NCF sea correcto" & ¶ &
+            "- El documento haya sido enviado previamente" & ¶ &
+            "- El RNC corresponda al emisor del documento"
+        ]
+    Else If [ $errorCodigo = 401 ]
+        Set Variable [ $mensajeUsuario ; Value: 
+            "Error de autenticación." & ¶ & ¶ &
+            "Su sesión ha expirado." & ¶ &
+            "Por favor, inicie sesión nuevamente."
+        ]
+    Else
+        Set Variable [ $mensajeUsuario ; Value: 
+            "Error al descargar el archivo." & ¶ & ¶ &
+            "Detalles: " & $errorMensaje
+        ]
+    End If
+    
+    # Mostrar error al usuario
+    Show Custom Dialog [ "❌ Error en la Descarga" ; 
+        $mensajeUsuario & ¶ & ¶ &
+        "Código: " & $errorCodigo
+    ]
+    
+    # Registrar en log
+    Set Field [ Logs::Fecha ; Get ( CurrentTimestamp ) ]
+    Set Field [ Logs::Usuario ; Get ( AccountName ) ]
+    Set Field [ Logs::Accion ; "Descarga Archivo " & Upper ( $extension ) & " - Error" ]
+    Set Field [ Logs::Detalle ; 
+        "Documento: " & $documento & ¶ &
+        "RNC: " & $rnc & ¶ &
+        "Error: " & $errorMensaje & ¶ &
+        "Código: " & $errorCodigo
+    ]
+    Set Field [ Logs::Resultado ; "Error" ]
+    
+    Exit Script [ Text Result: "error_descarga" ]
+End If
+
+# ==========================================
+# FIN DEL SCRIPT
+# ==========================================
+

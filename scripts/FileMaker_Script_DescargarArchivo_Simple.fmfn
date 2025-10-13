@@ -1,0 +1,192 @@
+# ==========================================
+# SCRIPT: Descargar Archivo XML/PDF de Documento Electrónico - VERSIÓN SIMPLE
+# ==========================================
+# Descripción: Descarga archivo XML o PDF de un e-NCF desde TheFactoryHKA
+# Utiliza: Funciones JSON nativas de FileMaker (JSONSetElement, JSONGetElement)
+# Requiere: FileMaker 16 o superior
+# Fecha: Octubre 2024
+# ==========================================
+
+# ------------------------------------------
+# CONFIGURACIÓN
+# ------------------------------------------
+
+Set Variable [ $url ; Value: Globals::gURLBase & "/comprobantes/descargar-archivo" ]
+Set Variable [ $token ; Value: Globals::gTokenJWT ]
+
+# Validar token
+If [ IsEmpty ( $token ) ]
+    Show Custom Dialog [ "Error" ; "No hay token de autenticación. Por favor inicie sesión." ]
+    Exit Script [ Text Result: "error_auth" ]
+End If
+
+# ------------------------------------------
+# OBTENER DATOS DEL REGISTRO ACTUAL
+# ------------------------------------------
+
+Set Variable [ $rnc ; Value: Facturas::RNC ]
+Set Variable [ $documento ; Value: Facturas::eNCF ]
+Set Variable [ $extension ; Value: "xml" ] # Puede ser "xml" o "pdf"
+
+# ------------------------------------------
+# VALIDACIONES BÁSICAS
+# ------------------------------------------
+
+# Validar campos requeridos
+If [ IsEmpty ( $rnc ) or IsEmpty ( $documento ) ]
+    Show Custom Dialog [ "Error" ; "RNC y Número de e-NCF son obligatorios." ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# Validar formato e-NCF (debe comenzar con E)
+If [ Left ( $documento ; 1 ) ≠ "E" ]
+    Show Custom Dialog [ "Error" ; 
+        "El número de documento debe ser un e-NCF válido (comienza con 'E')." & ¶ &
+        "Ejemplo: E310000000033"
+    ]
+    Exit Script [ Text Result: "error_validacion" ]
+End If
+
+# ------------------------------------------
+# CONSTRUIR REQUEST JSON
+# ------------------------------------------
+
+# Inicializar JSON vacío
+Set Variable [ $json ; Value: "{}" ]
+
+# Agregar campos al JSON
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "rnc" ; $rnc ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "documento" ; $documento ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension ; JSONString ) ]
+
+# ------------------------------------------
+# MOSTRAR CONFIRMACIÓN
+# ------------------------------------------
+
+Show Custom Dialog [ "Confirmar Descarga" ; 
+    "¿Desea descargar el archivo " & Upper ( $extension ) & " del documento?" & ¶ &
+    "RNC: " & $rnc & ¶ &
+    "Documento: " & $documento & ¶ &
+    "Extensión: " & Upper ( $extension )
+]
+
+If [ Get ( LastMessageChoice ) = 2 ]
+    Exit Script [ Text Result: "cancelado" ]
+End If
+
+# ------------------------------------------
+# REALIZAR PETICIÓN A LA API
+# ------------------------------------------
+
+# Configurar opciones cURL
+Set Variable [ $curlOptions ; Value:
+    "--request POST" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--connect-timeout 30" & " " &
+    "--max-time 60" & " " &
+    "--data-raw " & Quote($json)
+]
+
+# Realizar petición
+Insert from URL [ 
+    Select ; 
+    With dialog: Off ; 
+    Target: Facturas::g_ResponseJSON ; 
+    $url ; 
+    Verify SSL Certificates ; 
+    HTTP Headers: ; 
+    cURL options: $curlOptions
+]
+
+# ------------------------------------------
+# PROCESAR RESPUESTA
+# ------------------------------------------
+
+# Obtener resultado de la inserción
+Set Variable [ $response ; Value: Facturas::g_ResponseJSON ]
+
+# Validar que haya respuesta
+If [ IsEmpty ( $response ) ]
+    Show Custom Dialog [ "Error" ; 
+        "No se recibió respuesta del servidor." & ¶ &
+        "Verifique su conexión a internet."
+    ]
+    Exit Script [ Text Result: "error_conexion" ]
+End If
+
+# Parsear respuesta JSON
+Set Variable [ $status ; Value: JSONGetElement ( $response ; "status" ) ]
+Set Variable [ $message ; Value: JSONGetElement ( $response ; "message" ) ]
+
+# ------------------------------------------
+# VERIFICAR RESULTADO
+# ------------------------------------------
+
+If [ $status = "success" ]
+    # Extraer datos del archivo descargado
+    Set Variable [ $archivoBase64 ; Value: JSONGetElement ( $response ; "data.archivo" ) ]
+    Set Variable [ $procesado ; Value: JSONGetElement ( $response ; "data.procesado" ) ]
+    Set Variable [ $codigo ; Value: JSONGetElement ( $response ; "data.codigo" ) ]
+    
+    # Guardar en campos de la tabla
+    Set Field [ Facturas::ArchivoXML_Base64 ; $archivoBase64 ]
+    Set Field [ Facturas::ArchivoDescargado ; True ]
+    Set Field [ Facturas::FechaDescarga ; Get ( CurrentTimestamp ) ]
+    
+    # Mensaje de éxito
+    Show Custom Dialog [ "✅ Descarga Exitosa" ; 
+        "El archivo " & Upper ( $extension ) & " se ha descargado correctamente." & ¶ &
+        "Documento: " & $documento & ¶ &
+        "Código respuesta: " & $codigo & ¶ & ¶ &
+        "El archivo en Base64 se ha guardado en el campo ArchivoXML_Base64."
+    ]
+    
+    Exit Script [ Text Result: "success" ]
+    
+Else
+    # Error en la descarga
+    Set Variable [ $errorDetalle ; Value: JSONGetElement ( $response ; "details" ) ]
+    
+    Show Custom Dialog [ "❌ Error en la Descarga" ; 
+        $message & ¶ & ¶ &
+        "Detalles: " & $errorDetalle
+    ]
+    
+    Exit Script [ Text Result: "error_descarga" ]
+End If
+
+# ==========================================
+# FIN DEL SCRIPT
+# ==========================================
+
+# NOTAS DE USO:
+# 
+# 1. CAMPOS REQUERIDOS EN LA TABLA:
+#    - Facturas::RNC (texto) - RNC del emisor
+#    - Facturas::eNCF (texto) - Número del e-NCF
+#    - Facturas::g_ResponseJSON (texto, global) - Para almacenar respuesta
+#    - Facturas::ArchivoXML_Base64 (texto) - Para guardar archivo en Base64
+#    - Facturas::ArchivoDescargado (número/booleano) - Flag de descarga
+#    - Facturas::FechaDescarga (fecha/hora) - Timestamp de descarga
+#
+# 2. CAMPOS GLOBALES REQUERIDOS:
+#    - Globals::gURLBase (texto) - URL base de la API (ej: "https://api.tuservidor.com")
+#    - Globals::gTokenJWT (texto) - Token de autenticación JWT
+#
+# 3. CAMBIAR EXTENSIÓN:
+#    - Para descargar PDF en lugar de XML, cambiar la línea:
+#      Set Variable [ $extension ; Value: "pdf" ]
+#
+# 4. EL ARCHIVO SE GUARDA EN BASE64:
+#    - El contenido del archivo (XML o PDF) se almacena codificado en Base64
+#    - Para usarlo, necesitarás decodificarlo
+#    - FileMaker 19+ tiene función Base64Decode()
+#
+# 5. DECODIFICAR BASE64 (FileMaker 19+):
+#    Set Variable [ $contenido ; Value: Base64Decode ( Facturas::ArchivoXML_Base64 ) ]
+#
+# 6. EXPORTAR ARCHIVO:
+#    - Usa Export Field Contents para guardar el archivo decodificado en disco
+
