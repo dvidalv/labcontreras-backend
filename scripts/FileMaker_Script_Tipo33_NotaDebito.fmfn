@@ -1,0 +1,186 @@
+# Script FileMaker para Nota de Débito (Tipo 33)
+# Envía una Nota de Débito a la API de facturación electrónica
+
+# ====== CONFIGURACIÓN ======
+Set Variable [ $apiUrl ; Value: Globals::https://labcontreras-backend.vercel.app/comprobantes/enviar-electronica" ]
+Set Variable [ $token ; Value: Globals::gTokenJWT ]
+
+# Validar configuración
+If [ IsEmpty($apiUrl) or IsEmpty($token) ]
+    Show Custom Dialog [ "Error de Configuración" ; "URL base o token JWT no configurados en variables globales" ]
+    Exit Script [ Text Result: "Error: Configuración faltante" ]
+End If
+
+# ====== VALIDACIONES PREVIAS ======
+# Validar que sea tipo 33
+If [ Facturas::TipoComprobante ≠ "33" ]
+    Show Custom Dialog [ "Error" ; "Este script es solo para Notas de Débito (Tipo 33)" ]
+    Exit Script [ Text Result: "Error: Tipo incorrecto" ]
+End If
+
+# Validar campos obligatorios para tipo 33
+If [ IsEmpty(Facturas::NCF) or IsEmpty(Facturas::NCFModificado) or IsEmpty(Facturas::CodigoModificacion) ]
+    Show Custom Dialog [ "Error" ; "Faltan campos obligatorios para Nota de Débito" ]
+    Exit Script [ Text Result: "Error: Campos faltantes" ]
+End If
+
+# ====== CONSTRUCCIÓN DEL JSON USANDO FUNCIONES NATIVAS ======
+Set Variable [ $json ; Value: "{}" ]
+
+# ====== SECCIÓN COMPRADOR (OBLIGATORIA para tipo 33) ======
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.rnc" ; Clientes::RNC ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.nombre" ; Clientes::Nombre ; JSONString ) ]
+
+# Campos opcionales del comprador
+If [ Not IsEmpty(Clientes::Email) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.correo" ; Clientes::Email ; JSONString ) ]
+End If
+
+If [ Not IsEmpty(Clientes::Direccion) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.direccion" ; Clientes::Direccion ; JSONString ) ]
+End If
+
+If [ Not IsEmpty(Clientes::Municipio) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.municipio" ; Clientes::Municipio ; JSONString ) ]
+End If
+
+If [ Not IsEmpty(Clientes::Provincia) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "comprador.provincia" ; Clientes::Provincia ; JSONString ) ]
+End If
+
+# ====== SECCIÓN EMISOR ======
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "emisor.rnc" ; "130085765" ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "emisor.razonSocial" ; "Clínica Universitaria Unión Médica Torre A" ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "emisor.correo" ; "informacion@contrerasrobledo.com.do" ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "emisor.direccion" ; "Av. Juan Pablo Duarte No. 176¶Santiago, Rep. Dom." ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "emisor.telefono[0]" ; "809-580-1429" ; JSONString ) ]
+
+# ====== SECCIÓN FACTURA ======
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.ncf" ; Facturas::NCF ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.tipo" ; "33" ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.fecha" ; GetAsText(Facturas::FechaEmision) ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.fechaVencNCF" ; "31/12/2025" ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.id" ; Facturas::NumeroFactura ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "factura.total" ; GetAsText(Facturas::MontoTotal) ; JSONString ) ]
+
+# ====== SECCIÓN ITEMS ======
+Go to Related Record [ From table: "FacturaItems" ; Using layout: "FacturaItems" ]
+Set Variable [ $itemCount ; Value: Get(FoundCount) ]
+Set Variable [ $i ; Value: 0 ]
+
+Loop
+    Exit Loop If [ $i ≥ $itemCount ]
+    
+    # Agregar cada item usando índice
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "items[" & $i & "].nombre" ; FacturaItems::Descripcion ; JSONString ) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "items[" & $i & "].precio" ; GetAsText(FacturaItems::Precio) ; JSONString ) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "items[" & $i & "].cantidad" ; GetAsText(FacturaItems::Cantidad) ; JSONString ) ]
+    Set Variable [ $json ; Value: JSONSetElement ( $json ; "items[" & $i & "].unidadMedida" ; "47" ; JSONString ) ]
+    
+    Set Variable [ $i ; Value: $i + 1 ]
+    Go to Record/Request/Page [ Next ; Exit after last: On ]
+End Loop
+
+# ====== SECCIÓN MODIFICACION (OBLIGATORIA para tipo 33) ======
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.CodigoModificacion" ; Facturas::CodigoModificacion ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.FechaNCFModificado" ; GetAsText(Facturas::FechaNCFModificado) ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.NCFModificado" ; Facturas::NCFModificado ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.RazonModificacion" ; Facturas::RazonModificacion ; JSONString ) ]
+
+# ====== VALIDACIÓN DEL JSON GENERADO ======
+Set Variable [ $jsonValido ; Value: JSONFormatElements ( $json ) ]
+If [ IsEmpty($jsonValido) ]
+    Show Custom Dialog [ "Error JSON" ; "El JSON generado no es válido. Revise los datos." ]
+    Exit Script [ Text Result: "Error: JSON inválido" ]
+End If
+
+# DEBUG: Mostrar JSON generado (comentar en producción)
+# Show Custom Dialog [ "JSON Generado" ; $json ]
+
+# ====== ENVÍO A LA API ======
+Set Variable [ $curlOptions ; Value: 
+    "--header \"Authorization: Bearer " & $token & "\"" & " " &
+    "--header \"Content-Type: application/json\"" & " " &
+    "--header \"Accept: application/json\"" & " " &
+    "--data-raw " & Quote($json)
+]
+
+Insert from URL [ 
+    Select ; 
+    Facturas::RespuestaAPI ; 
+    $apiUrl ; 
+    cURL options: $curlOptions
+]
+
+# ====== PROCESAMIENTO DE RESPUESTA ======
+Set Variable [ $respuesta ; Value: Facturas::RespuestaAPI ]
+
+# Verificar si la respuesta es exitosa
+If [ PatternCount($respuesta; "\"status\":\"success\"") > 0 ]
+    # Extraer datos importantes
+    Set Variable [ $codigoSeguridad ; Value: JSONGetElement($respuesta; "data.codigoSeguridad") ]
+    Set Variable [ $ncfGenerado ; Value: JSONGetElement($respuesta; "data.ncfGenerado") ]
+    Set Variable [ $urlQR ; Value: JSONGetElement($respuesta; "data.urlQR") ]
+    
+    # Actualizar campos en FileMaker
+    Set Field [ Facturas::CodigoSeguridad ; $codigoSeguridad ]
+    Set Field [ Facturas::EstadoFactura ; "ENVIADA" ]
+    Set Field [ Facturas::FechaEnvio ; Get(CurrentTimestamp) ]
+    Set Field [ Facturas::UrlQR ; $urlQR ]
+    
+    # Generar QR Code automáticamente usando funciones JSON nativas
+    Set Variable [ $qrJson ; Value: "{}" ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "rnc" ; "130085765" ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "rncComprador" ; Clientes::RNC ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "ncf" ; $ncfGenerado ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "codigo" ; $codigoSeguridad ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "fecha" ; GetAsText(Facturas::FechaEmision) ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "monto" ; GetAsText(Facturas::MontoTotal) ; JSONString ) ]
+    Set Variable [ $qrJson ; Value: JSONSetElement ( $qrJson ; "tipo" ; "33" ; JSONString ) ]
+    
+    Set Variable [ $qrCurlOptions ; Value: 
+        "--header \"Authorization: Bearer " & $token & "\"" & " " &
+        "--header \"Content-Type: application/json\"" & " " &
+        "--header \"Accept: application/json\"" & " " &
+        "--data-raw " & Quote($qrJson)
+    ]
+    
+    Set Variable [ $qrUrl ; Value: Globals::gURLBase & "/comprobantes/generar-qr" ]
+    Insert from URL [ 
+        Select ; 
+        Facturas::QRResponse ; 
+        $qrUrl ; 
+        cURL options: $qrCurlOptions
+    ]
+    
+    # Extraer QR Code
+    Set Variable [ $qrCode ; Value: JSONGetElement(Facturas::QRResponse; "data.qrCode") ]
+    
+    # Decodificar Base64 y guardar en container
+    If [ Get(ApplicationVersion) ≥ 16 ]
+        Set Field [ Facturas::QRCodeImage ; Base64Decode($qrCode; "QRCode.png") ]
+    Else
+        # Para versiones anteriores a FileMaker 16
+        Set Variable [ $tempFile ; Value: Get(TemporaryPath) & "qr_temp.png" ]
+        Set Variable [ $base64Command ; Value: "echo '" & $qrCode & "' | base64 -d > '" & $tempFile & "'" ]
+        Send Event [ "aevt" ; "odoc" ; $base64Command ]
+        Insert Picture [ Facturas::QRCodeImage ; $tempFile ]
+    End If
+    
+    Show Custom Dialog [ "Éxito" ; "Nota de Débito enviada correctamente" & ¶ & 
+                        "NCF: " & $ncfGenerado & ¶ & 
+                        "Código: " & $codigoSeguridad ]
+Else
+    # Error en el envío
+    Set Variable [ $errorMsg ; Value: JSONGetElement($respuesta; "message") ]
+    Set Field [ Facturas::EstadoFactura ; "ERROR" ]
+    Set Field [ Facturas::MensajeError ; $errorMsg ]
+    
+    Show Custom Dialog [ "Error" ; "Error al enviar Nota de Débito:" & ¶ & $errorMsg ]
+End If
+
+# ====== LIMPIEZA ======
+Commit Records/Requests
+Go to Layout [ original layout ]
+
+Exit Script [ Text Result: If(PatternCount($respuesta; "\"status\":\"success\"") > 0; "SUCCESS"; "ERROR") ]

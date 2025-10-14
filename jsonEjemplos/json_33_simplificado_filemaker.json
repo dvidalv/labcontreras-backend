@@ -1,0 +1,46 @@
+{
+  "comprador": {
+    "correo": "cliente@empresa.com",
+    "nombre": "Empresa Cliente S.A.",
+    "rnc": "131880681",
+    "direccion": "Calle Principal No. 123, Santo Domingo",
+    "municipio": "010100",
+    "provincia": "010000"
+  },
+  "emisor": {
+    "correo": "informacion@contrerasrobledo.com.do",
+    "direccion": "Av. Juan Pablo Duarte No. 176\rSantiago, Rep. Dom.",
+    "razonSocial": "Clínica Universitaria Unión Médica Torre A",
+    "rnc": "130085765",
+    "telefono": ["809-580-1429"],
+    "webSite": "www.contrerasrobledo.com.do"
+  },
+  "factura": {
+    "fecha": "15-09-2025",
+    "fechaVencNCF": "31/12/2025",
+    "id": "ND-001",
+    "ncf": "E330000000001",
+    "tipo": "33",
+    "total": "15000.00"
+  },
+  "items": [
+    {
+      "nombre": "Cargo adicional por servicios especiales",
+      "precio": "10000.00",
+      "cantidad": "1.00",
+      "unidadMedida": "47"
+    },
+    {
+      "nombre": "Recargo por procesamiento urgente",
+      "precio": "5000.00",
+      "cantidad": "1.00",
+      "unidadMedida": "47"
+    }
+  ],
+  "modificacion": {
+    "CodigoModificacion": "01",
+    "FechaNCFModificado": "10-09-2025",
+    "NCFModificado": "E310000000098",
+    "RazonModificacion": "Cargo adicional por servicios no incluidos en la factura original"
+  }
+}

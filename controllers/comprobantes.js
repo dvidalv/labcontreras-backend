@@ -1121,9 +1121,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   let facturaAdaptada = { ...factura };
   let itemsAdaptados = items;
 
-  // Si es tipo 34 y viene con estructura específica de FileMaker, adaptarla
-  if (factura?.tipo === '34' && modificacion) {
-    console.log('🔧 Adaptando estructura de tipo 34 desde FileMaker...');
+  // 🔧 ADAPTACIÓN PARA TIPOS 33 Y 34: Mapear estructura específica de FileMaker
+  if ((factura?.tipo === '33' || factura?.tipo === '34') && modificacion) {
+    console.log(
+      `🔧 Adaptando estructura de tipo ${factura.tipo} desde FileMaker...`,
+    );
 
     // Mapear campos de modificacion a factura (PascalCase → camelCase)
     facturaAdaptada = {
@@ -1136,12 +1138,15 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       razonModificacion: modificacion.RazonModificacion,
     };
 
-    console.log('📋 Campos de modificación mapeados:', {
-      ncfModificado: facturaAdaptada.ncfModificado,
-      fechaNCFModificado: facturaAdaptada.fechaNCFModificado,
-      codigoModificacion: facturaAdaptada.codigoModificacion,
-      razonModificacion: facturaAdaptada.razonModificacion,
-    });
+    console.log(
+      `📋 Campos de modificación mapeados para tipo ${factura.tipo}:`,
+      {
+        ncfModificado: facturaAdaptada.ncfModificado,
+        fechaNCFModificado: facturaAdaptada.fechaNCFModificado,
+        codigoModificacion: facturaAdaptada.codigoModificacion,
+        razonModificacion: facturaAdaptada.razonModificacion,
+      },
+    );
   }
 
   // Si vienen ItemsDevueltos en lugar de items Y es tipo 34, usarlos
@@ -1770,6 +1775,21 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
                 },
               ],
             };
+          } else if (facturaAdaptada.tipo === '33') {
+            // Tipo 33: Nota de Débito - incluye TablaFormasPago y TipoIngresos específico
+            return {
+              ...baseIdDoc,
+              IndicadorMontoGravado:
+                parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
+              TipoIngresos: '03', // ESPECÍFICO para Nota de Débito
+              TipoPago: '1',
+              TablaFormasPago: [
+                {
+                  Forma: '1',
+                  Monto: montoTotalConDescuentos.toFixed(2),
+                },
+              ],
+            };
           } else if (facturaAdaptada.tipo === '34') {
             // Tipo 34: Nota de Crédito - estructura especial SIN fechaVencimiento ni indicadorEnvioDiferido
             return {
@@ -2044,28 +2064,28 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         descuentosArray.length === 0 && {
           DescuentosORecargos: [],
         }),
-      // Para tipo 34: Agregar InformacionReferencia OBLIGATORIA (con validación)
-      ...(facturaAdaptada.tipo === '34' &&
+      // Para tipos 33 y 34: Agregar InformacionReferencia OBLIGATORIA (con validación)
+      ...((facturaAdaptada.tipo === '33' || facturaAdaptada.tipo === '34') &&
         (() => {
-          // Validar que se proporcionen los campos obligatorios para tipo 34
+          // Validar que se proporcionen los campos obligatorios para tipos 33 y 34
           if (!facturaAdaptada.ncfModificado) {
             throw new Error(
-              '❌ Tipo 34 requiere "ncfModificado": NCF de la factura original que se está modificando',
+              `❌ Tipo ${facturaAdaptada.tipo} requiere "ncfModificado": NCF de la factura original que se está modificando`,
             );
           }
           if (!facturaAdaptada.fechaNCFModificado) {
             throw new Error(
-              '❌ Tipo 34 requiere "fechaNCFModificado": Fecha de la factura original',
+              `❌ Tipo ${facturaAdaptada.tipo} requiere "fechaNCFModificado": Fecha de la factura original`,
             );
           }
           if (!facturaAdaptada.codigoModificacion) {
             throw new Error(
-              '❌ Tipo 34 requiere "codigoModificacion": Código que indica el tipo de modificación (1,2,3,4)',
+              `❌ Tipo ${facturaAdaptada.tipo} requiere "codigoModificacion": Código que indica el tipo de modificación (1,2,3,4)`,
             );
           }
           if (!facturaAdaptada.razonModificacion) {
             throw new Error(
-              '❌ Tipo 34 requiere "razonModificacion": Razón descriptiva de la modificación',
+              `❌ Tipo ${facturaAdaptada.tipo} requiere "razonModificacion": Razón descriptiva de la modificación`,
             );
           }
 
