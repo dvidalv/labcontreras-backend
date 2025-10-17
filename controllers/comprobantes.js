@@ -383,6 +383,7 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
         case 10:
         case 15:
         case 95:
+        case 99: // Sin respuesta DGII - documento enviado pero pendiente de respuesta
           return 'EN_PROCESO';
 
         // ❌ Errores de NCF
@@ -496,6 +497,7 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
       case 10:
       case 15:
       case 95:
+      case 99: // Sin respuesta DGII - documento enviado pero pendiente de respuesta
         return 'EN_PROCESO';
 
       // ❌ Errores de NCF

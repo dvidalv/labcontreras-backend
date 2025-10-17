@@ -11,12 +11,13 @@
 
 ### ⏳ **Códigos de Proceso (100-199)**
 
-| Código | Descripción                                | Estado Normalizado | Comentarios        |
-| ------ | ------------------------------------------ | ------------------ | ------------------ |
-| **2**  | En proceso de validación                   | `EN_PROCESO`       | ⏳ Pendiente DGII  |
-| **10** | Pendiente de procesamiento                 | `EN_PROCESO`       | ⏳ En cola         |
-| **15** | En validación                              | `EN_PROCESO`       | ⏳ Validando datos |
-| **95** | Documento pendiente por ser enviado a DGII | `EN_PROCESO`       | ⏳ Pre-envío       |
+| Código | Descripción                                | Estado Normalizado | Comentarios                |
+| ------ | ------------------------------------------ | ------------------ | -------------------------- |
+| **2**  | En proceso de validación                   | `EN_PROCESO`       | ⏳ Pendiente DGII          |
+| **10** | Pendiente de procesamiento                 | `EN_PROCESO`       | ⏳ En cola                 |
+| **15** | En validación                              | `EN_PROCESO`       | ⏳ Validando datos         |
+| **95** | Documento pendiente por ser enviado a DGII | `EN_PROCESO`       | ⏳ Pre-envío               |
+| **99** | Sin respuesta DGII                         | `EN_PROCESO`       | ⏳ Enviado, esperando DGII |
 
 ### ❌ **Códigos de Error NCF (108-110)**
 
@@ -120,10 +121,10 @@ if (codigo === 0 || codigo === 1) {
 }
 ```
 
-### **Para Códigos 2, 10, 15, 95**: ⏳ Esperar
+### **Para Códigos 2, 10, 15, 95, 99**: ⏳ Esperar
 
 ```javascript
-if ([2, 10, 15, 95].includes(codigo)) {
+if ([2, 10, 15, 95, 99].includes(codigo)) {
   // Consultar estado nuevamente en unos minutos
   setTimeout(() => consultarEstatus(), 300000); // 5 minutos
 }

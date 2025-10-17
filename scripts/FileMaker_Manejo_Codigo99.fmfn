@@ -1,0 +1,330 @@
+/*
+ * FileMaker Script - Manejo de Código 99 (SIN RESPUESTA DGII)
+ * 
+ * Propósito: Manejar correctamente el estado EN_PROCES con código 99
+ * Fecha: 17 de octubre de 2025
+ * 
+ * IMPORTANTE: Este código debe integrarse en el script que procesa
+ * la respuesta de consulta de estatus de TheFactoryHKA
+ */
+
+// ============================================
+// PARTE 1: PARSEAR LA RESPUESTA DEL BACKEND
+// ============================================
+
+// Suponiendo que ya tienes la respuesta JSON en $respuesta_json
+
+Set Variable [ $estado ; JSONGetElement ( $respuesta_json ; "data.estado" ) ]
+Set Variable [ $codigo ; JSONGetElement ( $respuesta_json ; "data.datosCompletos.codigo" ) ]
+Set Variable [ $mensaje ; JSONGetElement ( $respuesta_json ; "data.mensaje" ) ]
+Set Variable [ $fechaConsulta ; JSONGetElement ( $respuesta_json ; "data.fechaConsulta" ) ]
+
+// Extraer observaciones
+Set Variable [ $obs_codigo ; JSONGetElement ( $respuesta_json ; "data.datosCompletos.observaciones[0].codigo" ) ]
+Set Variable [ $obs_mensaje ; JSONGetElement ( $respuesta_json ; "data.datosCompletos.observaciones[0].mensaje" ) ]
+
+
+// ============================================
+// PARTE 2: EVALUAR EL ESTADO
+// ============================================
+
+If [ $estado = "EN_PROCESO" ]
+  
+  // ----------------------------------------
+  // CASO 1: Código 99 - SIN RESPUESTA DGII
+  // ----------------------------------------
+  If [ $codigo = 99 ]
+    
+    # CONFIGURAR CAMPOS DE VISUALIZACIÓN
+    Set Field [ FacturaElectronica::EstadoDGII ; "EN_PROCESO" ]
+    Set Field [ FacturaElectronica::CodigoEstado ; 99 ]
+    Set Field [ FacturaElectronica::MensajeEstado ; "Sin respuesta DGII - Esperando validación" ]
+    Set Field [ FacturaElectronica::ColorEstado ; "amarillo" ]
+    Set Field [ FacturaElectronica::FechaUltimaConsulta ; Get(CurrentTimestamp) ]
+    
+    # MENSAJE PARA EL USUARIO
+    Set Variable [ $mensaje_usuario ; 
+      "⏳ FACTURA EN VALIDACIÓN" & ¶ & ¶ &
+      "El documento fue procesado y enviado exitosamente a la DGII." & ¶ &
+      "Está pendiente de confirmación final." & ¶ & ¶ &
+      "✅ PUEDE ENTREGAR LA FACTURA AL CLIENTE" & ¶ &
+      "✅ El XML y código QR son válidos" & ¶ &
+      "✅ El documento es legalmente válido" & ¶ & ¶ &
+      "La confirmación de DGII puede tomar desde minutos hasta 24 horas." & ¶ &
+      "El sistema volverá a consultar automáticamente."
+    ]
+    
+    # ALMACENAR INFORMACIÓN ADICIONAL
+    Set Field [ FacturaElectronica::ObservacionCodigo ; $obs_codigo ]
+    Set Field [ FacturaElectronica::ObservacionMensaje ; $obs_mensaje ]
+    
+    # DETERMINAR PRÓXIMA CONSULTA
+    Set Variable [ $intentos ; FacturaElectronica::IntentosConsulta ]
+    
+    If [ IsEmpty ( $intentos ) ]
+      Set Field [ FacturaElectronica::IntentosConsulta ; 1 ]
+      Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (5 * 60) ] // 5 minutos
+    Else If [ $intentos = 1 ]
+      Set Field [ FacturaElectronica::IntentosConsulta ; 2 ]
+      Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (10 * 60) ] // 10 minutos
+    Else If [ $intentos = 2 ]
+      Set Field [ FacturaElectronica::IntentosConsulta ; 3 ]
+      Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (15 * 60) ] // 15 minutos
+    Else
+      Set Field [ FacturaElectronica::IntentosConsulta ; $intentos + 1 ]
+      Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (30 * 60) ] // 30 minutos
+    End If
+    
+    Set Field [ FacturaElectronica::ProximaConsultaProgramada ; $proxima_consulta ]
+    
+    # LOG DEL EVENTO
+    Set Field [ FacturaElectronica::Log ; 
+      FacturaElectronica::Log & ¶ &
+      "[" & Get(CurrentTimestamp) & "] " &
+      "Código 99 - Sin respuesta DGII. " &
+      "Intento: " & $intentos & ". " &
+      "Próxima consulta: " & Timestamp ( 
+        Date ( Month ( $proxima_consulta ) ; Day ( $proxima_consulta ) ; Year ( $proxima_consulta ) ) ; 
+        Time ( Hour ( $proxima_consulta ) ; Minute ( $proxima_consulta ) ; Second ( $proxima_consulta ) )
+      ) &
+      If ( Not IsEmpty ( $obs_mensaje ) ; ". Obs: " & $obs_mensaje ; "" )
+    ]
+    
+    # MOSTRAR MENSAJE AL USUARIO
+    Show Custom Dialog [ "Estado de la Factura" ; $mensaje_usuario ]
+    
+  // ----------------------------------------
+  // CASO 2: Código 95 - Pendiente de envío
+  // ----------------------------------------
+  Else If [ $codigo = 95 ]
+    
+    Set Field [ FacturaElectronica::EstadoDGII ; "EN_PROCESO" ]
+    Set Field [ FacturaElectronica::CodigoEstado ; 95 ]
+    Set Field [ FacturaElectronica::MensajeEstado ; "Pendiente de envío a DGII" ]
+    Set Field [ FacturaElectronica::ColorEstado ; "amarillo" ]
+    
+    # Reintentar en 2 minutos
+    Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (2 * 60) ]
+    Set Field [ FacturaElectronica::ProximaConsultaProgramada ; $proxima_consulta ]
+    
+  // ----------------------------------------
+  // CASO 3: Otros códigos en proceso (2, 10, 15)
+  // ----------------------------------------
+  Else
+    
+    Set Field [ FacturaElectronica::EstadoDGII ; "EN_PROCESO" ]
+    Set Field [ FacturaElectronica::CodigoEstado ; $codigo ]
+    Set Field [ FacturaElectronica::MensajeEstado ; $mensaje ]
+    Set Field [ FacturaElectronica::ColorEstado ; "amarillo" ]
+    
+    # Reintentar en 5 minutos
+    Set Variable [ $proxima_consulta ; Get(CurrentTimestamp) + (5 * 60) ]
+    Set Field [ FacturaElectronica::ProximaConsultaProgramada ; $proxima_consulta ]
+    
+  End If
+
+// ============================================
+// ESTADO: APROBADA
+// ============================================
+Else If [ $estado = "APROBADA" ]
+  
+  Set Field [ FacturaElectronica::EstadoDGII ; "APROBADA" ]
+  Set Field [ FacturaElectronica::CodigoEstado ; $codigo ]
+  Set Field [ FacturaElectronica::MensajeEstado ; "Factura aprobada por DGII" ]
+  Set Field [ FacturaElectronica::ColorEstado ; "verde" ]
+  Set Field [ FacturaElectronica::FechaAprobacion ; Get(CurrentTimestamp) ]
+  Set Field [ FacturaElectronica::ProximaConsultaProgramada ; "" ] // Limpiar consultas programadas
+  
+  # LOG DEL EVENTO
+  Set Field [ FacturaElectronica::Log ; 
+    FacturaElectronica::Log & ¶ &
+    "[" & Get(CurrentTimestamp) & "] " &
+    "✅ Factura APROBADA por DGII. Código: " & $codigo &
+    ". Total de intentos de consulta: " & FacturaElectronica::IntentosConsulta
+  ]
+  
+  # MENSAJE AL USUARIO
+  Show Custom Dialog [ "¡Éxito!" ; 
+    "✅ La factura ha sido APROBADA por la DGII" & ¶ & ¶ &
+    "El documento está completamente validado." 
+  ]
+
+// ============================================
+// ESTADO: ERROR O RECHAZADA
+// ============================================
+Else If [ $estado = "RECHAZADA" or $estado = "ERROR" or $estado = "NCF_INVALIDO" or $estado = "NCF_VENCIDO" ]
+  
+  Set Field [ FacturaElectronica::EstadoDGII ; $estado ]
+  Set Field [ FacturaElectronica::CodigoEstado ; $codigo ]
+  Set Field [ FacturaElectronica::MensajeEstado ; $mensaje ]
+  Set Field [ FacturaElectronica::ColorEstado ; "rojo" ]
+  Set Field [ FacturaElectronica::ProximaConsultaProgramada ; "" ] // Limpiar consultas programadas
+  
+  # LOG DEL EVENTO
+  Set Field [ FacturaElectronica::Log ; 
+    FacturaElectronica::Log & ¶ &
+    "[" & Get(CurrentTimestamp) & "] " &
+    "❌ Error: " & $estado & ". Código: " & $codigo & ". " & $mensaje
+  ]
+  
+  # MENSAJE AL USUARIO
+  Show Custom Dialog [ "Error en la Factura" ; 
+    "❌ La factura fue RECHAZADA" & ¶ & ¶ &
+    "Estado: " & $estado & ¶ &
+    "Código: " & $codigo & ¶ &
+    "Mensaje: " & $mensaje & ¶ & ¶ &
+    "Debe corregir el documento y volver a enviarlo."
+  ]
+
+// ============================================
+// ESTADO: ANULADA
+// ============================================
+Else If [ $estado = "ANULADA" ]
+  
+  Set Field [ FacturaElectronica::EstadoDGII ; "ANULADA" ]
+  Set Field [ FacturaElectronica::CodigoEstado ; $codigo ]
+  Set Field [ FacturaElectronica::MensajeEstado ; "Factura anulada" ]
+  Set Field [ FacturaElectronica::ColorEstado ; "gris" ]
+  Set Field [ FacturaElectronica::ProximaConsultaProgramada ; "" ]
+
+// ============================================
+// ESTADO: DESCONOCIDO
+// ============================================
+Else
+  
+  Set Field [ FacturaElectronica::EstadoDGII ; "DESCONOCIDO" ]
+  Set Field [ FacturaElectronica::CodigoEstado ; $codigo ]
+  Set Field [ FacturaElectronica::MensajeEstado ; $mensaje ]
+  Set Field [ FacturaElectronica::ColorEstado ; "gris" ]
+  
+  # LOG DEL EVENTO
+  Set Field [ FacturaElectronica::Log ; 
+    FacturaElectronica::Log & ¶ &
+    "[" & Get(CurrentTimestamp) & "] " &
+    "⚠️ Estado desconocido: " & $estado & ". Código: " & $codigo
+  ]
+
+End If
+
+
+// ============================================
+// PARTE 3: FUNCIÓN DE FORMATO DE COLOR
+// ============================================
+
+/*
+ * FUNCIÓN AUXILIAR: ObtenerColorEstado ( color_nombre )
+ * 
+ * Uso en FileMaker para establecer colores RGB:
+ * 
+ * Let ( [
+ *   color = Case (
+ *     FacturaElectronica::ColorEstado = "verde" ; RGB(40, 167, 69) ;
+ *     FacturaElectronica::ColorEstado = "amarillo" ; RGB(255, 193, 7) ;
+ *     FacturaElectronica::ColorEstado = "rojo" ; RGB(220, 53, 69) ;
+ *     FacturaElectronica::ColorEstado = "gris" ; RGB(108, 117, 125) ;
+ *     RGB(0, 0, 0) // Negro por defecto
+ *   )
+ * ] ; 
+ *   TextColor ( FacturaElectronica::MensajeEstado ; color )
+ * )
+ */
+
+
+// ============================================
+// PARTE 4: SCRIPT DE CONSULTA AUTOMÁTICA
+// ============================================
+
+/*
+ * SCRIPT: ConsultarEstatusPendientes
+ * 
+ * Este script debe ejecutarse periódicamente (cada 5 minutos) desde FileMaker Server
+ * o mediante un script de servidor que se ejecute automáticamente.
+ * 
+ * Busca todas las facturas con consultas programadas y las procesa.
+ */
+
+# Buscar facturas con consultas programadas que ya deban ejecutarse
+Go to Layout [ "FacturasElectronicas" ]
+Enter Find Mode [ ]
+Set Field [ FacturaElectronica::EstadoDGII ; "EN_PROCESO" ]
+Set Field [ FacturaElectronica::ProximaConsultaProgramada ; "<=" & Get(CurrentTimestamp) ]
+Perform Find [ ]
+
+# Si hay registros, procesarlos
+If [ Get(FoundCount) > 0 ]
+  
+  Go to Record/Request/Page [ First ]
+  
+  Loop
+    
+    # Consultar estatus para este NCF
+    Set Variable [ $ncf ; FacturaElectronica::NCF ]
+    
+    # Llamar al endpoint de consulta (ajustar según tu implementación)
+    Set Variable [ $url ; "https://tu-backend.com/api/comprobantes/estatus/" & $ncf ]
+    
+    # Realizar la consulta HTTP
+    Insert from URL [ 
+      FacturaElectronica::UltimaRespuestaJSON ; 
+      $url ; 
+      Verify SSL Certificates
+    ]
+    
+    # Procesar la respuesta (llamar al script anterior)
+    Perform Script [ "ProcesarRespuestaEstatus" ]
+    
+    # Ir al siguiente registro
+    Go to Record/Request/Page [ Next ; Exit after last ]
+    
+  End Loop
+  
+End If
+
+
+// ============================================
+// NOTAS DE IMPLEMENTACIÓN
+// ============================================
+
+/*
+ * CAMPOS NECESARIOS EN LA TABLA:
+ * 
+ * - EstadoDGII (Texto): APROBADA, EN_PROCESO, RECHAZADA, etc.
+ * - CodigoEstado (Número): 0, 1, 99, 95, etc.
+ * - MensajeEstado (Texto): Mensaje descriptivo del estado
+ * - ColorEstado (Texto): verde, amarillo, rojo, gris
+ * - FechaUltimaConsulta (Timestamp): Fecha/hora de última consulta
+ * - IntentosConsulta (Número): Contador de intentos de consulta
+ * - ProximaConsultaProgramada (Timestamp): Cuándo hacer la próxima consulta
+ * - ObservacionCodigo (Número): Código de observación (ej: 7777)
+ * - ObservacionMensaje (Texto): Mensaje de observación
+ * - Log (Texto): Registro de eventos
+ * - FechaAprobacion (Timestamp): Fecha de aprobación final
+ * - UltimaRespuestaJSON (Texto): JSON completo de la última respuesta
+ * - NCF (Texto): Número de comprobante fiscal
+ */
+
+/*
+ * INTERVALOS DE CONSULTA RECOMENDADOS:
+ * 
+ * Intento 1: 5 minutos después
+ * Intento 2: 10 minutos después (total: 15 min)
+ * Intento 3: 15 minutos después (total: 30 min)
+ * Intento 4+: 30 minutos después
+ * 
+ * Máximo: Hasta 24 horas
+ * 
+ * Si después de 24 horas sigue en código 99:
+ * - Generar alerta
+ * - Notificar al administrador
+ * - Verificar manualmente en portal DGII
+ */
+
+/*
+ * ESTADOS Y COLORES:
+ * 
+ * APROBADA         → Verde  (#28a745)
+ * EN_PROCESO       → Amarillo (#FFC107)
+ * RECHAZADA/ERROR  → Rojo   (#DC3545)
+ * ANULADA          → Gris   (#6C757D)
+ */
+

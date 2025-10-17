@@ -34,6 +34,7 @@
 | `10`       | "Documento en cola de procesamiento"         | `EN_PROCESO`           |
 | `15`       | "Validando estructura del documento"         | `EN_PROCESO`           |
 | `95`       | "Documento pendiente por ser enviado a DGII" | `EN_PROCESO`           |
+| `99`       | "SIN RESPUESTA DGII"                         | `EN_PROCESO`           |
 
 ### ❌ **Errores de NCF**
 
