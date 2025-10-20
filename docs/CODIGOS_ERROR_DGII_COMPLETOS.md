@@ -36,6 +36,12 @@
 | **113** | Totales inconsistentes              | `DATOS_INVALIDOS`  | Verificar cálculos      |
 | **114** | Campos obligatorios faltantes       | `DATOS_INVALIDOS`  | Completar información   |
 
+### ❌ **Códigos de Búsqueda/No Encontrado (120)**
+
+| Código  | Descripción                                     | Estado Normalizado | Solución                               |
+| ------- | ----------------------------------------------- | ------------------ | -------------------------------------- |
+| **120** | No se encuentra información del documento en BD | `NO_ENCONTRADO`    | Verificar que el documento fue enviado |
+
 ### 🚫 **Códigos de Rechazo DGII (200-299)**
 
 | Código  | Descripción                               | Estado Normalizado | Acción                  |

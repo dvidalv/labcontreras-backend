@@ -10,6 +10,7 @@
 | `NCF_VENCIDO`          | ❌ NCF vencido o fuera de rango    | 🔢 Generar nuevo NCF       |
 | `RNC_NO_AUTORIZADO`    | ❌ RNC sin permisos                | ⚙️ Verificar configuración |
 | `DATOS_INVALIDOS`      | ❌ Error en datos/estructura       | 📝 Revisar y corregir      |
+| `NO_ENCONTRADO`        | ❌ Documento no existe en BD       | 🔍 Verificar NCF/envío     |
 | `RECHAZADA`            | ❌ Rechazada por DGII              | 📋 Revisar normativas      |
 | `ANULADA`              | 🚫 Documento cancelado             | ❌ No se puede usar        |
 | `ERROR`                | ❓ Error desconocido               | 📞 Contactar soporte       |
