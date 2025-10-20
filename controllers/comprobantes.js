@@ -403,6 +403,10 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
         case 114:
           return 'DATOS_INVALIDOS'; // Datos/estructura/totales inválidos
 
+        // ❌ Errores de búsqueda/no encontrado
+        case 120:
+          return 'NO_ENCONTRADO'; // Documento no existe en BD de TheFactoryHKA
+
         // ❌ Estados de rechazo DGII
         case 200:
         case 201:
@@ -516,6 +520,10 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
       case 113:
       case 114:
         return 'DATOS_INVALIDOS';
+
+      // ❌ Errores de búsqueda/no encontrado
+      case 120:
+        return 'NO_ENCONTRADO'; // Documento no existe en BD de TheFactoryHKA
 
       // ❌ Estados de rechazo DGII
       case 200:
