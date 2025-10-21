@@ -62,14 +62,16 @@ Una **Nota de Débito (Tipo 33)** es un documento fiscal que se emite para **aum
 
 ## 🔢 **Códigos de Modificación para Tipo 33:**
 
-| Código | Descripción                   | Uso Común                   |
-| ------ | ----------------------------- | --------------------------- |
-| **01** | Texto incorrecto              | Corrección de descripciones |
-| **02** | Valor incorrecto              | Ajuste de montos            |
-| **03** | Fecha incorrecta              | Corrección de fechas        |
-| **04** | Referencia a otros documentos | Referencias adicionales     |
-| **05** | Otros                         | Casos especiales            |
-| **06** | Ajuste de precio              | Cambios de precios          |
+| Código | Descripción                   | Uso Común                                |
+| ------ | ----------------------------- | ---------------------------------------- |
+| **01** | Texto incorrecto              | Corrección de descripciones              |
+| **02** | Valor incorrecto              | Ajuste de montos                         |
+| **03** | Fecha incorrecta              | Corrección de fechas                     |
+| **04** | Referencia a otros documentos | Referencias adicionales                  |
+| **05** | Otros cargos adicionales ⭐   | Servicios no incluidos, recargos (COMÚN) |
+| **06** | Ajuste de precio              | Cambios de precios                       |
+
+> 📖 **Para información detallada sobre cada código con ejemplos prácticos, consulta:** [CODIGOS_MODIFICACION_TIPO_33.md](./CODIGOS_MODIFICACION_TIPO_33.md)
 
 ## 📊 **Estructura JSON Completa (FileMaker → API):**
 

@@ -1,0 +1,38 @@
+{
+  "comprador": {
+    "correo": "darciacastellanos@hotmail.com",
+    "nombre": "Darcia De Jesus Castellanos",
+    "rnc": "03101093650"
+  },
+  "emisor": {
+    "correo": "informacion@contrerasrobledo.com.do",
+    "direccion": "Av. Juan Pablo Duarte No. 176\rSantiago, Rep. Dom.",
+    "razonSocial": "Clínica Universitaria Unión Médica Torre A",
+    "rnc": "130085765",
+    "telefono": ["809-580-1429"]
+  },
+  "factura": {
+    "fecha": "21-10-2025",
+    "fechaVencNCF": "31-12-2025",
+    "id": "398363",
+    "ncf": "E330000000012",
+    "tipo": "33",
+    "total": "300.00"
+  },
+  "items": [
+    {
+      "nombre": "nuevo cargo",
+      "precio": "100.00"
+    },
+    {
+      "nombre": "otro cargo",
+      "precio": "200.00"
+    }
+  ],
+  "modificacion": {
+    "CodigoModificacion": "05",
+    "FechaNCFModificado": "20-10-2025",
+    "NCFModificado": "E310000000157",
+    "RazonModificacion": "Otros cargos adicionales"
+  }
+}
