@@ -82,6 +82,13 @@ Loop
 End Loop
 
 # ====== SECCIÓN MODIFICACION (OBLIGATORIA para tipo 33) ======
+# CodigoModificacion: "01" a "06" (ver docs/CODIGOS_MODIFICACION_TIPO_33.md)
+#   01 = Texto incorrecto
+#   02 = Valor incorrecto
+#   03 = Fecha incorrecta
+#   04 = Referencia a otros documentos
+#   05 = Otros cargos adicionales (MÁS COMÚN: servicios no incluidos, recargos)
+#   06 = Ajuste de precio
 Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.CodigoModificacion" ; Facturas::CodigoModificacion ; JSONString ) ]
 Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.FechaNCFModificado" ; GetAsText(Facturas::FechaNCFModificado) ; JSONString ) ]
 Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.NCFModificado" ; Facturas::NCFModificado ; JSONString ) ]
