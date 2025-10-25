@@ -1194,15 +1194,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      // ⚠️ DIFERENCIA CRÍTICA: Tipo 33 requiere número entero, Tipo 34 string con ceros
+      // ⚠️ DIFERENCIA CRÍTICA: Tipo 33 requiere string SIN ceros ("6"), Tipo 34 string CON ceros ("06")
       codigoModificacion:
         factura.tipo === '33'
-          ? parseInt(
-              (modificacion.CodigoModificacion || '').replace(/^0+/, '') ||
-                modificacion.CodigoModificacion,
-              10,
-            ) // Tipo 33: convertir a número entero ("06" → 6 o "6" → 6)
-          : modificacion.CodigoModificacion, // Tipo 34: preservar como string ("06" → "06")
+          ? String(modificacion.CodigoModificacion || '').replace(/^0+/, '') || String(modificacion.CodigoModificacion) // Tipo 33: string sin ceros ("06" → "6", "6" → "6")
+          : String(modificacion.CodigoModificacion), // Tipo 34: string con ceros ("06" → "06")
       razonModificacion: modificacion.RazonModificacion,
     };
 
