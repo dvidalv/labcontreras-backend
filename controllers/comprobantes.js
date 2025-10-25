@@ -1200,7 +1200,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
         2,
         '0',
       ),
-      razonModificacion: modificacion.RazonModificacion,
+      razonModificacion: modificacion.RazonModificacion?.trim() || modificacion.RazonModificacion,
     };
 
     console.log(
