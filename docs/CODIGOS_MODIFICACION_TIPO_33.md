@@ -4,31 +4,34 @@
 
 El **Código de Modificación** es un campo **OBLIGATORIO** en las Notas de Débito (Tipo 33) que indica **por qué se está aumentando el monto** de una factura previamente emitida. Este código debe enviarse desde FileMaker en el campo `Facturas::CodigoModificacion`.
 
-## 📊 **Códigos Disponibles para Tipo 33:**
+## 📊 **Códigos Disponibles y CONFIRMADOS para Tipo 33:**
 
-| Código | Descripción                               | Casos de Uso Típicos                               | Ejemplo Práctico                                                |
-| ------ | ----------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| **01** | Intereses por mora                        | Cobro de intereses por pago tardío                 | Cliente pagó después de fecha límite, se cobran intereses       |
-| **02** | Costos de cobros de documentos            | Gastos administrativos de cobranza                 | Gastos por gestión de cobranza de facturas vencidas             |
-| **03** | Gastos de transporte                      | Cargos adicionales de envío o transporte           | Envío urgente de resultados de laboratorio                      |
-| **04** | Bonificaciones y rebajas concedidas       | Ajuste de bonificaciones aplicadas incorrectamente | Se aplicó descuento que no correspondía                         |
-| **05** | **Referencia a Factura de Consumo (E32)** | ⚠️ **SOLO para modificar NCF tipo 32 (Consumo)**   | Cargo adicional a una factura de consumo (tipo 32)              |
-| **06** | Otras causas                              | Servicios adicionales o cargos no categorizados    | Recargos por urgencia, insumos extra, servicios complementarios |
+| Código | Descripción DGII Original                 | Uso Recomendado en Clínica                         | Validado |
+| ------ | ----------------------------------------- | -------------------------------------------------- | -------- |
+| **01** | Intereses por mora                        | Cobro de intereses por pago tardío                 | ✅ FUNCIONA |
+| **02** | Costos por fletes                         | Gastos de transporte, envío de resultados          | ✅ FUNCIONA |
+| **03** | Costos por seguros                        | **CARGOS ADICIONALES GENERALES** (uso genérico)    | ✅ FUNCIONA |
+| **04** | Costos por embalajes                      | Ajustes por empaquetado especial                   | ⚠️ No probado |
+| **05** | **Referencia a Factura de Consumo (E32)** | ⚠️ **SOLO para modificar NCF tipo 32 (Consumo)**   | ⚠️ Solo Tipo 32 |
+
+**⚠️ IMPORTANTE:** El código **06** NO EXISTE en la normativa DGII para Notas de Débito (Tipo 33).
+
+**✅ RECOMENDACIÓN:** Usa código **03** como "catch-all" para cualquier cargo adicional general.
 
 ## ⚠️ **ADVERTENCIA IMPORTANTE: Código 05**
 
 El código **05** es **MUY ESPECÍFICO** y solo debe usarse cuando:
 
 - Estás creando una **Nota de Débito tipo 33**
-- Para modificar una **Factura de Consumo tipo 32**
+- Para modificar una **Factura de Consumo tipo 32** (NCF que inicia con E32)
 
 **❌ NO usar código 05 para:**
 
-- Modificar facturas tipo 31 (Crédito Fiscal)
+- Modificar facturas tipo 31 (Crédito Fiscal) → Usar código **01**, **02** o **03**
 - Modificar facturas tipo 34 (Nota de Crédito)
-- Cargos adicionales generales → Usar código **06** en su lugar
+- Cargos adicionales generales → Usar código **03** en su lugar
 
-**✅ Para "otros cargos adicionales" en facturas tipo 31, usa código 06**
+**✅ Para "otros cargos adicionales" en facturas tipo 31, usa código 03** (Costos por seguros - uso genérico)
 
 ---
 
@@ -59,12 +62,16 @@ Set Variable [ $json ; Value: JSONSetElement ( $json ; "modificacion.CodigoModif
 
 ```javascript
 // Tu backend REMUEVE ceros iniciales automáticamente:
-"01" → se envía como "1" a TheFactoryHKA
-"03" → se envía como "3" a TheFactoryHKA
-"06" → se envía como "6" a TheFactoryHKA
+"01" → se envía como "1" a TheFactoryHKA ✅
+"02" → se envía como "2" a TheFactoryHKA ✅
+"03" → se envía como "3" a TheFactoryHKA ✅
+"04" → se envía como "4" a TheFactoryHKA ✅
+"05" → se envía como "5" a TheFactoryHKA ✅
 
-// Código en controllers/comprobantes.js línea 1136:
-codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modificacion.CodigoModificacion
+// Código en controllers/comprobantes.js línea 1199-1201:
+codigoModificacion: String(modificacion.CodigoModificacion || '')
+  .trim()
+  .replace(/^0+/, '') || '0'
 ```
 
 ## 📋 **Ejemplos Completos por Código:**
@@ -203,11 +210,11 @@ codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modif
 
 **❌ NO usar código 05 si estás modificando:**
 
-- NCF tipo E31 (Factura de Crédito Fiscal) → Usar código **06**
-- NCF tipo E33 (Nota de Débito) → Usar código **06**
+- NCF tipo E31 (Factura de Crédito Fiscal) → Usar código **01**, **02** o **03**
+- NCF tipo E33 (Nota de Débito) → Usar código **01**, **02** o **03**
 - NCF tipo E34 (Nota de Crédito) → N/A (tipo 34 tiene sus propios códigos)
 
-### **Código 06 - Otras Causas (Más Común para Cargos Adicionales)**
+### **Código 03 - Cargos Adicionales (MÁS COMÚN - Uso Genérico)**
 
 **Escenario 1:** Servicios adicionales no categorizados ✅ **RECOMENDADO PARA CARGOS GENERALES**
 
@@ -233,7 +240,7 @@ codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modif
     }
   ],
   "modificacion": {
-    "CodigoModificacion": "06", // ✅ Usar para cargos adicionales generales
+    "CodigoModificacion": "03", // ✅ Usar para cargos adicionales generales
     "NCFModificado": "E310000000103",
     "FechaNCFModificado": "10-09-2025",
     "RazonModificacion": "Cargos adicionales: atención fuera de horario, insumos especiales y procesamiento urgente"
@@ -257,59 +264,47 @@ codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modif
     }
   ],
   "modificacion": {
-    "CodigoModificacion": "06",
+    "CodigoModificacion": "03",
     "NCFModificado": "E310000000104",
     "FechaNCFModificado": "12-09-2025",
-    "RazonModificacion": "Ajuste de tarifa según resolución No. 2025-045 vigente desde el 01-09-2025"
+    "RazonModificacion": "Ajuste de tarifa según resolución vigente"
   }
 }
 ```
 
-**💡 TIP:** Código 06 es el "comodín" - Úsalo para cualquier cargo adicional que no encaje claramente en los códigos 01-04.
+**💡 TIP:** Código 03 es el "comodín" - Úsalo para cualquier cargo adicional que no sea específicamente transporte (02) o intereses (01).
 
-## 🏥 **Casos de Uso Específicos para Clínica:**
+## 🏥 **Casos de Uso Específicos para Clínica (CONFIRMADOS):**
 
-### **1. Servicios Adicionales No Incluidos (MÁS COMÚN):**
+### **1. Servicios Adicionales No Incluidos (MÁS COMÚN) - Código 03:**
 
-- **Código recomendado:** `05` - Otros cargos adicionales
+- **Código recomendado:** `03` - Cargos adicionales (uso genérico)
 - **Ejemplos:**
   - Estudios complementarios solicitados después
   - Insumos médicos especiales no incluidos originalmente
   - Medicamentos administrados durante procedimiento
   - Interconsultas con especialistas adicionales
-
-### **2. Recargos por Urgencia/Horario:**
-
-- **Código recomendado:** `05` - Otros cargos adicionales
-- **Ejemplos:**
-  - Atención fuera de horario regular
   - Procesamiento urgente de resultados
-  - Servicios en días festivos
-  - Atención de emergencia con recargo
+  - Atención fuera de horario regular
+  - Servicios complementarios no previstos
 
-### **3. Cargos por Órdenes Médicas Adicionales:**
+### **2. Cargos por Transporte/Envío - Código 02:**
 
-- **Código recomendado:** `04` - Referencia a otros documentos
+- **Código recomendado:** `02` - Costos por fletes
 - **Ejemplos:**
-  - Estudios ordenados posteriormente por el médico
-  - Procedimientos complementarios según nueva orden
-  - Referencias a órdenes médicas específicas
+  - Envío urgente de resultados de laboratorio
+  - Transporte de muestras especiales
+  - Entrega a domicilio de medicamentos
+  - Gastos de traslado de personal médico
 
-### **4. Corrección de Tarifas:**
+### **3. Intereses o Recargos por Mora - Código 01:**
 
-- **Código recomendado:** `02` - Valor incorrecto o `06` - Ajuste de precio
+- **Código recomendado:** `01` - Intereses por mora
 - **Ejemplos:**
-  - Se aplicó tarifa incorrecta (usar `02`)
-  - Actualización de lista de precios (usar `06`)
-  - Diferencia por tipo de aseguradora
-
-### **5. Servicios Mal Clasificados:**
-
-- **Código recomendado:** `01` - Texto incorrecto
-- **Ejemplos:**
-  - Se facturó consulta general pero fue especializada
-  - Se describió como procedimiento simple pero fue complejo
-  - Error en la descripción del servicio que afecta el precio
+  - Cobro de intereses por pago tardío
+  - Recargos por incumplimiento de plazos
+  - Penalidades por pago atrasado
+  - Cargos financieros acordados
 
 ## 🔍 **Validaciones que Realiza Tu Backend:**
 
@@ -343,24 +338,35 @@ if (!facturaAdaptada.fechaNCFModificado) {
 Facturas::CodigoModificacion (Text, 2 caracteres)
 ```
 
-### **Lista de Valores Recomendada:**
+### **Lista de Valores Recomendada (CONFIRMADA):**
 
 ```
-01 - Texto incorrecto
-02 - Valor incorrecto
-03 - Fecha incorrecta
-04 - Referencia a otros documentos
-05 - Otros cargos adicionales ⭐ (MÁS COMÚN)
-06 - Ajuste de precio
+01 - Intereses por mora
+02 - Costos por fletes
+03 - Cargos adicionales ⭐ (MÁS COMÚN - Uso genérico)
 ```
+
+**⚠️ NOTA:** No incluir códigos 04, 05 o 06 en la lista predeterminada:
+- Código **04**: No probado, solo si específicamente necesitas "costos por embalajes"
+- Código **05**: SOLO para modificar facturas tipo 32 (consumo)
+- Código **06**: NO EXISTE en la normativa DGII
 
 ### **Script de Validación:**
 
 ```javascript
-# Validar que el código esté en el rango correcto
-If [ Facturas::CodigoModificacion < "01" or Facturas::CodigoModificacion > "06" ]
-    Show Custom Dialog [ "Error" ; "Código de modificación debe estar entre 01 y 06" ]
+# Validar que el código sea uno de los permitidos
+If [ 
+  Facturas::CodigoModificacion ≠ "01" and 
+  Facturas::CodigoModificacion ≠ "02" and 
+  Facturas::CodigoModificacion ≠ "03" 
+]
+    Show Custom Dialog [ "Error" ; "Código de modificación debe ser: 01, 02 o 03" ]
     Exit Script [ Text Result: "Error" ]
+End If
+
+# Si el código es 05, validar que el NCF modificado sea tipo 32
+If [ Facturas::CodigoModificacion = "05" and Left(Facturas::NCFModificado; 3) ≠ "E32" ]
+    Show Custom Dialog [ "Advertencia" ; "Código 05 solo debe usarse para modificar facturas tipo 32 (Consumo)" ]
 End If
 ```
 
@@ -390,15 +396,18 @@ graph TD
 
 ## ✅ **Checklist antes de Enviar:**
 
-- [ ] Código de modificación entre "01" y "06"
-- [ ] NCF modificado existe y está aprobado
-- [ ] Fecha del NCF modificado es correcta
+- [ ] Código de modificación es **"01", "02" o "03"** (códigos confirmados)
+- [ ] NCF modificado existe y está **APROBADO** (no "pendiente")
+- [ ] Fecha del NCF modificado es **exacta** (debe coincidir con fecha de emisión original)
 - [ ] Razón de modificación es descriptiva (mínimo 10 caracteres)
 - [ ] RNC del comprador es válido (tipo 33 NO permite consumidor final)
 - [ ] Items describen claramente los cargos adicionales
-- [ ] Total es SOLO el cargo adicional, no el acumulado
+- [ ] Total es SOLO el cargo adicional, **NO el acumulado**
+- [ ] Si usas código "05", verificar que NCF modificado sea tipo 32 (E32)
 
 ---
 
-**Última actualización:** Octubre 2025  
-**Versión API:** Compatible con TheFactoryHKA v2.0+
+**Última actualización:** 25 de Octubre 2025  
+**Versión API:** Compatible con TheFactoryHKA v2.0+  
+**Códigos confirmados funcionando:** 01, 02, 03  
+**⚠️ Código 06 NO EXISTE en normativa DGII**
