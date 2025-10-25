@@ -1194,7 +1194,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      codigoModificacion: modificacion.CodigoModificacion, // ✅ Preservar código tal cual (con cero inicial si existe)
+      // ⚠️ DIFERENCIA CRÍTICA: Tipo 33 requiere código sin ceros, Tipo 34 con ceros
+      codigoModificacion:
+        factura.tipo === '33'
+          ? modificacion.CodigoModificacion?.replace(/^0+/, '') ||
+            modificacion.CodigoModificacion // Tipo 33: remover ceros ("06" → "6")
+          : modificacion.CodigoModificacion, // Tipo 34: preservar ceros ("06" → "06")
       razonModificacion: modificacion.RazonModificacion,
     };
 
@@ -1832,9 +1837,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               ],
             };
           } else if (facturaAdaptada.tipo === '33') {
-            // Tipo 33: Nota de Débito - incluye TablaFormasPago y TipoIngresos específico (03)
+            // Tipo 33: Nota de Débito - NO incluir FechaVencimientoSecuencia
             return {
-              ...baseIdDoc,
+              TipoDocumento: facturaAdaptada.tipo,
+              NCF: facturaAdaptada.ncf,
+              // ❌ NO incluir FechaVencimientoSecuencia para tipo 33
               IndicadorMontoGravado:
                 parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
               TipoIngresos: '03', // ESPECÍFICO para Nota de Débito (OBLIGATORIO)
