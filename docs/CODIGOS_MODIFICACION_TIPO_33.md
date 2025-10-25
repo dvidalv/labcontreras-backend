@@ -6,14 +6,31 @@ El **Código de Modificación** es un campo **OBLIGATORIO** en las Notas de Déb
 
 ## 📊 **Códigos Disponibles para Tipo 33:**
 
-| Código | Descripción                   | Casos de Uso Típicos                                     | Ejemplo Práctico                                                 |
-| ------ | ----------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| **01** | Texto incorrecto              | Corrección de descripciones que implican cargo adicional | Se describió "Consulta básica" pero fue "Consulta especializada" |
-| **02** | Valor incorrecto              | Ajuste de montos facturados por debajo del real          | Se facturó RD$1,000 pero debió ser RD$1,500                      |
-| **03** | Fecha incorrecta              | Corrección de fechas que afectan tarifas                 | Servicio facturado con tarifa de día común, pero fue día festivo |
-| **04** | Referencia a otros documentos | Cargos relacionados con documentos adicionales           | Cargos por órdenes médicas complementarias                       |
-| **05** | Otros cargos adicionales      | Servicios adicionales no incluidos en factura original   | Recargos por urgencia, procesamiento especial, insumos extra     |
-| **06** | Ajuste de precio              | Cambios de precios o tarifas aplicables                  | Actualización de tarifa vigente al momento del servicio          |
+| Código | Descripción                               | Casos de Uso Típicos                               | Ejemplo Práctico                                                |
+| ------ | ----------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| **01** | Intereses por mora                        | Cobro de intereses por pago tardío                 | Cliente pagó después de fecha límite, se cobran intereses       |
+| **02** | Costos de cobros de documentos            | Gastos administrativos de cobranza                 | Gastos por gestión de cobranza de facturas vencidas             |
+| **03** | Gastos de transporte                      | Cargos adicionales de envío o transporte           | Envío urgente de resultados de laboratorio                      |
+| **04** | Bonificaciones y rebajas concedidas       | Ajuste de bonificaciones aplicadas incorrectamente | Se aplicó descuento que no correspondía                         |
+| **05** | **Referencia a Factura de Consumo (E32)** | ⚠️ **SOLO para modificar NCF tipo 32 (Consumo)**   | Cargo adicional a una factura de consumo (tipo 32)              |
+| **06** | Otras causas                              | Servicios adicionales o cargos no categorizados    | Recargos por urgencia, insumos extra, servicios complementarios |
+
+## ⚠️ **ADVERTENCIA IMPORTANTE: Código 05**
+
+El código **05** es **MUY ESPECÍFICO** y solo debe usarse cuando:
+
+- Estás creando una **Nota de Débito tipo 33**
+- Para modificar una **Factura de Consumo tipo 32**
+
+**❌ NO usar código 05 para:**
+
+- Modificar facturas tipo 31 (Crédito Fiscal)
+- Modificar facturas tipo 34 (Nota de Crédito)
+- Cargos adicionales generales → Usar código **06** en su lugar
+
+**✅ Para "otros cargos adicionales" en facturas tipo 31, usa código 06**
+
+---
 
 ## ✅ **Validaciones del Backend:**
 
@@ -22,6 +39,8 @@ Tu backend **NO valida el código específico** (puede ser "01" a "06"), solo va
 1. ✅ El campo `CodigoModificacion` **no esté vacío**
 2. ✅ Sea enviado como **string** (no número)
 3. ✅ Esté presente en la sección `modificacion`
+
+⚠️ **La DGII sí valida** que el código sea apropiado para el tipo de NCF que estás modificando.
 
 ### **⚠️ Formato correcto desde FileMaker:**
 
@@ -154,14 +173,48 @@ codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modif
 }
 ```
 
-### **Código 05 - Otros Cargos Adicionales**
+### **Código 05 - Referencia a Factura de Consumo (E32)**
 
-**Escenario:** Servicios adicionales no incluidos en la factura original
+**⚠️ ESCENARIO ESPECÍFICO:** Cargo adicional a una **Factura de Consumo tipo 32**
 
 ```json
 {
   "factura": {
     "ncf": "E330000000005",
+    "tipo": "33",
+    "total": "500.00"
+  },
+  "items": [
+    {
+      "nombre": "Cargo adicional por servicio complementario",
+      "precio": "500.00"
+    }
+  ],
+  "modificacion": {
+    "CodigoModificacion": "05",
+    "NCFModificado": "E320000000015", // ⚠️ IMPORTANTE: NCF tipo 32 (Consumo)
+    "FechaNCFModificado": "08-09-2025",
+    "RazonModificacion": "Cargo adicional a factura de consumo por servicio complementario"
+  }
+}
+```
+
+**⚠️ IMPORTANTE:** Este código SOLO es válido cuando el `NCFModificado` es tipo **E32** (Factura de Consumo).
+
+**❌ NO usar código 05 si estás modificando:**
+
+- NCF tipo E31 (Factura de Crédito Fiscal) → Usar código **06**
+- NCF tipo E33 (Nota de Débito) → Usar código **06**
+- NCF tipo E34 (Nota de Crédito) → N/A (tipo 34 tiene sus propios códigos)
+
+### **Código 06 - Otras Causas (Más Común para Cargos Adicionales)**
+
+**Escenario 1:** Servicios adicionales no categorizados ✅ **RECOMENDADO PARA CARGOS GENERALES**
+
+```json
+{
+  "factura": {
+    "ncf": "E330000000006",
     "tipo": "33",
     "total": "8500.00"
   },
@@ -171,48 +224,48 @@ codigoModificacion: modificacion.CodigoModificacion?.replace(/^0+/, '') || modif
       "precio": "3000.00"
     },
     {
-      "nombre": "Insumos médicos especiales no incluidos",
+      "nombre": "Insumos médicos especiales",
       "precio": "4500.00"
     },
     {
-      "nombre": "Cargo por procesamiento urgente de resultados",
+      "nombre": "Procesamiento urgente",
       "precio": "1000.00"
     }
   ],
   "modificacion": {
-    "CodigoModificacion": "05",
-    "NCFModificado": "E310000000102",
-    "FechaNCFModificado": "08-09-2025",
-    "RazonModificacion": "Cargos adicionales no incluidos en factura original: atención fuera de horario, insumos especiales y procesamiento urgente"
+    "CodigoModificacion": "06", // ✅ Usar para cargos adicionales generales
+    "NCFModificado": "E310000000103",
+    "FechaNCFModificado": "10-09-2025",
+    "RazonModificacion": "Cargos adicionales: atención fuera de horario, insumos especiales y procesamiento urgente"
   }
 }
 ```
 
-### **Código 06 - Ajuste de Precio**
-
-**Escenario:** Actualización de tarifa vigente no aplicada
+**Escenario 2:** Ajuste de precio o tarifa
 
 ```json
 {
   "factura": {
-    "ncf": "E330000000006",
+    "ncf": "E330000000007",
     "tipo": "33",
-    "total": "4500.00"
+    "total": "2500.00"
   },
   "items": [
     {
       "nombre": "Ajuste por actualización de tarifa",
-      "precio": "4500.00"
+      "precio": "2500.00"
     }
   ],
   "modificacion": {
     "CodigoModificacion": "06",
-    "NCFModificado": "E310000000103",
-    "FechaNCFModificado": "10-09-2025",
-    "RazonModificacion": "Ajuste de tarifa según resolución No. 2025-045 vigente desde el 01-09-2025. Diferencia entre tarifa anterior y actual."
+    "NCFModificado": "E310000000104",
+    "FechaNCFModificado": "12-09-2025",
+    "RazonModificacion": "Ajuste de tarifa según resolución No. 2025-045 vigente desde el 01-09-2025"
   }
 }
 ```
+
+**💡 TIP:** Código 06 es el "comodín" - Úsalo para cualquier cargo adicional que no encaje claramente en los códigos 01-04.
 
 ## 🏥 **Casos de Uso Específicos para Clínica:**
 

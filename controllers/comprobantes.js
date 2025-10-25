@@ -1194,9 +1194,7 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      codigoModificacion:
-        modificacion.CodigoModificacion?.replace(/^0+/, '') ||
-        modificacion.CodigoModificacion, // Remover ceros iniciales
+      codigoModificacion: modificacion.CodigoModificacion, // ✅ Preservar código tal cual (con cero inicial si existe)
       razonModificacion: modificacion.RazonModificacion,
     };
 
