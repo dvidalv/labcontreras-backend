@@ -1194,9 +1194,9 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      // ✅ TheFactoryHKA espera CodigoModificacion como NÚMERO ENTERO (no string)
-      // Convertir "06" → 6, "6" → 6, 6 → 6
-      codigoModificacion: parseInt(modificacion.CodigoModificacion, 10),
+      // ✅ TheFactoryHKA espera STRING de 2 dígitos según su ejemplo oficial ("05", "06", etc.)
+      // Asegurar formato: "6" → "06", "06" → "06", 6 → "06"
+      codigoModificacion: String(modificacion.CodigoModificacion || '').padStart(2, '0'),
       razonModificacion:
         modificacion.RazonModificacion?.trim() ||
         modificacion.RazonModificacion,
