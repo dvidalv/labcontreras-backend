@@ -1838,11 +1838,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               ],
             };
           } else if (facturaAdaptada.tipo === '33') {
-            // Tipo 33: Nota de Débito - NO incluir FechaVencimientoSecuencia
+            // Tipo 33: Nota de Débito - SÍ incluir FechaVencimientoSecuencia (requerido por TheFactoryHKA)
             return {
               TipoDocumento: facturaAdaptada.tipo,
               NCF: facturaAdaptada.ncf,
-              // ❌ NO incluir FechaVencimientoSecuencia para tipo 33
+              FechaVencimientoSecuencia: fechaVencimientoFormateada, // ✅ OBLIGATORIO para tipo 33
               IndicadorMontoGravado:
                 parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
               TipoIngresos: '03', // ESPECÍFICO para Nota de Débito (OBLIGATORIO)
