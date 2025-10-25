@@ -1195,7 +1195,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
       // ✅ AMBOS tipos 33 y 34 requieren el código CON ceros (según ejemplo oficial TheFactoryHKA)
-      codigoModificacion: modificacion.CodigoModificacion, // Preservar formato original: "05", "06", etc.
+      // Asegurar que siempre tenga 2 dígitos: "6" → "06", "06" → "06"
+      codigoModificacion: String(modificacion.CodigoModificacion).padStart(2, '0'),
       razonModificacion: modificacion.RazonModificacion,
     };
 
