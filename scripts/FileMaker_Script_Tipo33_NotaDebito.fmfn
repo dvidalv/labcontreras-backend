@@ -2,7 +2,7 @@
 # Envía una Nota de Débito a la API de facturación electrónica
 
 # ====== CONFIGURACIÓN ======
-Set Variable [ $apiUrl ; Value: Globals::https://labcontreras-backend.vercel.app/comprobantes/enviar-electronica" ]
+Set Variable [ $apiUrl ; Value: Globals::gURLBase & "/comprobantes/enviar-electronica" ]
 Set Variable [ $token ; Value: Globals::gTokenJWT ]
 
 # Validar configuración
@@ -101,11 +101,21 @@ If [ IsEmpty($jsonValido) ]
     Exit Script [ Text Result: "Error: JSON inválido" ]
 End If
 
+# ====== LIMPIAR JSON: Remover saltos de línea de FileMaker ======
+# Reemplazar ¶ (salto de línea FileMaker) con espacio
+Set Variable [ $json ; Value: Substitute ( $json ; "¶" ; " " ) ]
+# Remover tabulaciones
+Set Variable [ $json ; Value: Substitute ( $json ; "	" ; "" ) ]
+# Remover espacios múltiples (opcional, para compactar)
+# Set Variable [ $json ; Value: Substitute ( $json ; "  " ; " " ) ]
+
 # DEBUG: Mostrar JSON generado (comentar en producción)
 # Show Custom Dialog [ "JSON Generado" ; $json ]
 
 # ====== ENVÍO A LA API ======
+# Construir opciones de cURL (ahora con JSON limpio sin ¶)
 Set Variable [ $curlOptions ; Value: 
+    "-X POST" & " " &
     "--header \"Authorization: Bearer " & $token & "\"" & " " &
     "--header \"Content-Type: application/json\"" & " " &
     "--header \"Accept: application/json\"" & " " &
@@ -114,8 +124,10 @@ Set Variable [ $curlOptions ; Value:
 
 Insert from URL [ 
     Select ; 
-    Facturas::RespuestaAPI ; 
-    $apiUrl ; 
+    With dialog: Off ;
+    Target: Facturas::RespuestaAPI ; 
+    $apiUrl ;
+    Verify SSL Certificates ;
     cURL options: $curlOptions
 ]
 
