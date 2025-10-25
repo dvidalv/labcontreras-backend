@@ -1197,7 +1197,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       // ⚠️ DIFERENCIA CRÍTICA: Tipo 33 requiere string SIN ceros ("6"), Tipo 34 string CON ceros ("06")
       codigoModificacion:
         factura.tipo === '33'
-          ? String(modificacion.CodigoModificacion || '').replace(/^0+/, '') || String(modificacion.CodigoModificacion) // Tipo 33: string sin ceros ("06" → "6", "6" → "6")
+          ? String(modificacion.CodigoModificacion || '').replace(/^0+/, '') ||
+            String(modificacion.CodigoModificacion) // Tipo 33: string sin ceros ("06" → "6", "6" → "6")
           : String(modificacion.CodigoModificacion), // Tipo 34: string con ceros ("06" → "06")
       razonModificacion: modificacion.RazonModificacion,
     };
