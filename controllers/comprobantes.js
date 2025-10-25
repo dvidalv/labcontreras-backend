@@ -1194,11 +1194,11 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      // ✅ TheFactoryHKA espera STRING de 2 dígitos según su ejemplo oficial ("05", "06", etc.)
-      // Asegurar formato: "6" → "06", "06" → "06", 6 → "06"
-      codigoModificacion: String(
-        modificacion.CodigoModificacion || '',
-      ).padStart(2, '0'),
+      // ✅ TheFactoryHKA espera STRING SIN ceros iniciales según ejemplos reales
+      // Remover ceros iniciales: "06" → "6", "05" → "5", "6" → "6"
+      codigoModificacion: String(modificacion.CodigoModificacion || '')
+        .trim()
+        .replace(/^0+/, '') || '0',
       razonModificacion:
         modificacion.RazonModificacion?.trim() ||
         modificacion.RazonModificacion,
