@@ -1815,12 +1815,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
           };
 
           // Configuración específica por tipo de comprobante
-          if (
-            facturaAdaptada.tipo === '31' ||
-            facturaAdaptada.tipo === '32' ||
-            facturaAdaptada.tipo === '33'
-          ) {
-            // Tipos 31, 32, 33: Facturas y Notas de Débito - incluyen indicadorEnvioDiferido
+          if (facturaAdaptada.tipo === '31' || facturaAdaptada.tipo === '32') {
+            // Tipos 31, 32: Facturas de Crédito Fiscal y Consumo - incluyen indicadorEnvioDiferido
             return {
               ...baseIdDoc,
               IndicadorMontoGravado:
@@ -1836,12 +1832,12 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               ],
             };
           } else if (facturaAdaptada.tipo === '33') {
-            // Tipo 33: Nota de Débito - incluye TablaFormasPago y TipoIngresos específico
+            // Tipo 33: Nota de Débito - incluye TablaFormasPago y TipoIngresos específico (03)
             return {
               ...baseIdDoc,
               IndicadorMontoGravado:
                 parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
-              TipoIngresos: '03', // ESPECÍFICO para Nota de Débito
+              TipoIngresos: '03', // ESPECÍFICO para Nota de Débito (OBLIGATORIO)
               TipoPago: '1',
               TablaFormasPago: [
                 {
@@ -2274,10 +2270,25 @@ const enviarFacturaElectronica = async (req, res) => {
 
     if (error.response) {
       // Error de la API de TheFactoryHKA
+      console.error('❌ Respuesta de error de TheFactoryHKA:');
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data, null, 2));
+
+      // Extraer errores de validación específicos si existen
+      let detallesValidacion = error.response.data;
+      if (error.response.data.errors) {
+        console.error('Errores de validación:');
+        console.error(JSON.stringify(error.response.data.errors, null, 2));
+        detallesValidacion = {
+          ...error.response.data,
+          erroresDetallados: error.response.data.errors,
+        };
+      }
+
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'Error en el envío a TheFactoryHKA',
-        details: error.response.data,
+        details: detallesValidacion,
         statusCode: error.response.status,
       });
     }
