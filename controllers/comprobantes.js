@@ -366,24 +366,51 @@ const generarCodigoQR = async (req, res) => {
 
 // Función para normalizar el estado de la factura devuelto por TheFactoryHKA
 const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
+  console.log(
+    `\n🔄 ==================== INICIO NORMALIZACIÓN ESTADO ====================`,
+  );
+  console.log(`📝 Estado original recibido: "${estadoOriginal}"`);
+  console.log('📊 Datos completos recibidos:');
+  console.log(JSON.stringify(datosCompletos, null, 2));
+
   // Convertir a mayúsculas para comparación
   const estado = (estadoOriginal || '').toString().toUpperCase();
+  console.log(`🔤 Estado en mayúsculas: "${estado}"`);
 
   // PRIORIDAD 1: Verificar campo 'procesado' y código numérico primero
+  console.log(`🔍 Verificando campo 'procesado': ${datosCompletos.procesado}`);
+  console.log(`🔍 Verificando campo 'codigo': ${datosCompletos.codigo}`);
+
   if (datosCompletos.procesado === true) {
+    console.log('✅ Campo procesado === true');
+
     // Si está procesado y tiene código exitoso
     if (datosCompletos.codigo === 0 || datosCompletos.codigo === 1) {
+      console.log(`✅ Código exitoso detectado: ${datosCompletos.codigo}`);
+      console.log(
+        `🔄 ==================== FIN NORMALIZACIÓN: APROBADA ====================\n`,
+      );
       return 'APROBADA';
     }
+
     // Si está procesado pero tiene código de error o estado especial
     if (datosCompletos.codigo !== undefined && datosCompletos.codigo > 1) {
+      console.log(`⚠️ Código > 1 detectado: ${datosCompletos.codigo}`);
+
       switch (datosCompletos.codigo) {
         // ⏳ Estados en proceso
         case 2:
+        case 4: // En proceso de validación en DGII
         case 10:
         case 15:
         case 95:
         case 99: // Sin respuesta DGII - documento enviado pero pendiente de respuesta
+          console.log(
+            `⏳ Estado en proceso identificado (código ${datosCompletos.codigo})`,
+          );
+          console.log(
+            `🔄 ==================== FIN NORMALIZACIÓN: EN_PROCESO ====================\n`,
+          );
           return 'EN_PROCESO';
 
         // ❌ Errores de NCF
@@ -498,6 +525,7 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
 
       // ⏳ Estados en proceso
       case 2:
+      case 4: // En proceso de validación en DGII
       case 10:
       case 15:
       case 95:
@@ -552,15 +580,23 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
   }
 
   // Si no coincide con ningún patrón conocido
+  console.log('❓ No se encontró coincidencia con ningún patrón conocido');
+  console.log(
+    `🔄 ==================== FIN NORMALIZACIÓN: ${estado || 'DESCONOCIDO'} ====================\n`,
+  );
   return estado || 'DESCONOCIDO';
 };
 
 // Función para consultar el estatus de un documento en TheFactoryHKA
 const consultarEstatusInmediato = async (ncf) => {
   try {
-    // console.log(`🔍 Consultando estatus inmediato para NCF: ${ncf}`);
+    console.log(
+      `\n🔍 ==================== INICIO CONSULTA ESTATUS ====================`,
+    );
+    console.log(`📄 NCF a consultar: ${ncf}`);
 
     const token = await obtenerTokenTheFactory();
+    console.log(`🔐 Token obtenido: ${token.substring(0, 30)}...`);
 
     const payload = {
       token: token,
@@ -568,7 +604,9 @@ const consultarEstatusInmediato = async (ncf) => {
       documento: ncf,
     };
 
-    // console.log('Payload para consulta de estatus:', payload);
+    console.log('📤 Payload enviado a TheFactoryHKA:');
+    console.log(JSON.stringify(payload, null, 2));
+    console.log(`🌐 URL de consulta: ${THEFACTORY_ESTATUS_URL}`);
 
     const response = await axios.post(THEFACTORY_ESTATUS_URL, payload, {
       headers: {
@@ -577,7 +615,12 @@ const consultarEstatusInmediato = async (ncf) => {
       timeout: 10000, // 10 segundos
     });
 
-    // console.log('Respuesta de estatus TheFactoryHKA:', response.data);
+    console.log('📥 Respuesta RAW de TheFactoryHKA (response.data):');
+    console.log(JSON.stringify(response.data, null, 2));
+    console.log(`📊 Status HTTP: ${response.status}`);
+    console.log(
+      `🔍 ==================== FIN CONSULTA ESTATUS ====================\n`,
+    );
 
     return {
       consultaExitosa: true,
@@ -585,7 +628,15 @@ const consultarEstatusInmediato = async (ncf) => {
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error al consultar estatus (no crítico):', error.message);
+    console.error('❌ Error al consultar estatus (no crítico):', error.message);
+    if (error.response) {
+      console.error('📥 Respuesta de error de TheFactoryHKA:');
+      console.error(JSON.stringify(error.response.data, null, 2));
+      console.error(`📊 Status HTTP de error: ${error.response.status}`);
+    }
+    console.log(
+      `🔍 ==================== FIN CONSULTA ESTATUS (ERROR) ====================\n`,
+    );
 
     // No lanzamos error, solo devolvemos información de que falló
     return {
@@ -2276,10 +2327,17 @@ const enviarFacturaElectronica = async (req, res) => {
 // 🔍 Endpoint independiente para consultar estatus de documento
 const consultarEstatusDocumento = async (req, res) => {
   try {
+    console.log(
+      `\n📋 ==================== ENDPOINT CONSULTAR ESTATUS ====================`,
+    );
+    console.log('📥 Request body recibido:');
+    console.log(JSON.stringify(req.body, null, 2));
+
     const { ncf } = req.body;
 
     // Validar que se proporcione el NCF
     if (!ncf) {
+      console.log('❌ NCF no proporcionado');
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'El campo NCF es requerido',
@@ -2292,6 +2350,9 @@ const consultarEstatusDocumento = async (req, res) => {
     // Consultar estatus en TheFactoryHKA
     const estatusConsulta = await consultarEstatusInmediato(ncf);
 
+    console.log('📊 Resultado de consultarEstatusInmediato:');
+    console.log(JSON.stringify(estatusConsulta, null, 2));
+
     if (estatusConsulta.consultaExitosa) {
       // Interpretar el estado devuelto por TheFactoryHKA
       const estadoOriginal =
@@ -2299,12 +2360,20 @@ const consultarEstatusDocumento = async (req, res) => {
         estatusConsulta.datosEstatus.status ||
         estatusConsulta.datosEstatus.mensaje ||
         'DESCONOCIDO';
+
+      console.log(`📝 Estado original extraído: "${estadoOriginal}"`);
+      console.log('🔍 datosEstatus completos:');
+      console.log(JSON.stringify(estatusConsulta.datosEstatus, null, 2));
+
       const estadoNormalizado = normalizarEstadoFactura(
         estadoOriginal,
         estatusConsulta.datosEstatus,
       );
 
-      return res.status(httpStatus.OK).json({
+      console.log(`✅ Estado normalizado: "${estadoNormalizado}"`);
+      console.log(`📤 Enviando respuesta exitosa al cliente`);
+
+      const respuestaFinal = {
         status: 'success',
         message: 'Consulta de estatus realizada exitosamente',
         data: {
@@ -2318,8 +2387,22 @@ const consultarEstatusDocumento = async (req, res) => {
           fechaConsulta: estatusConsulta.timestamp,
           datosCompletos: estatusConsulta.datosEstatus,
         },
-      });
+      };
+
+      console.log('📤 Respuesta final que se enviará:');
+      console.log(JSON.stringify(respuestaFinal, null, 2));
+      console.log(
+        `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS ====================\n`,
+      );
+
+      return res.status(httpStatus.OK).json(respuestaFinal);
     } else {
+      console.log('❌ Consulta NO exitosa');
+      console.log(`❌ Error: ${estatusConsulta.error}`);
+      console.log(
+        `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR) ====================\n`,
+      );
+
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'No se pudo consultar el estatus del documento',
@@ -2331,7 +2414,11 @@ const consultarEstatusDocumento = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error en consulta de estatus:', error);
+    console.error('❌ Error CRÍTICO en consulta de estatus:', error);
+    console.error('📚 Stack trace:', error.stack);
+    console.log(
+      `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR CRÍTICO) ====================\n`,
+    );
 
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',

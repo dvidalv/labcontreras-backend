@@ -9,11 +9,12 @@
 | **0**  | Documento procesado correctamente | `APROBADA`         | ✅ Éxito total            |
 | **1**  | Aceptado                          | `APROBADA`         | ✅ Procesado exitosamente |
 
-### ⏳ **Códigos de Proceso (100-199)**
+### ⏳ **Códigos de Proceso (2-99)**
 
 | Código | Descripción                                | Estado Normalizado | Comentarios                |
 | ------ | ------------------------------------------ | ------------------ | -------------------------- |
 | **2**  | En proceso de validación                   | `EN_PROCESO`       | ⏳ Pendiente DGII          |
+| **4**  | En proceso de validación en DGII           | `EN_PROCESO`       | ⏳ Validando en DGII       |
 | **10** | Pendiente de procesamiento                 | `EN_PROCESO`       | ⏳ En cola                 |
 | **15** | En validación                              | `EN_PROCESO`       | ⏳ Validando datos         |
 | **95** | Documento pendiente por ser enviado a DGII | `EN_PROCESO`       | ⏳ Pre-envío               |
@@ -127,10 +128,10 @@ if (codigo === 0 || codigo === 1) {
 }
 ```
 
-### **Para Códigos 2, 10, 15, 95, 99**: ⏳ Esperar
+### **Para Códigos 2, 4, 10, 15, 95, 99**: ⏳ Esperar
 
 ```javascript
-if ([2, 10, 15, 95, 99].includes(codigo)) {
+if ([2, 4, 10, 15, 95, 99].includes(codigo)) {
   // Consultar estado nuevamente en unos minutos
   setTimeout(() => consultarEstatus(), 300000); // 5 minutos
 }
