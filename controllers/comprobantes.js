@@ -607,6 +607,7 @@ const consultarEstatusInmediato = async (ncf) => {
     console.log('📤 Payload enviado a TheFactoryHKA:');
     console.log(JSON.stringify(payload, null, 2));
     console.log(`🌐 URL de consulta: ${THEFACTORY_ESTATUS_URL}`);
+    console.log(`🏢 RNC usado para consulta: ${THEFACTORY_RNC}`);
 
     const response = await axios.post(THEFACTORY_ESTATUS_URL, payload, {
       headers: {
@@ -2333,7 +2334,7 @@ const consultarEstatusDocumento = async (req, res) => {
     console.log('📥 Request body recibido:');
     console.log(JSON.stringify(req.body, null, 2));
 
-    const { ncf } = req.body;
+    const { ncf, reintentar } = req.body;
 
     // Validar que se proporcione el NCF
     if (!ncf) {
@@ -2346,6 +2347,12 @@ const consultarEstatusDocumento = async (req, res) => {
     }
 
     console.log(`🔍 Consulta de estatus solicitada para NCF: ${ncf}`);
+
+    // Si se solicita reintentar, esperar 2 segundos antes de consultar
+    if (reintentar) {
+      console.log('🔄 Reintento solicitado, esperando 2 segundos...');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
 
     // Consultar estatus en TheFactoryHKA
     const estatusConsulta = await consultarEstatusInmediato(ncf);
@@ -2373,6 +2380,23 @@ const consultarEstatusDocumento = async (req, res) => {
       console.log(`✅ Estado normalizado: "${estadoNormalizado}"`);
       console.log(`📤 Enviando respuesta exitosa al cliente`);
 
+      // Agregar información adicional si el documento no fue encontrado
+      let mensajeAdicional = null;
+      if (
+        estadoNormalizado === 'NO_ENCONTRADO' ||
+        estatusConsulta.datosEstatus.codigo === 120
+      ) {
+        console.log(
+          '⚠️ ADVERTENCIA: Documento no encontrado en TheFactoryHKA (código 120)',
+        );
+        mensajeAdicional =
+          'El documento no se encuentra en la base de datos de TheFactoryHKA. Posibles causas: ' +
+          '1) El documento nunca fue enviado, ' +
+          '2) Diferencia de ambiente (Demo vs Producción), ' +
+          '3) RNC incorrecto en la consulta, ' +
+          '4) Delay en la sincronización de TheFactoryHKA.';
+      }
+
       const respuestaFinal = {
         status: 'success',
         message: 'Consulta de estatus realizada exitosamente',
@@ -2386,6 +2410,7 @@ const consultarEstatusDocumento = async (req, res) => {
             'Sin mensaje',
           fechaConsulta: estatusConsulta.timestamp,
           datosCompletos: estatusConsulta.datosEstatus,
+          ...(mensajeAdicional && { advertencia: mensajeAdicional }),
         },
       };
 
