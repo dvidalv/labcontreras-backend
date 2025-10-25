@@ -1194,12 +1194,8 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       ...facturaAdaptada,
       ncfModificado: modificacion.NCFModificado,
       fechaNCFModificado: modificacion.FechaNCFModificado,
-      // ⚠️ DIFERENCIA CRÍTICA: Tipo 33 requiere string SIN ceros ("6"), Tipo 34 string CON ceros ("06")
-      codigoModificacion:
-        factura.tipo === '33'
-          ? String(modificacion.CodigoModificacion || '').replace(/^0+/, '') ||
-            String(modificacion.CodigoModificacion) // Tipo 33: string sin ceros ("06" → "6", "6" → "6")
-          : String(modificacion.CodigoModificacion), // Tipo 34: string con ceros ("06" → "06")
+      // ✅ AMBOS tipos 33 y 34 requieren el código CON ceros (según ejemplo oficial TheFactoryHKA)
+      codigoModificacion: modificacion.CodigoModificacion, // Preservar formato original: "05", "06", etc.
       razonModificacion: modificacion.RazonModificacion,
     };
 
