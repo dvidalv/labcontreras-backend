@@ -2868,7 +2868,8 @@ const descargarArchivo = async (req, res) => {
     console.log(`   Procesado: ${response.data.procesado}`);
 
     // Verificar respuesta exitosa
-    if (response.data.codigo === 130 && response.data.procesado) {
+    // Códigos exitosos: 0 (éxito general) o 130 (descarga exitosa)
+    if ((response.data.codigo === 0 || response.data.codigo === 130) && response.data.procesado) {
       // Descarga exitosa
       return res.status(httpStatus.OK).json({
         status: 'success',
