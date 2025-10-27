@@ -55,10 +55,13 @@ End If
 # Inicializar JSON vacío
 Set Variable [ $json ; Value: "{}" ]
 
-# Agregar campos al JSON
+# Agregar campos al JSON (en orden correcto)
 Set Variable [ $json ; Value: JSONSetElement ( $json ; "rnc" ; $rnc ; JSONString ) ]
 Set Variable [ $json ; Value: JSONSetElement ( $json ; "documento" ; $documento ; JSONString ) ]
-Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension ; JSONString ) ]
+Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; "pdf" ; JSONString ) ]
+
+# Verificar JSON (opcional - comentar después de depurar)
+# Show Custom Dialog [ "Debug JSON" ; $json ]
 
 # ------------------------------------------
 # MOSTRAR CONFIRMACIÓN
