@@ -1196,9 +1196,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
       fechaNCFModificado: modificacion.FechaNCFModificado,
       // ✅ TheFactoryHKA espera STRING SIN ceros iniciales según ejemplos reales
       // Remover ceros iniciales: "06" → "6", "05" → "5", "6" → "6"
-      codigoModificacion: String(modificacion.CodigoModificacion || '')
-        .trim()
-        .replace(/^0+/, '') || '0',
+      codigoModificacion:
+        String(modificacion.CodigoModificacion || '')
+          .trim()
+          .replace(/^0+/, '') || '0',
       razonModificacion:
         modificacion.RazonModificacion?.trim() ||
         modificacion.RazonModificacion,
@@ -2869,7 +2870,10 @@ const descargarArchivo = async (req, res) => {
 
     // Verificar respuesta exitosa
     // Códigos exitosos: 0 (éxito general) o 130 (descarga exitosa)
-    if ((response.data.codigo === 0 || response.data.codigo === 130) && response.data.procesado) {
+    if (
+      (response.data.codigo === 0 || response.data.codigo === 130) &&
+      response.data.procesado
+    ) {
       // Descarga exitosa
       return res.status(httpStatus.OK).json({
         status: 'success',
