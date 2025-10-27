@@ -1,10 +1,11 @@
 # ==========================================
-# SCRIPT: Descargar Archivo XML/PDF de Documento Electrónico - VERSIÓN SIMPLE
+# SCRIPT: Descargar Archivo XML de Documento Electrónico
 # ==========================================
-# Descripción: Descarga archivo XML o PDF de un e-NCF desde TheFactoryHKA
+# Descripción: Descarga archivo XML de un e-NCF desde TheFactoryHKA
 # Utiliza: Funciones JSON nativas de FileMaker (JSONSetElement, JSONGetElement)
 # Requiere: FileMaker 16 o superior
-# Fecha: Octubre 2024
+# Tipo de archivo: XML únicamente
+# Fecha: Octubre 2025
 # ==========================================
 
 # ------------------------------------------
@@ -26,7 +27,7 @@ End If
 
 Set Variable [ $rnc ; Value: Facturas::RNC ]
 Set Variable [ $documento ; Value: Facturas::eNCF ]
-Set Variable [ $extension ; Value: "xml" ] # Puede ser "xml" o "pdf"
+Set Variable [ $extension ; Value: "xml" ] # FIJO: solo XML
 
 # ------------------------------------------
 # VALIDACIONES BÁSICAS
@@ -63,11 +64,11 @@ Set Variable [ $json ; Value: JSONSetElement ( $json ; "extension" ; $extension 
 # MOSTRAR CONFIRMACIÓN
 # ------------------------------------------
 
-Show Custom Dialog [ "Confirmar Descarga" ; 
-    "¿Desea descargar el archivo " & Upper ( $extension ) & " del documento?" & ¶ &
+Show Custom Dialog [ "Confirmar Descarga XML" ; 
+    "¿Desea descargar el archivo XML del documento?" & ¶ &
     "RNC: " & $rnc & ¶ &
-    "Documento: " & $documento & ¶ &
-    "Extensión: " & Upper ( $extension )
+    "Documento: " & $documento & ¶ & ¶ &
+    "El XML contiene la estructura de datos del comprobante."
 ]
 
 If [ Get ( LastMessageChoice ) = 2 ]
@@ -130,14 +131,14 @@ If [ $status = "success" ]
     Set Variable [ $procesado ; Value: JSONGetElement ( $response ; "data.procesado" ) ]
     Set Variable [ $codigo ; Value: JSONGetElement ( $response ; "data.codigo" ) ]
     
-    # Guardar en campos de la tabla
+    # Guardar en campos de la tabla (específicos para XML)
     Set Field [ Facturas::ArchivoXML_Base64 ; $archivoBase64 ]
-    Set Field [ Facturas::ArchivoDescargado ; True ]
-    Set Field [ Facturas::FechaDescarga ; Get ( CurrentTimestamp ) ]
+    Set Field [ Facturas::TieneXML ; True ]
+    Set Field [ Facturas::FechaDescargaXML ; Get ( CurrentTimestamp ) ]
     
     # Mensaje de éxito
-    Show Custom Dialog [ "✅ Descarga Exitosa" ; 
-        "El archivo " & Upper ( $extension ) & " se ha descargado correctamente." & ¶ &
+    Show Custom Dialog [ "✅ XML Descargado" ; 
+        "El archivo XML se ha descargado correctamente." & ¶ &
         "Documento: " & $documento & ¶ &
         "Código respuesta: " & $codigo & ¶ & ¶ &
         "El archivo en Base64 se ha guardado en el campo ArchivoXML_Base64."
@@ -149,7 +150,7 @@ Else
     # Error en la descarga
     Set Variable [ $errorDetalle ; Value: JSONGetElement ( $response ; "details" ) ]
     
-    Show Custom Dialog [ "❌ Error en la Descarga" ; 
+    Show Custom Dialog [ "❌ Error al Descargar XML" ; 
         $message & ¶ & ¶ &
         "Detalles: " & $errorDetalle
     ]
@@ -167,26 +168,34 @@ End If
 #    - Facturas::RNC (texto) - RNC del emisor
 #    - Facturas::eNCF (texto) - Número del e-NCF
 #    - Facturas::g_ResponseJSON (texto, global) - Para almacenar respuesta
-#    - Facturas::ArchivoXML_Base64 (texto) - Para guardar archivo en Base64
-#    - Facturas::ArchivoDescargado (número/booleano) - Flag de descarga
-#    - Facturas::FechaDescarga (fecha/hora) - Timestamp de descarga
+#    - Facturas::ArchivoXML_Base64 (texto) - Para guardar XML en Base64
+#    - Facturas::TieneXML (número/booleano) - Flag de descarga XML
+#    - Facturas::FechaDescargaXML (fecha/hora) - Timestamp de descarga
 #
 # 2. CAMPOS GLOBALES REQUERIDOS:
 #    - Globals::gURLBase (texto) - URL base de la API (ej: "https://api.tuservidor.com")
 #    - Globals::gTokenJWT (texto) - Token de autenticación JWT
 #
-# 3. CAMBIAR EXTENSIÓN:
-#    - Para descargar PDF en lugar de XML, cambiar la línea:
-#      Set Variable [ $extension ; Value: "pdf" ]
+# 3. DIFERENCIA CON PDF:
+#    - XML contiene la estructura de datos del documento
+#    - PDF es la representación visual lista para imprimir/enviar
+#    - Usa el script "FileMaker_Script_DescargarPDF_Simple.fmfn" para descargar PDF
 #
 # 4. EL ARCHIVO SE GUARDA EN BASE64:
-#    - El contenido del archivo (XML o PDF) se almacena codificado en Base64
+#    - El contenido del XML se almacena codificado en Base64
 #    - Para usarlo, necesitarás decodificarlo
 #    - FileMaker 19+ tiene función Base64Decode()
 #
 # 5. DECODIFICAR BASE64 (FileMaker 19+):
-#    Set Variable [ $contenido ; Value: Base64Decode ( Facturas::ArchivoXML_Base64 ) ]
+#    Set Variable [ $xml ; Value: Base64Decode ( Facturas::ArchivoXML_Base64 ; "documento.xml" ) ]
+#    Set Field [ Facturas::ArchivoXML ; $xml ]
 #
 # 6. EXPORTAR ARCHIVO:
-#    - Usa Export Field Contents para guardar el archivo decodificado en disco
+#    - Usa Export Field Contents para guardar el XML decodificado en disco
+#    - O usa el script completo que hace esto automáticamente
+#
+# 7. USAR JUNTO CON SCRIPT PDF:
+#    - Puedes tener este script para XML
+#    - Y el script "DescargarPDF_Simple" para PDF
+#    - Ambos guardan en campos diferentes y no se interfieren
 
