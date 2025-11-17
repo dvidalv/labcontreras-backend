@@ -11,7 +11,7 @@ let FILEMAKER_CREDENTIALS_BASE64 = Buffer.from(FILEMAKER_CREDENTIALS).toString(
 );
 
 // Configuración para TheFactoryHKA e-CF API
-let THEFACTORY_BASE_URL = 'https://demoemision.thefactoryhka.com.do/api';
+let THEFACTORY_BASE_URL = 'https://emision.thefactoryhka.com.do/api';
 let THEFACTORY_AUTH_URL = `${THEFACTORY_BASE_URL}/Autenticacion`;
 let THEFACTORY_ENVIAR_URL = `${THEFACTORY_BASE_URL}/Enviar`;
 let THEFACTORY_ESTATUS_URL = `${THEFACTORY_BASE_URL}/EstatusDocumento`;
