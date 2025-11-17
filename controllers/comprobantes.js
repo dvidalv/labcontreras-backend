@@ -653,11 +653,22 @@ const consultarEstatusInmediato = async (ncf) => {
 // Crear un nuevo rango de numeración de e-CF
 const createComprobante = async (req, res) => {
   try {
-    // Agregar el ID del usuario autenticado al rango
+    // Limpiar fecha_vencimiento si viene vacía y el tipo no la requiere (tipos 32 y 34)
     const rangoData = {
       ...req.body,
       usuario: req.user._id,
     };
+
+    // Si fecha_vencimiento es string vacío, null o undefined, y es tipo 32 o 34, eliminarla
+    if (
+      ['32', '34'].includes(rangoData.tipo_comprobante) &&
+      (!rangoData.fecha_vencimiento || rangoData.fecha_vencimiento === '')
+    ) {
+      delete rangoData.fecha_vencimiento;
+      console.log(
+        `📅 Tipo ${rangoData.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
+      );
+    }
 
     const rango = await Comprobante.create(rangoData);
 
@@ -830,8 +841,23 @@ const updateComprobante = async (req, res) => {
     console.log('✅ Comprobante encontrado, actualizando sin restricciones');
     console.log('📊 Estado antes de actualizar:', existingRango.estado);
 
+    // Limpiar fecha_vencimiento si viene vacía y el tipo no la requiere (tipos 32 y 34)
+    const updateData = { ...req.body };
+    if (
+      ['32', '34'].includes(
+        updateData.tipo_comprobante || existingRango.tipo_comprobante,
+      ) &&
+      (updateData.fecha_vencimiento === '' ||
+        updateData.fecha_vencimiento === null)
+    ) {
+      updateData.fecha_vencimiento = undefined;
+      console.log(
+        `📅 Tipo ${updateData.tipo_comprobante || existingRango.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
+      );
+    }
+
     // Actualizar todos los campos enviados sin restricciones
-    Object.assign(existingRango, req.body);
+    Object.assign(existingRango, updateData);
     existingRango.fechaActualizacion = Date.now();
 
     console.log('📊 Estado después de Object.assign:', existingRango.estado);
