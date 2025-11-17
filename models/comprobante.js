@@ -120,16 +120,27 @@ const comprobanteSchema = new Schema({
   },
   fecha_vencimiento: {
     type: Date,
-    required: [true, 'La fecha de vencimiento es requerida'],
+    required: [
+      function () {
+        // Fecha de vencimiento es OPCIONAL para tipos 32 (Consumo) y 34 (Nota de Crédito)
+        // Es OBLIGATORIA para todos los demás tipos
+        return !['32', '34'].includes(this.tipo_comprobante);
+      },
+      'La fecha de vencimiento es requerida para este tipo de comprobante',
+    ],
     validate: [
       {
         validator: function (v) {
+          // Si no hay fecha (tipos 32 o 34), no validar
+          if (!v) return true;
           return v instanceof Date && !isNaN(v);
         },
         message: 'La fecha de vencimiento debe ser una fecha válida',
       },
       {
         validator: function (v) {
+          // Si no hay fecha (tipos 32 o 34), no validar
+          if (!v) return true;
           return v > this.fecha_autorizacion;
         },
         message:
@@ -205,15 +216,18 @@ comprobanteSchema.pre('save', async function (next) {
     // SOLO si el estado no es 'inactivo' (estado manual que debe respetarse)
     if (this.estado !== 'inactivo') {
       const hoy = new Date();
-      if (this.fecha_vencimiento < hoy) {
+      
+      // Verificar vencimiento solo si hay fecha de vencimiento (tipos 32 y 34 pueden no tenerla)
+      if (this.fecha_vencimiento && this.fecha_vencimiento < hoy) {
         this.estado = 'vencido';
       } else if (this.numeros_disponibles <= this.alerta_minima_restante) {
         this.estado = 'agotado';
       } else if (
         this.estado !== 'activo' &&
         this.numeros_disponibles > this.alerta_minima_restante &&
-        this.fecha_vencimiento >= hoy
+        (!this.fecha_vencimiento || this.fecha_vencimiento >= hoy)
       ) {
+        // Si no hay fecha de vencimiento O si la fecha no ha pasado, puede ser activo
         this.estado = 'activo';
       }
     }

@@ -97,25 +97,27 @@ const obtenerTokenTheFactory = async () => {
 
 // Función para determinar si la fecha de vencimiento es obligatoria según el tipo de NCF
 const esFechaVencimientoObligatoria = (tipoDocumento) => {
-  // Según la documentación de la DGII, estos tipos requieren fecha de vencimiento:
+  // Según la documentación de la DGII y TheFactoryHKA:
+  // Tipos que requieren fecha de vencimiento:
   const tiposObligatorios = [
-    '31',
-    '33',
-    '34',
-    '41',
-    '43',
-    '44',
-    '45',
-    '46',
-    '47',
+    '31', // Factura de Crédito Fiscal Electrónica
+    '33', // Nota de Débito Electrónica
+    '41', // Compras Electrónicas
+    '43', // Gastos Menores Electrónico
+    '44', // Régimenes Especiales Electrónico
+    '45', // Gubernamental Electrónico
+    '46', // Exportaciones Electrónico
+    '47', // Pagos al Exterior Electrónico
   ];
 
-  // Tipos opcionales: '32' (Factura de Consumo)
+  // Tipos opcionales (NO requieren fecha de vencimiento):
+  // '32' - Factura de Consumo Electrónica
+  // '34' - Nota de Crédito Electrónica (NO debe incluir FechaVencimientoSecuencia)
   const esObligatorio = tiposObligatorios.includes(tipoDocumento);
 
-  // console.log(
-  //   `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
-  // );
+  console.log(
+    `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
+  );
 
   return esObligatorio;
 };
@@ -1116,14 +1118,25 @@ const consumirNumeroPorRnc = async (req, res) => {
 
     // console.log(rnc, tipo_comprobante);
 
-    // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
-    const rango = await Comprobante.findOne({
+    // Construir query base
+    const query = {
       rnc: rnc,
       tipo_comprobante: tipo_comprobante,
       estado: 'activo',
-      numeros_disponibles: { $gt: 0 }, // Agregado para verificar que haya números disponibles
-      fecha_vencimiento: { $gte: new Date() }, // Agregado para verificar que el rango no haya vencido
-    }).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
+      numeros_disponibles: { $gt: 0 }, // Verificar que haya números disponibles
+    };
+
+    // Agregar filtro de fecha de vencimiento SOLO si el tipo lo requiere
+    // Tipos 32 y 34 NO tienen fecha de vencimiento obligatoria
+    if (!['32', '34'].includes(tipo_comprobante)) {
+      query.$or = [
+        { fecha_vencimiento: { $gte: new Date() } }, // No vencido
+        { fecha_vencimiento: null }, // O sin fecha (permitir por si acaso)
+      ];
+    }
+
+    // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
+    const rango = await Comprobante.findOne(query).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
 
     if (!rango) {
       return res.status(httpStatus.NOT_FOUND).json({
