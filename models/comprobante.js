@@ -297,9 +297,15 @@ comprobanteSchema.methods.consumirNumero = function () {
 
 comprobanteSchema.methods.esValido = function () {
   const hoy = new Date();
+  
+  // Para tipos 32 y 34, la fecha de vencimiento es opcional
+  const fechaValida = ['32', '34'].includes(this.tipo_comprobante)
+    ? !this.fecha_vencimiento || this.fecha_vencimiento >= hoy  // Si no hay fecha O no ha vencido
+    : this.fecha_vencimiento && this.fecha_vencimiento >= hoy;  // Para otros tipos, debe existir y no haber vencido
+  
   return (
     this.estado === 'activo' &&
-    this.fecha_vencimiento >= hoy &&
+    fechaValida &&
     this.numeros_disponibles > 0
   );
 };
@@ -309,13 +315,22 @@ comprobanteSchema.statics.obtenerRangosDisponibles = function (
   usuario,
   tipo_comprobante,
 ) {
-  return this.find({
+  const query = {
     usuario,
     tipo_comprobante,
     estado: 'activo',
-    fecha_vencimiento: { $gte: new Date() },
     $expr: { $gt: ['$numeros_disponibles', 0] },
-  }).sort({ fecha_vencimiento: 1 });
+  };
+
+  // Para tipos 32 y 34, la fecha de vencimiento es opcional
+  if (!['32', '34'].includes(tipo_comprobante)) {
+    query.$or = [
+      { fecha_vencimiento: { $gte: new Date() } },
+      { fecha_vencimiento: null },
+    ];
+  }
+
+  return this.find(query).sort({ fecha_vencimiento: 1 });
 };
 
 // Virtual para obtener el próximo número disponible

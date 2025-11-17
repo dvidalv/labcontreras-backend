@@ -1164,7 +1164,11 @@ const consumirNumeroPorRnc = async (req, res) => {
     // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
     const rango = await Comprobante.findOne(query).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
 
+    console.log('🔍 Query ejecutada:', JSON.stringify(query, null, 2));
+    console.log('📊 Rango encontrado:', rango ? 'SÍ' : 'NO');
+
     if (!rango) {
+      console.log('❌ No se encontró ningún rango con el query');
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
         message:
@@ -1172,8 +1176,22 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
+    console.log('📋 Datos del rango encontrado:', {
+      _id: rango._id,
+      rnc: rango.rnc,
+      tipo_comprobante: rango.tipo_comprobante,
+      estado: rango.estado,
+      fecha_vencimiento: rango.fecha_vencimiento,
+      numeros_disponibles: rango.numeros_disponibles,
+      numeros_utilizados: rango.numeros_utilizados,
+    });
+
     // Verificar que el rango sea válido
-    if (!rango.esValido()) {
+    const esValidoCheck = rango.esValido();
+    console.log('✅ Verificación esValido():', esValidoCheck);
+
+    if (!esValidoCheck) {
+      console.log('❌ El rango NO pasó la validación esValido()');
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'El rango no está disponible (vencido, agotado o inactivo)',
