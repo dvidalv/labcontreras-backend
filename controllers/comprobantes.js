@@ -247,7 +247,7 @@ const generarCodigoQR = async (req, res) => {
         rncComprador === 'SIN_RNC_COMPRADOR'
       ) {
         // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
-        baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+        baseUrl = 'https://fc.dgii.gov.do/ecf/ConsultaTimbreFC';
         params = new URLSearchParams({
           RncEmisor: rnc,
           ENCF: ncf,
@@ -260,7 +260,7 @@ const generarCodigoQR = async (req, res) => {
         );
       } else {
         // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
-        baseUrl = 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre';
+        baseUrl = 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre';
 
         // Formatear fechas
         const formatearFechaUrl = (fecha) => {
