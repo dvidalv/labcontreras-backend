@@ -149,8 +149,8 @@ const comprobanteSchema = new Schema({
   estado: {
     type: String,
     enum: {
-      values: ['activo', 'vencido', 'agotado'],
-      message: 'El estado debe ser: activo, vencido o agotado',
+      values: ['activo', 'inactivo', 'vencido', 'agotado'],
+      message: 'El estado debe ser: activo, inactivo, vencido o agotado',
     },
     default: 'activo',
   },
@@ -202,17 +202,20 @@ comprobanteSchema.pre('save', async function (next) {
     this.numeros_disponibles = this.cantidad_numeros - this.numeros_utilizados;
 
     // Auto-actualizar estado basado en fechas y números disponibles
-    const hoy = new Date();
-    if (this.fecha_vencimiento < hoy) {
-      this.estado = 'vencido';
-    } else if (this.numeros_disponibles <= this.alerta_minima_restante) {
-      this.estado = 'agotado';
-    } else if (
-      this.estado !== 'activo' &&
-      this.numeros_disponibles > this.alerta_minima_restante &&
-      this.fecha_vencimiento >= hoy
-    ) {
-      this.estado = 'activo';
+    // SOLO si el estado no es 'inactivo' (estado manual que debe respetarse)
+    if (this.estado !== 'inactivo') {
+      const hoy = new Date();
+      if (this.fecha_vencimiento < hoy) {
+        this.estado = 'vencido';
+      } else if (this.numeros_disponibles <= this.alerta_minima_restante) {
+        this.estado = 'agotado';
+      } else if (
+        this.estado !== 'activo' &&
+        this.numeros_disponibles > this.alerta_minima_restante &&
+        this.fecha_vencimiento >= hoy
+      ) {
+        this.estado = 'activo';
+      }
     }
 
     // Validar que no haya rangos superpuestos para el mismo RNC y tipo_comprobante

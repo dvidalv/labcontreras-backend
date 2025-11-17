@@ -808,68 +808,65 @@ const updateComprobante = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Buscar el rango existente
-    const existingRango = await Comprobante.findOne({
-      _id: id,
+    console.log('📝 Intentando actualizar comprobante:', {
+      id,
       usuario: req.user._id,
+      datos: req.body,
     });
 
+    // Buscar el rango existente sin validar usuario propietario
+    const existingRango = await Comprobante.findById(id);
+
     if (!existingRango) {
+      console.log('❌ Comprobante no encontrado:', id);
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
-        message: 'Rango de numeración no encontrado',
+        message: 'Comprobante no encontrado',
       });
     }
 
-    // Solo permitir actualización de ciertos campos si ya se han utilizado números
-    if (existingRango.numeros_utilizados > 0) {
-      const camposPermitidos = [
-        'comentario',
-        'alerta_minima_restante',
-        'estado',
-      ];
-      const camposEnviados = Object.keys(req.body);
-      const camposNoPermitidos = camposEnviados.filter(
-        (campo) => !camposPermitidos.includes(campo),
-      );
+    console.log('✅ Comprobante encontrado, actualizando sin restricciones');
+    console.log('📊 Estado antes de actualizar:', existingRango.estado);
 
-      if (camposNoPermitidos.length > 0) {
-        return res.status(httpStatus.BAD_REQUEST).json({
-          status: 'error',
-          message: `No se pueden modificar estos campos cuando ya se han utilizado números: ${camposNoPermitidos.join(', ')}`,
-        });
-      }
-    }
-
-    // Para evitar problemas con validaciones en findByIdAndUpdate,
-    // actualizamos campo por campo en el documento existente
+    // Actualizar todos los campos enviados sin restricciones
     Object.assign(existingRango, req.body);
     existingRango.fechaActualizacion = Date.now();
 
+    console.log('📊 Estado después de Object.assign:', existingRango.estado);
+
     const rango = await existingRango.save();
+
+    console.log('📊 Estado después de save:', rango.estado);
 
     // Populate el usuario para mantener la consistencia con otras respuestas
     await rango.populate('usuario', 'name email');
 
+    console.log('✅ Comprobante actualizado exitosamente:', {
+      id: rango._id,
+      estado_final: rango.estado,
+      usuario_original: existingRango.usuario,
+      actualizado_por: req.user._id,
+    });
+
     return res.status(httpStatus.OK).json({
       status: 'success',
-      message: 'Rango de numeración actualizado exitosamente',
+      message: 'Comprobante actualizado exitosamente',
       data: rango,
     });
   } catch (err) {
-    console.error('Error al actualizar rango:', err);
+    console.error('❌ Error al actualizar comprobante:', err);
 
     if (err.name === 'ValidationError') {
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
-        message: 'Datos del rango inválidos',
+        message: 'Datos del comprobante inválidos',
         details: err.message,
       });
     }
 
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',
-      message: 'Error interno del servidor al actualizar el rango',
+      message: 'Error interno del servidor al actualizar el comprobante',
     });
   }
 };
@@ -880,34 +877,48 @@ const updateComprobanteEstado = async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
 
-    const validEstados = ['activo', 'vencido', 'agotado'];
+    console.log('🔄 Intentando actualizar estado del comprobante:', {
+      id,
+      estado,
+      usuario: req.user._id,
+    });
+
+    const validEstados = ['activo', 'inactivo', 'vencido', 'agotado'];
     if (!validEstados.includes(estado)) {
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
-        message: 'Estado inválido. Debe ser: activo, vencido o agotado',
+        message:
+          'Estado inválido. Debe ser: activo, inactivo, vencido o agotado',
       });
     }
 
-    const rango = await Comprobante.findOneAndUpdate(
-      { _id: id, usuario: req.user._id },
+    // Actualizar sin validar usuario propietario
+    const rango = await Comprobante.findByIdAndUpdate(
+      id,
       { estado, fechaActualizacion: Date.now() },
       { new: true },
     ).populate('usuario', 'name email');
 
     if (!rango) {
+      console.log('❌ Comprobante no encontrado:', id);
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
-        message: 'Rango de numeración no encontrado',
+        message: 'Comprobante no encontrado',
       });
     }
 
+    console.log('✅ Estado actualizado exitosamente:', {
+      id: rango._id,
+      nuevo_estado: estado,
+    });
+
     return res.status(httpStatus.OK).json({
       status: 'success',
-      message: 'Estado del rango actualizado exitosamente',
+      message: 'Estado del comprobante actualizado exitosamente',
       data: rango,
     });
   } catch (err) {
-    console.error('Error al actualizar estado:', err);
+    console.error('❌ Error al actualizar estado:', err);
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',
       message: 'Error interno del servidor al actualizar el estado',
@@ -920,37 +931,56 @@ const deleteComprobante = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const rango = await Comprobante.findOne({
-      _id: id,
+    console.log('🗑️ Intentando eliminar comprobante:', {
+      id,
       usuario: req.user._id,
+      usuarioEmail: req.user.email,
     });
 
-    if (!rango) {
-      return res.status(httpStatus.NOT_FOUND).json({
-        status: 'error',
-        message: 'Rango de numeración no encontrado',
-      });
-    }
-
-    if (rango.numeros_utilizados > 0) {
+    // Validar que el ID sea un ObjectId válido de MongoDB
+    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('❌ ID inválido:', id);
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
-        message:
-          'No se puede eliminar un rango que ya tiene números utilizados',
+        message: 'ID de comprobante inválido',
       });
     }
 
-    await Comprobante.findByIdAndDelete(id);
+    // Eliminar el comprobante directamente sin validar usuario propietario
+    const rango = await Comprobante.findByIdAndDelete(id);
+
+    if (!rango) {
+      console.log('❌ Comprobante no encontrado:', id);
+      return res.status(httpStatus.NOT_FOUND).json({
+        status: 'error',
+        message: 'Comprobante no encontrado',
+      });
+    }
+
+    console.log('✅ Comprobante eliminado exitosamente:', {
+      id: rango._id,
+      rnc: rango.rnc,
+      tipo_comprobante: rango.tipo_comprobante,
+      usuario_original: rango.usuario,
+      eliminado_por: req.user._id,
+    });
 
     return res.status(httpStatus.OK).json({
       status: 'success',
-      message: 'Rango de numeración eliminado exitosamente',
+      message: 'Comprobante eliminado exitosamente',
+      data: {
+        id: rango._id,
+        rnc: rango.rnc,
+        tipo_comprobante: rango.tipo_comprobante,
+        numeros_utilizados: rango.numeros_utilizados,
+      },
     });
   } catch (err) {
-    console.error('Error al eliminar rango:', err);
+    console.error('❌ Error al eliminar comprobante:', err);
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',
-      message: 'Error interno del servidor al eliminar el rango',
+      message: 'Error interno del servidor al eliminar el comprobante',
+      error: err.message,
     });
   }
 };
