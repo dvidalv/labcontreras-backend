@@ -115,9 +115,9 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
   // '34' - Nota de Crédito Electrónica (NO debe incluir FechaVencimientoSecuencia)
   const esObligatorio = tiposObligatorios.includes(tipoDocumento);
 
-  console.log(
-    `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
-  );
+  // console.log(
+  //   `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
+  // );
 
   return esObligatorio;
 };
@@ -665,9 +665,9 @@ const createComprobante = async (req, res) => {
       (!rangoData.fecha_vencimiento || rangoData.fecha_vencimiento === '')
     ) {
       delete rangoData.fecha_vencimiento;
-      console.log(
-        `📅 Tipo ${rangoData.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
-      );
+      // console.log(
+      //   `📅 Tipo ${rangoData.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
+      // );
     }
 
     const rango = await Comprobante.create(rangoData);
@@ -838,8 +838,8 @@ const updateComprobante = async (req, res) => {
       });
     }
 
-    console.log('✅ Comprobante encontrado, actualizando sin restricciones');
-    console.log('📊 Estado antes de actualizar:', existingRango.estado);
+    // console.log('✅ Comprobante encontrado, actualizando sin restricciones');
+    // console.log('📊 Estado antes de actualizar:', existingRango.estado);
 
     // Limpiar fecha_vencimiento si viene vacía y el tipo no la requiere (tipos 32 y 34)
     const updateData = { ...req.body };
@@ -851,30 +851,30 @@ const updateComprobante = async (req, res) => {
         updateData.fecha_vencimiento === null)
     ) {
       updateData.fecha_vencimiento = undefined;
-      console.log(
-        `📅 Tipo ${updateData.tipo_comprobante || existingRango.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
-      );
+      // console.log(
+      //   `📅 Tipo ${updateData.tipo_comprobante || existingRango.tipo_comprobante}: fecha_vencimiento removida (opcional)`,
+      // );
     }
 
     // Actualizar todos los campos enviados sin restricciones
     Object.assign(existingRango, updateData);
     existingRango.fechaActualizacion = Date.now();
 
-    console.log('📊 Estado después de Object.assign:', existingRango.estado);
+    // console.log('📊 Estado después de Object.assign:', existingRango.estado);
 
     const rango = await existingRango.save();
 
-    console.log('📊 Estado después de save:', rango.estado);
+    // console.log('📊 Estado después de save:', rango.estado);
 
     // Populate el usuario para mantener la consistencia con otras respuestas
     await rango.populate('usuario', 'name email');
 
-    console.log('✅ Comprobante actualizado exitosamente:', {
-      id: rango._id,
-      estado_final: rango.estado,
-      usuario_original: existingRango.usuario,
-      actualizado_por: req.user._id,
-    });
+    // console.log('✅ Comprobante actualizado exitosamente:', {
+    //   id: rango._id,
+    //   estado_final: rango.estado,
+    //   usuario_original: existingRango.usuario,
+    //   actualizado_por: req.user._id,
+    // });
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -905,11 +905,11 @@ const updateComprobanteEstado = async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
 
-    console.log('🔄 Intentando actualizar estado del comprobante:', {
-      id,
-      estado,
-      usuario: req.user._id,
-    });
+    // console.log('🔄 Intentando actualizar estado del comprobante:', {
+    //   id,
+    //   estado,
+    //   usuario: req.user._id,
+    // });
 
     const validEstados = ['activo', 'inactivo', 'vencido', 'agotado'];
     if (!validEstados.includes(estado)) {
@@ -928,17 +928,17 @@ const updateComprobanteEstado = async (req, res) => {
     ).populate('usuario', 'name email');
 
     if (!rango) {
-      console.log('❌ Comprobante no encontrado:', id);
+      // console.log('❌ Comprobante no encontrado:', id);
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
         message: 'Comprobante no encontrado',
       });
     }
 
-    console.log('✅ Estado actualizado exitosamente:', {
-      id: rango._id,
-      nuevo_estado: estado,
-    });
+    // console.log('✅ Estado actualizado exitosamente:', {
+    //   id: rango._id,
+    //   nuevo_estado: estado,
+    // });
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -959,15 +959,15 @@ const deleteComprobante = async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('🗑️ Intentando eliminar comprobante:', {
-      id,
-      usuario: req.user._id,
-      usuarioEmail: req.user.email,
-    });
+    // console.log('🗑️ Intentando eliminar comprobante:', {
+    //   id,
+    //   usuario: req.user._id,
+    //   usuarioEmail: req.user.email,
+    // });
 
     // Validar que el ID sea un ObjectId válido de MongoDB
     if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      console.log('❌ ID inválido:', id);
+      // console.log('❌ ID inválido:', id);
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'ID de comprobante inválido',
@@ -978,20 +978,20 @@ const deleteComprobante = async (req, res) => {
     const rango = await Comprobante.findByIdAndDelete(id);
 
     if (!rango) {
-      console.log('❌ Comprobante no encontrado:', id);
+      // console.log('❌ Comprobante no encontrado:', id);
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
         message: 'Comprobante no encontrado',
       });
     }
 
-    console.log('✅ Comprobante eliminado exitosamente:', {
-      id: rango._id,
-      rnc: rango.rnc,
-      tipo_comprobante: rango.tipo_comprobante,
-      usuario_original: rango.usuario,
-      eliminado_por: req.user._id,
-    });
+    // console.log('✅ Comprobante eliminado exitosamente:', {
+    //   id: rango._id,
+    //   rnc: rango.rnc,
+    //   tipo_comprobante: rango.tipo_comprobante,
+    //   usuario_original: rango.usuario,
+    //   eliminado_por: req.user._id,
+    // });
 
     return res.status(httpStatus.OK).json({
       status: 'success',
@@ -1164,11 +1164,11 @@ const consumirNumeroPorRnc = async (req, res) => {
     // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
     const rango = await Comprobante.findOne(query).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
 
-    console.log('🔍 Query ejecutada:', JSON.stringify(query, null, 2));
-    console.log('📊 Rango encontrado:', rango ? 'SÍ' : 'NO');
+    // console.log('🔍 Query ejecutada:', JSON.stringify(query, null, 2));
+    // console.log('📊 Rango encontrado:', rango ? 'SÍ' : 'NO');
 
     if (!rango) {
-      console.log('❌ No se encontró ningún rango con el query');
+      // console.log('❌ No se encontró ningún rango con el query');
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
         message:
@@ -1176,22 +1176,22 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
-    console.log('📋 Datos del rango encontrado:', {
-      _id: rango._id,
-      rnc: rango.rnc,
-      tipo_comprobante: rango.tipo_comprobante,
-      estado: rango.estado,
-      fecha_vencimiento: rango.fecha_vencimiento,
-      numeros_disponibles: rango.numeros_disponibles,
-      numeros_utilizados: rango.numeros_utilizados,
-    });
+    // console.log('📋 Datos del rango encontrado:', {
+    //   _id: rango._id,
+    //   rnc: rango.rnc,
+    //   tipo_comprobante: rango.tipo_comprobante,
+    //   estado: rango.estado,
+    //   fecha_vencimiento: rango.fecha_vencimiento,
+    //   numeros_disponibles: rango.numeros_disponibles,
+    //   numeros_utilizados: rango.numeros_utilizados,
+    // });
 
     // Verificar que el rango sea válido
     const esValidoCheck = rango.esValido();
-    console.log('✅ Verificación esValido():', esValidoCheck);
+    // console.log('✅ Verificación esValido():', esValidoCheck);
 
     if (!esValidoCheck) {
-      console.log('❌ El rango NO pasó la validación esValido()');
+      // console.log('❌ El rango NO pasó la validación esValido()');
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'El rango no está disponible (vencido, agotado o inactivo)',
@@ -2433,17 +2433,17 @@ const enviarFacturaElectronica = async (req, res) => {
 // 🔍 Endpoint independiente para consultar estatus de documento
 const consultarEstatusDocumento = async (req, res) => {
   try {
-    console.log(
-      `\n📋 ==================== ENDPOINT CONSULTAR ESTATUS ====================`,
-    );
-    console.log('📥 Request body recibido:');
-    console.log(JSON.stringify(req.body, null, 2));
+    // console.log(
+    //   `\n📋 ==================== ENDPOINT CONSULTAR ESTATUS ====================`,
+    // );
+    // console.log('📥 Request body recibido:');
+    // console.log(JSON.stringify(req.body, null, 2));
 
     const { ncf, reintentar } = req.body;
 
     // Validar que se proporcione el NCF
     if (!ncf) {
-      console.log('❌ NCF no proporcionado');
+      // console.log('❌ NCF no proporcionado');
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'El campo NCF es requerido',
@@ -2451,19 +2451,19 @@ const consultarEstatusDocumento = async (req, res) => {
       });
     }
 
-    console.log(`🔍 Consulta de estatus solicitada para NCF: ${ncf}`);
+    // console.log(`🔍 Consulta de estatus solicitada para NCF: ${ncf}`);
 
     // Si se solicita reintentar, esperar 2 segundos antes de consultar
     if (reintentar) {
-      console.log('🔄 Reintento solicitado, esperando 2 segundos...');
+      // console.log('🔄 Reintento solicitado, esperando 2 segundos...');
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     // Consultar estatus en TheFactoryHKA
     const estatusConsulta = await consultarEstatusInmediato(ncf);
 
-    console.log('📊 Resultado de consultarEstatusInmediato:');
-    console.log(JSON.stringify(estatusConsulta, null, 2));
+    // console.log('📊 Resultado de consultarEstatusInmediato:');
+    // console.log(JSON.stringify(estatusConsulta, null, 2));
 
     if (estatusConsulta.consultaExitosa) {
       // Interpretar el estado devuelto por TheFactoryHKA
@@ -2473,17 +2473,17 @@ const consultarEstatusDocumento = async (req, res) => {
         estatusConsulta.datosEstatus.mensaje ||
         'DESCONOCIDO';
 
-      console.log(`📝 Estado original extraído: "${estadoOriginal}"`);
-      console.log('🔍 datosEstatus completos:');
-      console.log(JSON.stringify(estatusConsulta.datosEstatus, null, 2));
+      // console.log(`📝 Estado original extraído: "${estadoOriginal}"`);
+      // console.log('🔍 datosEstatus completos:');
+      // console.log(JSON.stringify(estatusConsulta.datosEstatus, null, 2));
 
       const estadoNormalizado = normalizarEstadoFactura(
         estadoOriginal,
         estatusConsulta.datosEstatus,
       );
 
-      console.log(`✅ Estado normalizado: "${estadoNormalizado}"`);
-      console.log(`📤 Enviando respuesta exitosa al cliente`);
+      // console.log(`✅ Estado normalizado: "${estadoNormalizado}"`);
+      // console.log(`📤 Enviando respuesta exitosa al cliente`);
 
       // Agregar información adicional si el documento no fue encontrado
       let mensajeAdicional = null;
@@ -2491,9 +2491,9 @@ const consultarEstatusDocumento = async (req, res) => {
         estadoNormalizado === 'NO_ENCONTRADO' ||
         estatusConsulta.datosEstatus.codigo === 120
       ) {
-        console.log(
-          '⚠️ ADVERTENCIA: Documento no encontrado en TheFactoryHKA (código 120)',
-        );
+        // console.log(
+        //   '⚠️ ADVERTENCIA: Documento no encontrado en TheFactoryHKA (código 120)',
+        // );
         mensajeAdicional =
           'El documento no se encuentra en la base de datos de TheFactoryHKA. Posibles causas: ' +
           '1) El documento nunca fue enviado, ' +
@@ -2519,19 +2519,19 @@ const consultarEstatusDocumento = async (req, res) => {
         },
       };
 
-      console.log('📤 Respuesta final que se enviará:');
-      console.log(JSON.stringify(respuestaFinal, null, 2));
-      console.log(
-        `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS ====================\n`,
-      );
+      // console.log('📤 Respuesta final que se enviará:');
+      // console.log(JSON.stringify(respuestaFinal, null, 2));
+      // console.log(
+      //   `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS ====================\n`,
+      // );
 
       return res.status(httpStatus.OK).json(respuestaFinal);
     } else {
-      console.log('❌ Consulta NO exitosa');
-      console.log(`❌ Error: ${estatusConsulta.error}`);
-      console.log(
-        `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR) ====================\n`,
-      );
+      // console.log('❌ Consulta NO exitosa');
+      // console.log(`❌ Error: ${estatusConsulta.error}`);
+      // console.log(
+      //   `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR) ====================\n`,
+      // );
 
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
@@ -2546,9 +2546,9 @@ const consultarEstatusDocumento = async (req, res) => {
   } catch (error) {
     console.error('❌ Error CRÍTICO en consulta de estatus:', error);
     console.error('📚 Stack trace:', error.stack);
-    console.log(
-      `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR CRÍTICO) ====================\n`,
-    );
+    // console.log(
+    //   `📋 ==================== FIN ENDPOINT CONSULTAR ESTATUS (ERROR CRÍTICO) ====================\n`,
+    // );
 
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',
