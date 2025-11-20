@@ -1351,39 +1351,51 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   }
 
   // 📅 Formatear y validar fecha de vencimiento del NCF
-  // Calcular dinámicamente una fecha de vencimiento segura como fallback
-  const fechaActual = new Date();
-  const añoActual = fechaActual.getFullYear();
-  const mesActual = fechaActual.getMonth() + 1; // getMonth() retorna 0-11
+  // Para tipos 32 y 34, la fecha de vencimiento es OPCIONAL
+  let fechaVencimientoFormateada = null;
 
-  // Si estamos en diciembre, usar el próximo año para evitar vencimiento inmediato
-  const añoVencimiento = mesActual === 12 ? añoActual + 1 : añoActual;
-  let fechaVencimientoFormateada = `31-12-${añoVencimiento}`; // Fecha segura y dinámica
-  if (facturaAdaptada.fechaVencNCF) {
-    try {
-      // Validar formato de fecha (puede venir como DD-MM-YYYY o YYYY-MM-DD)
-      const fecha = facturaAdaptada.fechaVencNCF;
-      if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
-        // Ya está en formato DD-MM-YYYY
-        fechaVencimientoFormateada = fecha;
-      } else if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Convertir de YYYY-MM-DD a DD-MM-YYYY
-        const [year, month, day] = fecha.split('-');
-        fechaVencimientoFormateada = `${day}-${month}-${year}`;
-      } else {
+  // Solo procesar fecha de vencimiento si NO es tipo 32 o 34
+  if (!['32', '34'].includes(facturaAdaptada.tipo)) {
+    // Calcular dinámicamente una fecha de vencimiento segura como fallback
+    const fechaActual = new Date();
+    const añoActual = fechaActual.getFullYear();
+    const mesActual = fechaActual.getMonth() + 1; // getMonth() retorna 0-11
+
+    // Si estamos en diciembre, usar el próximo año para evitar vencimiento inmediato
+    const añoVencimiento = mesActual === 12 ? añoActual + 1 : añoActual;
+    fechaVencimientoFormateada = `31-12-${añoVencimiento}`; // Fecha segura y dinámica
+
+    if (facturaAdaptada.fechaVencNCF) {
+      try {
+        // Validar formato de fecha (puede venir como DD-MM-YYYY o YYYY-MM-DD)
+        const fecha = facturaAdaptada.fechaVencNCF;
+        if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          // Ya está en formato DD-MM-YYYY
+          fechaVencimientoFormateada = fecha;
+        } else if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Convertir de YYYY-MM-DD a DD-MM-YYYY
+          const [year, month, day] = fecha.split('-');
+          fechaVencimientoFormateada = `${day}-${month}-${year}`;
+        } else {
+          console.warn(
+            `⚠️ Formato de fecha NCF no reconocido: ${fecha}, usando fecha calculada: ${fechaVencimientoFormateada}`,
+          );
+        }
+      } catch (error) {
         console.warn(
-          `⚠️ Formato de fecha NCF no reconocido: ${fecha}, usando fecha calculada: ${fechaVencimientoFormateada}`,
+          `⚠️ Error al procesar fecha de vencimiento NCF: ${error.message}, usando fecha calculada: ${fechaVencimientoFormateada}`,
         );
       }
-    } catch (error) {
-      console.warn(
-        `⚠️ Error al procesar fecha de vencimiento NCF: ${error.message}, usando fecha calculada: ${fechaVencimientoFormateada}`,
-      );
+    } else {
+      // console.log(
+      //   `📅 fechaVencNCF no proporcionada para tipo ${facturaAdaptada.tipo}, usando fecha calculada: ${fechaVencimientoFormateada}`,
+      // );
     }
   } else {
-    console.log(
-      `📅 fechaVencNCF no proporcionada, usando fecha calculada: ${fechaVencimientoFormateada} (año actual: ${añoActual}, mes: ${mesActual})`,
-    );
+    // Para tipos 32 y 34, no se requiere fecha de vencimiento
+    // console.log(
+    //   `📅 Tipo ${facturaAdaptada.tipo}: fechaVencNCF no requerida (opcional)`,
+    // );
   }
 
   // console.log(`📅 Fecha vencimiento NCF final: ${fechaVencimientoFormateada}`);
