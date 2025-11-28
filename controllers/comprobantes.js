@@ -236,7 +236,7 @@ const generarCodigoQR = async (req, res) => {
       urlParaQR = url;
     }
     // Opción 2: Parámetros individuales (método mejorado)
-    else if (rnc && ncf && codigo) {
+    else if (rnc && ncf) {
       // Determinar endpoint y parámetros según el tipo de comprobante
       const montoTotal = parseFloat(monto || 0);
       let baseUrl, params;
@@ -247,6 +247,17 @@ const generarCodigoQR = async (req, res) => {
         rncComprador === 'SIN_RNC_COMPRADOR'
       ) {
         // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
+        // Para tipo 32, solo se requiere: rnc, ncf, monto, codigo
+        if (!codigo) {
+          return res.status(httpStatus.BAD_REQUEST).json({
+            status: 'error',
+            message:
+              'Parámetros insuficientes para generar el código QR tipo 32',
+            details:
+              'Para facturas tipo 32 se requiere: rnc, ncf, monto y codigo (código de seguridad)',
+          });
+        }
+
         baseUrl = 'https://fc.dgii.gov.do/ecf/ConsultaTimbreFC';
         params = new URLSearchParams({
           RncEmisor: rnc,
@@ -260,6 +271,16 @@ const generarCodigoQR = async (req, res) => {
         );
       } else {
         // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
+        // Para estos tipos se requieren parámetros adicionales
+        if (!codigo || !fecha || !rncComprador) {
+          return res.status(httpStatus.BAD_REQUEST).json({
+            status: 'error',
+            message: `Parámetros insuficientes para generar el código QR tipo ${tipo || 'con RNC comprador'}`,
+            details:
+              'Para facturas con RNC comprador se requiere: rnc, ncf, codigo, fecha, rncComprador, monto',
+          });
+        }
+
         baseUrl = 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre';
 
         // Formatear fechas
@@ -307,7 +328,7 @@ const generarCodigoQR = async (req, res) => {
         status: 'error',
         message: 'Parámetros insuficientes para generar el código QR',
         details:
-          'Debe proporcionar: url completa O (rnc + ncf + codigo + monto + rncComprador opcional + fechaFirma opcional)',
+          'Debe proporcionar: url completa O al menos (rnc + ncf) para generar el QR',
       });
     }
 
