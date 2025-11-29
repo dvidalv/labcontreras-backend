@@ -160,8 +160,9 @@ const comprobanteSchema = new Schema({
   estado: {
     type: String,
     enum: {
-      values: ['activo', 'inactivo', 'vencido', 'agotado'],
-      message: 'El estado debe ser: activo, inactivo, vencido o agotado',
+      values: ['activo', 'inactivo', 'vencido', 'agotado', 'alerta'],
+      message:
+        'El estado debe ser: activo, inactivo, vencido, agotado o alerta',
     },
     default: 'activo',
   },
@@ -216,12 +217,14 @@ comprobanteSchema.pre('save', async function (next) {
     // SOLO si el estado no es 'inactivo' (estado manual que debe respetarse)
     if (this.estado !== 'inactivo') {
       const hoy = new Date();
-      
+
       // Verificar vencimiento solo si hay fecha de vencimiento (tipos 32 y 34 pueden no tenerla)
       if (this.fecha_vencimiento && this.fecha_vencimiento < hoy) {
         this.estado = 'vencido';
+      } else if (this.numeros_disponibles === 0) {
+        this.estado = 'agotado'; // Completamente agotado
       } else if (this.numeros_disponibles <= this.alerta_minima_restante) {
-        this.estado = 'agotado';
+        this.estado = 'alerta'; // Quedan pocos números
       } else if (
         this.estado !== 'activo' &&
         this.numeros_disponibles > this.alerta_minima_restante &&
@@ -285,8 +288,10 @@ comprobanteSchema.methods.consumirNumero = function () {
     this.numeros_disponibles = this.cantidad_numeros - this.numeros_utilizados;
 
     // Verificar si se debe cambiar el estado
-    if (this.numeros_disponibles <= this.alerta_minima_restante) {
-      this.estado = 'agotado';
+    if (this.numeros_disponibles === 0) {
+      this.estado = 'agotado'; // Completamente agotado
+    } else if (this.numeros_disponibles <= this.alerta_minima_restante) {
+      this.estado = 'alerta'; // Quedan pocos números
     }
 
     return this.save();
@@ -297,29 +302,29 @@ comprobanteSchema.methods.consumirNumero = function () {
 
 comprobanteSchema.methods.esValido = function () {
   const hoy = new Date();
-  
+
   // Para tipos 32 y 34, la fecha de vencimiento es opcional
   const fechaValida = ['32', '34'].includes(this.tipo_comprobante)
-    ? !this.fecha_vencimiento || this.fecha_vencimiento >= hoy  // Si no hay fecha O no ha vencido
-    : this.fecha_vencimiento && this.fecha_vencimiento >= hoy;  // Para otros tipos, debe existir y no haber vencido
-  
+    ? !this.fecha_vencimiento || this.fecha_vencimiento >= hoy // Si no hay fecha O no ha vencido
+    : this.fecha_vencimiento && this.fecha_vencimiento >= hoy; // Para otros tipos, debe existir y no haber vencido
+
   return (
-    this.estado === 'activo' &&
+    (this.estado === 'activo' || this.estado === 'alerta') &&
     fechaValida &&
     this.numeros_disponibles > 0
   );
 };
 
-// Método estático para obtener rangos disponibles por tipo
-comprobanteSchema.statics.obtenerRangosDisponibles = function (
-  usuario,
+// Método estático para obtener rangos disponibles por RNC y tipo (FileMaker)
+comprobanteSchema.statics.obtenerRangosPorRnc = function (
+  rnc,
   tipo_comprobante,
 ) {
   const query = {
-    usuario,
+    rnc,
     tipo_comprobante,
-    estado: 'activo',
-    $expr: { $gt: ['$numeros_disponibles', 0] },
+    estado: { $in: ['activo', 'alerta'] }, // Incluir rangos activos y en alerta
+    numeros_disponibles: { $gt: 0 },
   };
 
   // Para tipos 32 y 34, la fecha de vencimiento es opcional
@@ -330,7 +335,7 @@ comprobanteSchema.statics.obtenerRangosDisponibles = function (
     ];
   }
 
-  return this.find(query).sort({ fecha_vencimiento: 1 });
+  return this.find(query).sort({ fecha_creacion: 1 }); // Usar rangos más antiguos primero
 };
 
 // Virtual para obtener el próximo número disponible

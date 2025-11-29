@@ -113,7 +113,7 @@ const esFechaVencimientoObligatoria = (tipoDocumento) => {
   // Tipos opcionales (NO requieren fecha de vencimiento):
   // '32' - Factura de Consumo Electrónica
   // '34' - Nota de Crédito Electrónica (NO debe incluir FechaVencimientoSecuencia)
-  const esObligatorio = tiposObligatorios.includes(tipoDocumento);
+  const esObligatorio = tiposObligatorios.includes(tipoDocumento); // true si es obligatorio, false si es opcional
 
   // console.log(
   //   `📅 Fecha vencimiento para tipo ${tipoDocumento}: ${esObligatorio ? 'OBLIGATORIA' : 'OPCIONAL'}`,
@@ -422,11 +422,11 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
 
       switch (datosCompletos.codigo) {
         // ⏳ Estados en proceso
-        case 2:
+        case 2: // En proceso de validación en TheFactoryHKA
         case 4: // En proceso de validación en DGII
-        case 10:
-        case 15:
-        case 95:
+        case 10: // Pendiente de procesamiento
+        case 15: // En validación
+        case 95: // Documento pendiente por ser enviado a DGII
         case 99: // Sin respuesta DGII - documento enviado pero pendiente de respuesta
           console.log(
             `⏳ Estado en proceso identificado (código ${datosCompletos.codigo})`,
@@ -437,9 +437,9 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
           return 'EN_PROCESO';
 
         // ❌ Errores de NCF
-        case 108:
+        case 108: // NCF ya presentado anteriormente
           return 'NCF_INVALIDO'; // NCF ya presentado
-        case 109:
+        case 109: // NCF vencido o fuera de rango
           return 'NCF_VENCIDO'; // NCF vencido o fuera de rango
 
         // ❌ Errores de autorización
@@ -447,10 +447,10 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
           return 'RNC_NO_AUTORIZADO'; // RNC no autorizado
 
         // ❌ Errores de validación de datos
-        case 111:
-        case 112:
-        case 113:
-        case 114:
+        case 111: // Datos de la factura inválidos
+        case 112: // Estructura del documento incorrecta
+        case 113: // Totales inconsistentes
+        case 114: // Fecha de emisión inválida
           return 'DATOS_INVALIDOS'; // Datos/estructura/totales inválidos
 
         // ❌ Errores de búsqueda/no encontrado
@@ -458,21 +458,21 @@ const normalizarEstadoFactura = (estadoOriginal, datosCompletos) => {
           return 'NO_ENCONTRADO'; // Documento no existe en BD de TheFactoryHKA
 
         // ❌ Estados de rechazo DGII
-        case 200:
-        case 201:
-        case 202:
-        case 203:
+        case 200: // Rechazado por DGII - Datos inconsistentes
+        case 201: // Rechazado - RNC inválido
+        case 202: // Rechazado - Estructura incorrecta
+        case 203: // Rechazado - Firma digital inválida
           return 'RECHAZADA'; // Rechazado por DGII
 
         // ❌ Errores de reglas de negocio DGII (600-699)
         case 613:
           return 'RECHAZADA'; // Error específico: comprobantes no pueden reemplazarse entre ellos mismos
-        case 634:
+        case 634: // Fecha de NCF modificado no coincide
           return 'RECHAZADA'; // Error específico: fecha de NCF modificado no coincide
 
         // 🚫 Estados de cancelación
-        case 300:
-        case 301:
+        case 300: // Documento anulado/cancelado
+        case 301: // Documento anulado/cancelado
           return 'ANULADA'; // Documento anulado/cancelado
 
         default:
@@ -1061,14 +1061,13 @@ const getComprobantesStats = async (req, res) => {
     const vencenProximamente = await Comprobante.countDocuments({
       usuario: req.user._id,
       fecha_vencimiento: { $lte: treintaDias },
-      estado: 'activo',
+      estado: { $in: ['activo', 'alerta'] }, // Incluir rangos activos y en alerta
     });
 
-    // Rangos con alertas (números disponibles <= alerta_minima_restante)
+    // Rangos con alertas (estado 'alerta' o números bajos)
     const conAlertas = await Comprobante.countDocuments({
       usuario: req.user._id,
-      $expr: { $lte: ['$numeros_disponibles', '$alerta_minima_restante'] },
-      estado: 'activo',
+      estado: 'alerta', // Ahora usamos el estado específico de alerta
     });
 
     return res.status(httpStatus.OK).json({
@@ -1169,7 +1168,7 @@ const consumirNumeroPorRnc = async (req, res) => {
     const query = {
       rnc: rnc,
       tipo_comprobante: tipo_comprobante,
-      estado: 'activo',
+      estado: { $in: ['activo', 'alerta'] }, // Incluir rangos activos y en alerta
       numeros_disponibles: { $gt: 0 }, // Verificar que haya números disponibles
     };
 
