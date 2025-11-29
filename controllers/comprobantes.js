@@ -1245,7 +1245,7 @@ const consumirNumeroPorRnc = async (req, res) => {
       mensajeAlerta = `Quedan ${rango.numeros_disponibles} comprobantes - Solicitar nuevo rango pronto`;
     }
 
-    return res.status(httpStatus.OK).json({
+    const respuesta = {
       status: 'success',
       message: 'Número consumido exitosamente',
       data: {
@@ -1261,7 +1261,14 @@ const consumirNumeroPorRnc = async (req, res) => {
         prefijo: rango.prefijo || '',
         rangoId: rango._id,
       },
-    });
+    };
+
+    console.log(
+      '✅ RESPUESTA EXITOSA consumirNumeroPorRnc:',
+      JSON.stringify(respuesta, null, 2),
+    );
+
+    return res.status(httpStatus.OK).json(respuesta);
   } catch (err) {
     console.error('Error al consumir número por RNC:', err);
 
