@@ -1233,6 +1233,18 @@ const consumirNumeroPorRnc = async (req, res) => {
     const año = fechaVenc.getFullYear();
     const fechaVencimientoFormateada = `${dia}-${mes}-${año}`;
 
+    // Determinar alerta de agotamiento para FileMaker
+    const alertaAgotamiento =
+      rango.estado === 'alerta' || rango.estado === 'agotado';
+    let mensajeAlerta = null;
+
+    if (rango.estado === 'agotado') {
+      mensajeAlerta =
+        'ÚLTIMO COMPROBANTE USADO - Solicitar nuevo rango urgente';
+    } else if (rango.estado === 'alerta') {
+      mensajeAlerta = `Quedan ${rango.numeros_disponibles} comprobantes - Solicitar nuevo rango pronto`;
+    }
+
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Número consumido exitosamente',
@@ -1242,6 +1254,8 @@ const consumirNumeroPorRnc = async (req, res) => {
         numerosDisponibles: rango.numeros_disponibles,
         fechaVencimiento: fechaVencimientoFormateada,
         estadoRango: rango.estado,
+        alertaAgotamiento: alertaAgotamiento, // Bandera booleana para FileMaker
+        mensajeAlerta: mensajeAlerta, // Mensaje legible para mostrar al usuario
         rnc: rango.rnc,
         tipoComprobante: rango.tipo_comprobante,
         prefijo: rango.prefijo || '',
