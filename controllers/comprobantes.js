@@ -1227,11 +1227,15 @@ const consumirNumeroPorRnc = async (req, res) => {
     const numeroFormateado = rango.formatearNumeroECF(numeroConsumido);
 
     // Formatear fecha de vencimiento a formato DD-MM-YYYY
-    const fechaVenc = new Date(rango.fecha_vencimiento);
-    const dia = fechaVenc.getDate().toString().padStart(2, '0');
-    const mes = (fechaVenc.getMonth() + 1).toString().padStart(2, '0');
-    const año = fechaVenc.getFullYear();
-    const fechaVencimientoFormateada = `${dia}-${mes}-${año}`;
+    // Para tipos 32 y 34 que no tienen fecha de vencimiento, devolver null o string vacío
+    let fechaVencimientoFormateada = null;
+    if (rango.fecha_vencimiento) {
+      const fechaVenc = new Date(rango.fecha_vencimiento);
+      const dia = fechaVenc.getDate().toString().padStart(2, '0');
+      const mes = (fechaVenc.getMonth() + 1).toString().padStart(2, '0');
+      const año = fechaVenc.getFullYear();
+      fechaVencimientoFormateada = `${dia}-${mes}-${año}`;
+    }
 
     // Determinar alerta de agotamiento para FileMaker
     const alertaAgotamiento =
