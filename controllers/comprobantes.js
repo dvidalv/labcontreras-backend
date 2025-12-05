@@ -242,13 +242,20 @@ const generarCodigoQR = async (req, res) => {
       const montoTotal = parseFloat(monto || 0);
       let baseUrl, params;
 
-      if (
-        tipo === '32' ||
-        !rncComprador ||
-        rncComprador === 'SIN_RNC_COMPRADOR'
-      ) {
-        // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
-        // Para tipo 32, solo se requiere: rnc, ncf, monto, codigo
+      // Formatear fechas al formato DD-MM-YYYY
+      const formatearFechaUrl = (fechaInput) => {
+        if (!fechaInput) return '';
+        // Si viene en formato DD-MM-YYYY, mantenerlo
+        if (fechaInput.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          return fechaInput;
+        }
+        // Si viene en otro formato, convertirlo
+        const date = new Date(fechaInput);
+        return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+      };
+
+      // TIPO 32 (Consumo Final): usar endpoint ConsultaTimbreFC (parámetros básicos)
+      if (tipo === '32') {
         if (!codigo) {
           return res.status(httpStatus.BAD_REQUEST).json({
             status: 'error',
@@ -268,37 +275,25 @@ const generarCodigoQR = async (req, res) => {
         });
 
         console.log(
-          '📋 Usando endpoint ConsultaTimbreFC (consumo final/sin RNC comprador)',
+          '📋 Usando endpoint ConsultaTimbreFC (consumo final tipo 32)',
         );
       } else {
-        // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
-        // Para estos tipos se requieren parámetros adicionales
-        if (!codigo || !fecha || !rncComprador) {
+        // TIPOS 31, 33, 34, etc.: usar endpoint ConsultaTimbre (parámetros completos)
+        // Estos tipos SIEMPRE requieren RncComprador, FechaEmision y FechaFirma
+        if (!codigo || !fecha) {
           return res.status(httpStatus.BAD_REQUEST).json({
             status: 'error',
-            message: `Parámetros insuficientes para generar el código QR tipo ${tipo || 'con RNC comprador'}`,
+            message: `Parámetros insuficientes para generar el código QR tipo ${tipo || 'desconocido'}`,
             details:
-              'Para facturas con RNC comprador se requiere: rnc, ncf, codigo, fecha, rncComprador, monto',
+              'Para facturas tipo 31, 33, 34, etc. se requiere: rnc, ncf, codigo, fecha, rncComprador, monto, fechaFirma',
           });
         }
 
         baseUrl = 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre';
 
-        // Formatear fechas
-        const formatearFechaUrl = (fecha) => {
-          if (!fecha) return '';
-          // Si viene en formato DD-MM-YYYY, mantenerlo
-          if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
-            return fecha;
-          }
-          // Si viene en otro formato, convertirlo
-          const date = new Date(fecha);
-          return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-        };
-
         params = new URLSearchParams({
           RncEmisor: rnc,
-          RncComprador: rncComprador,
+          RncComprador: rncComprador || '',
           ENCF: ncf,
           FechaEmision: formatearFechaUrl(fecha),
           MontoTotal: montoTotal.toFixed(2),
@@ -307,7 +302,7 @@ const generarCodigoQR = async (req, res) => {
         });
 
         console.log(
-          '📋 Usando endpoint ConsultaTimbre (con RNC comprador y fechas)',
+          `📋 Usando endpoint ConsultaTimbre (tipo ${tipo} con parámetros completos)`,
         );
       }
 
