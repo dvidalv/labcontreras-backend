@@ -135,12 +135,24 @@ const generarUrlQR = (responseData, facturaOriginal) => {
     console.log('montoTotal calculado:', montoTotal);
     console.log('tipoComprobante:', tipoComprobante);
 
+    // Formatear fechas al formato DD-MM-YYYY
+    const formatearFechaUrl = (fecha) => {
+      if (!fecha) return '';
+      // Si viene en formato DD-MM-YYYY, mantenerlo
+      if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+        return fecha;
+      }
+      // Si viene en otro formato, convertirlo
+      const date = new Date(fecha);
+      return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+    };
+
     // Determinar endpoint y parámetros según el tipo de comprobante
     let baseUrl, params;
 
-    if (tipoComprobante === '32' || !facturaOriginal.comprador?.rnc) {
-      // TIPO 32 (Consumo) o sin RNC comprador: usar endpoint ConsultaTimbreFC (parámetros básicos)
-      baseUrl = 'https://fc.dgii.gov.do/testecf/ConsultaTimbreFC';
+    // TIPO 32 (Consumo Final): usar endpoint ConsultaTimbreFC (parámetros básicos)
+    if (tipoComprobante === '32') {
+      baseUrl = 'https://fc.dgii.gov.do/ecf/ConsultaTimbreFC';
       params = new URLSearchParams({
         RncEmisor: facturaOriginal.emisor.rnc,
         ENCF: facturaOriginal.factura.ncf,
@@ -149,38 +161,27 @@ const generarUrlQR = (responseData, facturaOriginal) => {
       });
 
       console.log(
-        '📋 Usando endpoint ConsultaTimbreFC (consumo final/sin RNC comprador)',
+        '📋 Usando endpoint ConsultaTimbreFC (consumo final tipo 32)',
       );
     } else {
-      // TIPOS 31, 33, 34, etc. con RNC comprador: usar endpoint ConsultaTimbre (parámetros completos)
-      baseUrl = 'https://ecf.dgii.gov.do/testecf/ConsultaTimbre';
-
-      // Formatear fechas
-      const formatearFechaUrl = (fecha) => {
-        if (!fecha) return '';
-        // Si viene en formato DD-MM-YYYY, mantenerlo
-        if (fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
-          return fecha;
-        }
-        // Si viene en otro formato, convertirlo
-        const date = new Date(fecha);
-        return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-      };
+      // TIPOS 31, 33, 34, etc.: usar endpoint ConsultaTimbre (parámetros completos)
+      // Estos tipos SIEMPRE requieren RncComprador, FechaEmision y FechaFirma
+      baseUrl = 'https://ecf.dgii.gov.do/ecf/ConsultaTimbre';
 
       params = new URLSearchParams({
         RncEmisor: facturaOriginal.emisor.rnc,
-        RncComprador: facturaOriginal.comprador.rnc,
+        RncComprador: facturaOriginal.comprador?.rnc || '',
         ENCF: facturaOriginal.factura.ncf,
         FechaEmision: responseData.fechaEmision
           ? formatearFechaUrl(responseData.fechaEmision)
           : formatearFechaUrl(facturaOriginal.factura.fecha),
         MontoTotal: montoTotal.toFixed(2),
-        FechaFirma: responseData.fechaFirma || responseData.fechaEmision,
+        FechaFirma: responseData.fechaFirma || responseData.fechaEmision || '',
         CodigoSeguridad: responseData.codigoSeguridad,
       });
 
       console.log(
-        '📋 Usando endpoint ConsultaTimbre (con RNC comprador y fechas)',
+        `📋 Usando endpoint ConsultaTimbre (tipo ${tipoComprobante} con parámetros completos)`,
       );
     }
 
