@@ -1258,6 +1258,7 @@ const consumirNumeroPorRnc = async (req, res) => {
         mensajeAlerta: mensajeAlerta, // Mensaje legible para mostrar al usuario
         rnc: rango.rnc,
         tipoComprobante: rango.tipo_comprobante,
+        descripcion: rango.descripcion_tipo || '', // Descripción del tipo de comprobante
         prefijo: rango.prefijo || '',
         rangoId: rango._id,
       },
