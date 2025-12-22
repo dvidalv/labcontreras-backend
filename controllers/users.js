@@ -122,6 +122,14 @@ const login = async (req, res) => {
     const token = await generateAuthToken(user);
     // console.log('🔍 Token generado:', token);
 
+    console.log('✅ Usuario logueado:', {
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      id: user._id,
+      timestamp: new Date().toISOString(),
+    });
+
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'User logged in',
