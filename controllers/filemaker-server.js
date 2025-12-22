@@ -11,7 +11,6 @@ const {
 // Obtener token de acceso
 const getFilemakerToken = async (req, res, useRes = true) => {
   try {
-
     const response = await fetch(
       `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/sessions`,
       {
@@ -135,6 +134,25 @@ const signinMedico = async (req, res) => {
     }
 
     const data = await response.json();
+
+    // Mostrar información del médico que se loguea
+    if (data.response && data.response.data && data.response.data.length > 0) {
+      const medicoData = data.response.data[0].fieldData;
+      console.log('✅ Médico logueado:', {
+        username: username,
+        usuario: medicoData?.usuario || username,
+        nombre: medicoData?.nombre || medicoData?.Nombre_Completo || 'N/A',
+        id: medicoData?.MEDICO_ID || medicoData?.primaryKey || 'N/A',
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      console.log('✅ Intento de login médico:', {
+        username: username,
+        timestamp: new Date().toISOString(),
+        resultado: 'No se encontraron datos del médico',
+      });
+    }
+
     await logOut(token);
 
     return res.json({ ...data, token });
@@ -364,7 +382,6 @@ const getAllPublicaciones = async (req, res) => {
       );
       logOut(token);
     } else {
-
       response = await fetch(
         `${FILEMAKER_URL}/fmi/data/vLatest/databases/${FILEMAKER_DATABASE}/layouts/${FILEMAKER_PUBLICACIONESLAYOUT}/_find`,
         {
