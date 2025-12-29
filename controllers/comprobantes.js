@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const { Comprobante } = require('../models/comprobante');
 const axios = require('axios');
 const QRCode = require('qrcode');
+const { sendEmail } = require('../api/api-mail_brevo');
 const {
   THEFACTORY_AUTH_URL,
   THEFACTORY_ENVIAR_URL,
@@ -2312,6 +2313,76 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   return documentoCompleto;
 };
 
+// Función auxiliar para enviar factura original a soporte cuando hay errores
+const enviarFacturaASoporte = async (facturaOriginal, errorInfo) => {
+  try {
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #003366 0%, #0056b3 100%); padding: 30px; text-align: center; color: white;">
+          <h1>⚠️ Error en Envío de Factura Electrónica</h1>
+          <p>Lab Contreras - Sistema de Gestión</p>
+        </div>
+        <div style="padding: 30px; background-color: #f8f9fa;">
+          <h2 style="color: #dc3545;">Información del Error</h2>
+          <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+            <p><strong>Fecha y Hora:</strong> ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}</p>
+            <p><strong>Tipo de Error:</strong> ${errorInfo.tipo || 'Error desconocido'}</p>
+            <p><strong>Mensaje:</strong> ${errorInfo.mensaje || 'N/A'}</p>
+            ${errorInfo.codigo ? `<p><strong>Código de Error:</strong> ${errorInfo.codigo}</p>` : ''}
+            ${errorInfo.statusCode ? `<p><strong>Status HTTP:</strong> ${errorInfo.statusCode}</p>` : ''}
+          </div>
+          
+          <h2 style="color: #333; margin-top: 30px;">Factura Original (JSON)</h2>
+          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; overflow-x: auto;">
+            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; font-size: 12px;">${JSON.stringify(facturaOriginal, null, 2)}</pre>
+          </div>
+          
+          ${
+            errorInfo.respuestaTheFactory
+              ? `
+          <h2 style="color: #333; margin-top: 30px;">Respuesta de TheFactory</h2>
+          <div style="background-color: #fff3cd; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; font-size: 12px;">${JSON.stringify(errorInfo.respuestaTheFactory, null, 2)}</pre>
+          </div>
+          `
+              : ''
+          }
+          
+          <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 30px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">
+              Este email fue generado automáticamente por el sistema cuando se detectó un error en el envío de factura electrónica a TheFactoryHKA.
+            </p>
+          </div>
+        </div>
+        <div style="padding: 20px; text-align: center; background-color: #003366; color: white;">
+          <p style="margin: 0; font-size: 12px;">© Lab Contreras - Sistema de Gestión</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail({
+      to: 'soporte@contrerasrobledo.com.do',
+      subject: `Error en Envío de Factura Electrónica - ${facturaOriginal.factura?.ncf || 'NCF No Disponible'}`,
+      htmlContent,
+      textContent: `Error en Envío de Factura Electrónica
+
+Fecha: ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}
+Tipo de Error: ${errorInfo.tipo || 'Error desconocido'}
+Mensaje: ${errorInfo.mensaje || 'N/A'}
+
+Factura Original:
+${JSON.stringify(facturaOriginal, null, 2)}
+
+${errorInfo.respuestaTheFactory ? `Respuesta de TheFactory:\n${JSON.stringify(errorInfo.respuestaTheFactory, null, 2)}` : ''}`,
+    });
+
+    console.log('✅ Email de error enviado a soporte@contrerasrobledo.com.do');
+  } catch (emailError) {
+    console.error('❌ Error al enviar email a soporte:', emailError);
+    // No lanzamos el error para no interrumpir el flujo principal
+  }
+};
+
 // Controlador para enviar factura a TheFactoryHKA
 const enviarFacturaElectronica = async (req, res) => {
   try {
@@ -2352,6 +2423,14 @@ const enviarFacturaElectronica = async (req, res) => {
         errorMessages[response.data.codigo] ||
         response.data.mensaje ||
         'Error desconocido';
+
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Error de negocio de TheFactoryHKA',
+        mensaje: mensajeError,
+        codigo: response.data.codigo,
+        respuestaTheFactory: response.data,
+      });
 
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
@@ -2408,6 +2487,13 @@ const enviarFacturaElectronica = async (req, res) => {
       // Limpiar cache del token
       limpiarCacheToken();
 
+      // Enviar factura original a soporte (aunque sea error de autenticación, puede ser útil para debugging)
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Error de autenticación',
+        mensaje: 'Token expirado o inválido',
+        statusCode: error.response?.status || 401,
+      });
+
       return res.status(httpStatus.UNAUTHORIZED).json({
         status: 'error',
         message: 'Token expirado. Vuelve a intentar la operación',
@@ -2435,6 +2521,14 @@ const enviarFacturaElectronica = async (req, res) => {
         };
       }
 
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Error de respuesta HTTP de TheFactoryHKA',
+        mensaje: error.message || 'Error en el envío a TheFactoryHKA',
+        statusCode: error.response.status,
+        respuestaTheFactory: error.response.data,
+      });
+
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'Error en el envío a TheFactoryHKA',
@@ -2447,6 +2541,14 @@ const enviarFacturaElectronica = async (req, res) => {
       console.warn(
         `⏰ TIMEOUT TheFactoryHKA para NCF: ${req.body.factura?.ncf || 'N/A'} - Duración: 60+ segundos`,
       );
+
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Timeout en TheFactoryHKA',
+        mensaje: 'TheFactoryHKA tardó más de 60 segundos en responder',
+        ncf: req.body.factura?.ncf || null,
+      });
+
       return res.status(httpStatus.REQUEST_TIMEOUT).json({
         status: 'error',
         message: 'Timeout: TheFactoryHKA tardó más de 60 segundos en responder',
@@ -2459,6 +2561,12 @@ const enviarFacturaElectronica = async (req, res) => {
     }
 
     if (error.message.includes('Faltan datos obligatorios')) {
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Error de validación',
+        mensaje: error.message,
+      });
+
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: error.message,
@@ -2470,11 +2578,25 @@ const enviarFacturaElectronica = async (req, res) => {
         'Timeout al conectar con el servicio de autenticación',
       )
     ) {
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Timeout en autenticación',
+        mensaje:
+          'Timeout al conectar con el servicio de autenticación de TheFactoryHKA',
+      });
+
       return res.status(httpStatus.REQUEST_TIMEOUT).json({
         status: 'error',
         message: 'Timeout en la autenticación con TheFactoryHKA',
       });
     }
+
+    // Enviar factura original a soporte para errores generales
+    await enviarFacturaASoporte(req.body, {
+      tipo: 'Error interno del servidor',
+      mensaje:
+        error.message || 'Error desconocido al procesar la factura electrónica',
+    });
 
     return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
       status: 'error',

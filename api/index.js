@@ -53,7 +53,6 @@ app.use('/publicaciones', filemakerRouter);
 
 app.use('/api/sugerencias', sugerenciasRouter);
 app.use('/comprobantes', comprobantesRouter);
-app.use('/api/contact', sendMail);
 
 app.use(errors());
 app.use((err, req, res, next) => {
