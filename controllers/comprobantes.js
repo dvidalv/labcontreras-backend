@@ -49,10 +49,11 @@ const obtenerTokenTheFactory = async () => {
     // console.log('Obteniendo nuevo token de TheFactoryHKA...');
 
     // Realizar petición de autenticación
+    // Nota: La API de TheFactoryHKA requiere los campos con mayúsculas iniciales
     const authRequest = {
-      usuario: THEFACTORY_USUARIO,
-      clave: THEFACTORY_CLAVE,
-      rnc: THEFACTORY_RNC,
+      Usuario: THEFACTORY_USUARIO,
+      Clave: THEFACTORY_CLAVE,
+      RNC: THEFACTORY_RNC,
     };
 
     const response = await axios.post(THEFACTORY_AUTH_URL, authRequest, {
@@ -81,6 +82,8 @@ const obtenerTokenTheFactory = async () => {
     return tokenCache.token;
   } catch (error) {
     console.error('Error al obtener token de TheFactoryHKA:', error);
+    console.error('Código de error:', error.code);
+    console.error('Mensaje:', error.message);
 
     if (error.response) {
       throw new Error(
@@ -88,8 +91,21 @@ const obtenerTokenTheFactory = async () => {
       );
     }
 
-    if (error.code === 'ECONNABORTED') {
+    // Detectar si el servidor está caído
+    if (error.code === 'ECONNREFUSED') {
+      throw new Error('SERVIDOR_CAIDO: El servidor de TheFactoryHKA rechazó la conexión. El servidor puede estar caído o inaccesible.');
+    }
+
+    if (error.code === 'ENOTFOUND') {
+      throw new Error('SERVIDOR_NO_ENCONTRADO: No se puede resolver el dominio de TheFactoryHKA. Verifica la configuración de DNS.');
+    }
+
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
       throw new Error('Timeout al conectar con el servicio de autenticación');
+    }
+
+    if (error.code === 'ECONNRESET') {
+      throw new Error('SERVIDOR_RESETEO: El servidor de TheFactoryHKA cerró la conexión abruptamente. Puede estar sobrecargado o caído.');
     }
 
     throw new Error(`Error de autenticación: ${error.message}`);
@@ -2366,14 +2382,16 @@ const enviarFacturaASoporte = async (facturaOriginal, errorInfo) => {
       htmlContent,
       textContent: `Error en Envío de Factura Electrónica
 
-Fecha: ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}
-Tipo de Error: ${errorInfo.tipo || 'Error desconocido'}
-Mensaje: ${errorInfo.mensaje || 'N/A'}
+      Fecha: ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}
+      Tipo de Error: ${errorInfo.tipo || 'Error desconocido'}
+      Mensaje: ${errorInfo.mensaje || 'N/A'}
+      Código de Error: ${errorInfo.codigo || 'N/A'}
+      Status HTTP: ${errorInfo.statusCode || 'N/A'}
 
-Factura Original:
-${JSON.stringify(facturaOriginal, null, 2)}
+      Factura Original:
+      ${JSON.stringify(facturaOriginal, null, 2)}
 
-${errorInfo.respuestaTheFactory ? `Respuesta de TheFactory:\n${JSON.stringify(errorInfo.respuestaTheFactory, null, 2)}` : ''}`,
+      ${errorInfo.respuestaTheFactory ? `Respuesta de TheFactory:\n${JSON.stringify(errorInfo.respuestaTheFactory, null, 2)}` : ''}`,
     });
 
     console.log('✅ Email de error enviado a soporte@contrerasrobledo.com.do');
@@ -2588,6 +2606,29 @@ const enviarFacturaElectronica = async (req, res) => {
       return res.status(httpStatus.REQUEST_TIMEOUT).json({
         status: 'error',
         message: 'Timeout en la autenticación con TheFactoryHKA',
+      });
+    }
+
+    // Detectar si el servidor está caído
+    if (
+      error.message.includes('SERVIDOR_CAIDO') ||
+      error.message.includes('SERVIDOR_NO_ENCONTRADO') ||
+      error.message.includes('SERVIDOR_RESETEO')
+    ) {
+      console.error('🚨 SERVIDOR DE THEFACTORY CAÍDO O INACCESIBLE');
+      console.error('Detalles:', error.message);
+
+      // Enviar factura original a soporte
+      await enviarFacturaASoporte(req.body, {
+        tipo: 'Servidor de TheFactoryHKA caído o inaccesible',
+        mensaje: error.message,
+      });
+
+      return res.status(httpStatus.SERVICE_UNAVAILABLE).json({
+        status: 'error',
+        message: 'El servidor de TheFactoryHKA está caído o inaccesible',
+        details: error.message,
+        sugerencia: 'Verifica el estado del servidor usando el endpoint /comprobantes/verificar-servidor o contacta con soporte de TheFactoryHKA',
       });
     }
 
@@ -3195,6 +3236,35 @@ const descargarArchivo = async (req, res) => {
   }
 };
 
+// Endpoint para verificar el estado del servidor de TheFactoryHKA
+const verificarServidorTheFactory = async (req, res) => {
+  try {
+    const { verificarEstadoTheFactory } = require('../utils/verificarTheFactory');
+    const resultados = await verificarEstadoTheFactory();
+
+    // Determinar código de estado HTTP según el resultado
+    let statusCode = httpStatus.OK;
+    if (resultados.estado === 'SERVIDOR_CAIDO') {
+      statusCode = httpStatus.SERVICE_UNAVAILABLE;
+    } else if (resultados.estado === 'AUTENTICACION_FALLIDA') {
+      statusCode = httpStatus.UNAUTHORIZED;
+    }
+
+    return res.status(statusCode).json({
+      status: resultados.estado === 'FUNCIONANDO' ? 'success' : 'error',
+      message: resultados.recomendacion,
+      data: resultados,
+    });
+  } catch (error) {
+    console.error('❌ Error al verificar servidor de TheFactoryHKA:', error);
+    return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      status: 'error',
+      message: 'Error al verificar el estado del servidor',
+      details: error.message,
+    });
+  }
+};
+
 module.exports = {
   createComprobante,
   getAllComprobantes,
@@ -3214,4 +3284,5 @@ module.exports = {
   enviarEmailFactura, // NUEVO: Endpoint para enviar emails vía The Factory HKA
   anularComprobantes, // NUEVO: Endpoint para anular comprobantes fiscales
   descargarArchivo, // NUEVO: Endpoint para descargar archivos XML/PDF
+  verificarServidorTheFactory, // NUEVO: Endpoint para verificar estado del servidor
 };
