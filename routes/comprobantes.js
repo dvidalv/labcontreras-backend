@@ -17,6 +17,7 @@ const {
   enviarEmailFactura,
   anularComprobantes,
   descargarArchivo,
+  verificarServidorTheFactory,
 } = require('../controllers/comprobantes');
 
 const router = Router();
@@ -69,5 +70,8 @@ router.post('/generar-qr', generarCodigoQR); // POST /comprobantes/generar-qr - 
 
 // Ruta para limpiar cache del token (útil para debugging de problemas de autenticación)
 router.post('/limpiar-token', limpiarTokenCache); // POST /comprobantes/limpiar-token - Limpiar cache del token
+
+// Ruta para verificar el estado del servidor de TheFactoryHKA
+router.get('/verificar-servidor', verificarServidorTheFactory); // GET /comprobantes/verificar-servidor - Verificar estado del servidor
 
 module.exports = router;
