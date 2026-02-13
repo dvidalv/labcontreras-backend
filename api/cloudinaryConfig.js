@@ -27,9 +27,9 @@ const imagen = async (req, res) => {
     const hash = crypto.createHash('sha256').update(compressedImage).digest('hex');
 
     const result = await cloudinary.uploader.upload(dataUri, {
-      public_id: hash,
+      public_id: hash, // id de la imagen en cloudinary
       folder: 'avatars',
-      overwrite: true,
+      overwrite: true, // sobreescribe la imagen si ya existe
       transformation: [
         { width: 400, height: 400, crop: 'thumb' },   // Miniatura de 400x400
         { quality: 'auto', fetch_format: 'auto' }
