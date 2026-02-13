@@ -1194,14 +1194,62 @@ const consumirNumeroPorRnc = async (req, res) => {
       ];
     }
 
-    // Buscar un rango activo y válido para este RNC y tipo de comprobante (SIN filtrar por usuario)
-    const rango = await Comprobante.findOne(query).sort({ fecha_creacion: 1 }); // Usar el rango más antiguo primero
+    // Primero, ver TODOS los rangos para este RNC y tipo (sin filtros de estado)
+    const todosLosRangos = await Comprobante.find({
+      rnc: rnc,
+      tipo_comprobante: tipo_comprobante,
+    }).sort({ numero_inicial: 1 });
+    
+    console.log('📊 Total de rangos en BD para este RNC y tipo:', todosLosRangos.length);
+    if (todosLosRangos.length > 0) {
+      console.log('📋 TODOS los rangos (sin filtros):');
+      todosLosRangos.forEach((r, index) => {
+        console.log(`  ${index + 1}. Rango ${r.numero_inicial}-${r.numero_final}:`, {
+          estado: r.estado,
+          disponibles: r.numeros_disponibles,
+          utilizados: r.numeros_utilizados,
+          fecha_vencimiento: r.fecha_vencimiento,
+          fecha_creacion: r.fechaCreacion,
+        });
+      });
+    }
 
-    // console.log('🔍 Query ejecutada:', JSON.stringify(query, null, 2));
-    // console.log('📊 Rango encontrado:', rango ? 'SÍ' : 'NO');
+    // Buscar TODOS los rangos que cumplan con el query para diagnóstico
+    const rangosDisponibles = await Comprobante.find(query).sort({ numero_inicial: 1 });
+    console.log('📊 Total de rangos encontrados por query:', rangosDisponibles.length);
+    
+    if (rangosDisponibles.length > 0) {
+      console.log('📋 Rangos encontrados por query:');
+      rangosDisponibles.forEach((r, index) => {
+        const valido = r.esValido();
+        console.log(`  ${index + 1}. Rango ${r.numero_inicial}-${r.numero_final}:`, {
+          estado: r.estado,
+          disponibles: r.numeros_disponibles,
+          utilizados: r.numeros_utilizados,
+          fecha_vencimiento: r.fecha_vencimiento,
+          esValido: valido,
+        });
+      });
+    }
+
+    // Buscar un rango activo y válido
+    // IMPORTANTE: Buscar el primer rango que pase esValido(), no solo el primero del query
+    let rango = null;
+    for (const r of rangosDisponibles) {
+      if (r.esValido()) {
+        rango = r;
+        console.log(`✅ Rango válido encontrado: ${r.numero_inicial}-${r.numero_final}`);
+        break;
+      } else {
+        console.log(`⚠️ Rango ${r.numero_inicial}-${r.numero_final} no pasó esValido()`);
+      }
+    }
+
+    console.log('🔍 Query ejecutada:', JSON.stringify(query, null, 2));
+    console.log('📊 Rango seleccionado:', rango ? `${rango.numero_inicial}-${rango.numero_final}` : 'NINGUNO');
 
     if (!rango) {
-      // console.log('❌ No se encontró ningún rango con el query');
+      console.log('❌ No se encontró ningún rango con el query');
       return res.status(httpStatus.NOT_FOUND).json({
         status: 'error',
         message:
@@ -1209,22 +1257,32 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
-    // console.log('📋 Datos del rango encontrado:', {
-    //   _id: rango._id,
-    //   rnc: rango.rnc,
-    //   tipo_comprobante: rango.tipo_comprobante,
-    //   estado: rango.estado,
-    //   fecha_vencimiento: rango.fecha_vencimiento,
-    //   numeros_disponibles: rango.numeros_disponibles,
-    //   numeros_utilizados: rango.numeros_utilizados,
-    // });
+    console.log('📋 Datos del rango encontrado:', {
+      _id: rango._id,
+      rnc: rango.rnc,
+      tipo_comprobante: rango.tipo_comprobante,
+      estado: rango.estado,
+      fecha_vencimiento: rango.fecha_vencimiento,
+      numeros_disponibles: rango.numeros_disponibles,
+      numeros_utilizados: rango.numeros_utilizados,
+      numero_inicial: rango.numero_inicial,
+      numero_final: rango.numero_final,
+    });
 
     // Verificar que el rango sea válido
     const esValidoCheck = rango.esValido();
-    // console.log('✅ Verificación esValido():', esValidoCheck);
+    console.log('✅ Verificación esValido():', esValidoCheck);
+    
+    if (!esValidoCheck) {
+      console.log('❌ Detalles de validación del rango:');
+      console.log('  - Estado:', rango.estado, '(debe ser activo o alerta)');
+      console.log('  - Números disponibles:', rango.numeros_disponibles, '(debe ser > 0)');
+      console.log('  - Fecha vencimiento:', rango.fecha_vencimiento);
+      console.log('  - Fecha actual:', new Date());
+      console.log('  - Tipo comprobante:', rango.tipo_comprobante);
+    }
 
     if (!esValidoCheck) {
-      // console.log('❌ El rango NO pasó la validación esValido()');
       return res.status(httpStatus.BAD_REQUEST).json({
         status: 'error',
         message: 'El rango no está disponible (vencido, agotado o inactivo)',
