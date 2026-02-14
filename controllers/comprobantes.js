@@ -1289,6 +1289,41 @@ const consumirNumeroPorRnc = async (req, res) => {
       });
     }
 
+    // Buscar la siguiente secuencia disponible para este RNC y tipo
+    console.log('🔍 Buscando siguiente secuencia disponible...');
+    const querySiguiente = {
+      rnc: rnc,
+      tipo_comprobante: tipo_comprobante,
+      estado: { $in: ['activo', 'alerta'] },
+      numeros_disponibles: { $gt: 0 },
+      _id: { $ne: rango._id }, // Excluir el rango actual
+    };
+
+    // Agregar filtro de fecha de vencimiento SOLO si el tipo lo requiere
+    if (!['32', '34'].includes(tipo_comprobante)) {
+      querySiguiente.$or = [
+        { fecha_vencimiento: { $gte: new Date() } },
+        { fecha_vencimiento: null },
+      ];
+    }
+
+    const siguienteSecuencia = await Comprobante.findOne(querySiguiente).sort({
+      fechaCreacion: -1,
+    }); // Más reciente primero
+
+    if (siguienteSecuencia) {
+      console.log(
+        `📦 Siguiente secuencia encontrada: ${siguienteSecuencia.numero_inicial}-${siguienteSecuencia.numero_final}`,
+        {
+          disponibles: siguienteSecuencia.numeros_disponibles,
+          estado: siguienteSecuencia.estado,
+          fechaCreacion: siguienteSecuencia.fechaCreacion,
+        },
+      );
+    } else {
+      console.log('⚠️ No hay siguiente secuencia disponible');
+    }
+
     await rango.consumirNumero(); // Consumir el número
 
     // Calcular el número que se acaba de consumir
@@ -1308,16 +1343,46 @@ const consumirNumeroPorRnc = async (req, res) => {
       fechaVencimientoFormateada = `${dia}-${mes}-${año}`;
     }
 
-    // Determinar alerta de agotamiento para FileMaker
-    const alertaAgotamiento =
-      rango.estado === 'alerta' || rango.estado === 'agotado';
+    // Calcular disponibles totales considerando siguiente secuencia
+    let numerosDisponiblesTotales = rango.numeros_disponibles;
+    let tieneSiguienteSecuencia = false;
+
+    if (siguienteSecuencia && siguienteSecuencia.esValido()) {
+      numerosDisponiblesTotales += siguienteSecuencia.numeros_disponibles;
+      tieneSiguienteSecuencia = true;
+      console.log(
+        `📦 Siguiente secuencia válida: ${siguienteSecuencia.numero_inicial}-${siguienteSecuencia.numero_final} con ${siguienteSecuencia.numeros_disponibles} disponibles`,
+      );
+      console.log(
+        `📊 Disponibles totales: ${numerosDisponiblesTotales} (actual: ${rango.numeros_disponibles} + siguiente: ${siguienteSecuencia.numeros_disponibles})`,
+      );
+    }
+
+    // Determinar alertas basadas en disponibles totales
+    let alertaAgotamiento = false;
     let mensajeAlerta = null;
 
-    if (rango.estado === 'agotado') {
+    // Umbral de alerta (usar el mismo del rango actual)
+    const umbralAlerta = rango.alerta_minima_restante;
+
+    if (numerosDisponiblesTotales === 1) {
+      alertaAgotamiento = true;
       mensajeAlerta =
-        'ÚLTIMO COMPROBANTE USADO - Solicitar nuevo rango urgente';
-    } else if (rango.estado === 'alerta') {
-      mensajeAlerta = `Quedan ${rango.numeros_disponibles} comprobantes - Solicitar nuevo rango pronto`;
+        'ÚLTIMO COMPROBANTE DISPONIBLE - Solicitar nuevo rango urgente';
+    } else if (
+      numerosDisponiblesTotales <= umbralAlerta &&
+      !tieneSiguienteSecuencia
+    ) {
+      // Solo alertar si NO hay siguiente secuencia disponible
+      alertaAgotamiento = true;
+      mensajeAlerta = `Quedan ${numerosDisponiblesTotales} comprobantes - Solicitar nuevo rango pronto`;
+    } else if (
+      numerosDisponiblesTotales <= umbralAlerta &&
+      tieneSiguienteSecuencia
+    ) {
+      // Hay siguiente secuencia, no alertar pero informar
+      alertaAgotamiento = false;
+      mensajeAlerta = `Secuencia actual: ${rango.numeros_disponibles}, siguiente secuencia: ${siguienteSecuencia.numeros_disponibles} (Total: ${numerosDisponiblesTotales})`;
     }
 
     const respuesta = {
@@ -1326,10 +1391,20 @@ const consumirNumeroPorRnc = async (req, res) => {
       data: {
         numeroConsumido: numeroConsumido,
         numeroFormateado: numeroFormateado,
-        numerosDisponibles: rango.numeros_disponibles,
+        numerosDisponibles: rango.numeros_disponibles, // Disponibles del rango actual
+        numerosDisponiblesTotales: numerosDisponiblesTotales, // NUEVO: Total incluyendo siguiente secuencia
+        tieneSiguienteSecuencia: tieneSiguienteSecuencia, // NUEVO: Indicador de siguiente secuencia
+        siguienteSecuencia: tieneSiguienteSecuencia
+          ? {
+              rango: `${siguienteSecuencia.numero_inicial}-${siguienteSecuencia.numero_final}`,
+              disponibles: siguienteSecuencia.numeros_disponibles,
+              fechaVencimiento: siguienteSecuencia.fecha_vencimiento,
+              estado: siguienteSecuencia.estado,
+            }
+          : null, // NUEVO: Información de la siguiente secuencia
         fechaVencimiento: fechaVencimientoFormateada,
         estadoRango: rango.estado,
-        alertaAgotamiento: alertaAgotamiento, // Bandera booleana para FileMaker
+        alertaAgotamiento: alertaAgotamiento, // Bandera booleana para FileMaker (ahora basada en totales)
         mensajeAlerta: mensajeAlerta, // Mensaje legible para mostrar al usuario
         rnc: rango.rnc,
         tipoComprobante: rango.tipo_comprobante,
