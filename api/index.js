@@ -155,7 +155,20 @@ const startServer = async () => {
   }
 };
 
-// Iniciar el servidor
-startServer();
+// En Vercel (serverless) no se debe hacer app.listen ni process.exit:
+// matar el proceso provoca FUNCTION_INVOCATION_FAILED y respuestas sin
+// headers CORS. Solo iniciamos la conexión; mongoose bufferea las
+// operaciones hasta que esté lista (bufferCommands: true).
+if (process.env.VERCEL) {
+  connectDB().catch((error) => {
+    console.error(
+      '❌ MongoDB connection error on cold start:',
+      error.message,
+    );
+  });
+} else {
+  // Iniciar el servidor en entorno local
+  startServer();
+}
 
 module.exports = app;
