@@ -41,6 +41,10 @@ const sugerenciasEmpresasSchema = new Schema({
       message: 'Debe seleccionar si los resultados han sido oportunos',
     },
   },
+  sugerencia: {
+    type: String,
+    required: false,
+  },
   fecha: {
     type: Date,
     default: Date.now,
@@ -157,6 +161,10 @@ sugerenciasEmpresasSchema.post('save', async function (doc) {
             <span class="indicator ${doc.oportuno}">${doc.oportuno.toUpperCase()}</span>
           </div>
           <div class="info-row">
+            <span class="label">Sugerencia:</span>
+            <span class="value">${doc.sugerencia || 'No especificada'}</span>
+          </div>
+          <div class="info-row">
             <span class="label">Fecha:</span>
             <span class="value">${doc.fecha.toLocaleString('es-DO', {
               year: 'numeric',
@@ -200,7 +208,7 @@ sugerenciasEmpresasSchema.post('save', async function (doc) {
         to: destinatario,
         subject: 'Nueva Sugerencia de Empresa Recibida',
         htmlContent: htmlContent,
-        textContent: `Nueva sugerencia de empresa recibida:\nID: ${doc._id}\nEmpresa: ${doc.empresa}\nSatisfacción: ${doc.satisfaccion}\nResultados Oportunos: ${doc.oportuno}\nFecha: ${doc.fecha.toLocaleString('es-DO')}`,
+        textContent: `Nueva sugerencia de empresa recibida:\nID: ${doc._id}\nEmpresa: ${doc.empresa}\nSatisfacción: ${doc.satisfaccion}\nResultados Oportunos: ${doc.oportuno}\nSugerencia: ${doc.sugerencia || 'No especificada'}\nFecha: ${doc.fecha.toLocaleString('es-DO')}`,
       });
       console.log(
         `✅ Email enviado exitosamente a ${destinatario}, MessageID: ${result.messageId}`,
