@@ -890,6 +890,55 @@ const updateComprobante = async (req, res) => {
       // );
     }
 
+    // Validar avance de próximo número vía numeros_utilizados
+    if (
+      updateData.numeros_utilizados !== undefined &&
+      updateData.numeros_utilizados !== null &&
+      updateData.numeros_utilizados !== ''
+    ) {
+      const nuevosUtilizados = Number(updateData.numeros_utilizados);
+      const utilizadosActuales = existingRango.numeros_utilizados || 0;
+      const numeroInicial = Number(
+        updateData.numero_inicial ?? existingRango.numero_inicial,
+      );
+      const numeroFinal = Number(
+        updateData.numero_final ?? existingRango.numero_final,
+      );
+      const cantidadNumeros = numeroFinal - numeroInicial + 1;
+
+      if (isNaN(nuevosUtilizados)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: 'Los números utilizados deben ser un número válido',
+        });
+      }
+
+      if (nuevosUtilizados < utilizadosActuales) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message:
+            'No se puede retroceder el próximo número. Solo se puede avanzar para alinear con números ya emitidos.',
+        });
+      }
+
+      if (nuevosUtilizados > cantidadNumeros) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message:
+            'Los números utilizados no pueden exceder la cantidad total del rango',
+        });
+      }
+
+      if (nuevosUtilizados < 0) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          status: 'error',
+          message: 'Los números utilizados no pueden ser negativos',
+        });
+      }
+
+      updateData.numeros_utilizados = nuevosUtilizados;
+    }
+
     // Actualizar todos los campos enviados sin restricciones
     Object.assign(existingRango, updateData);
     existingRango.fechaActualizacion = Date.now();
