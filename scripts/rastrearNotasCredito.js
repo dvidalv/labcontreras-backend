@@ -1,14 +1,16 @@
 /**
- * Rastrea las Notas de Crédito Electrónicas (tipo 34) emitidas por el laboratorio.
+ * Rastrea las Notas de Crédito Electrónicas (tipo 34, por defecto) u otro tipo de
+ * e-CF emitidos por el laboratorio.
  *
  * Los e-CF enviados no se guardan en MongoDB, así que los NCF se reconstruyen a
- * partir de los rangos tipo 34 (numero_inicial + numeros_utilizados) y luego se
+ * partir de los rangos del tipo (numero_inicial + numeros_utilizados) y luego se
  * consulta su estatus en TheFactoryHKA. Solo lectura: no modifica nada.
  *
  * Uso:
  *   node scripts/rastrearNotasCredito.js            # todas las notas consumidas
  *   node scripts/rastrearNotasCredito.js --sin-estatus  # solo lista los NCF
  *   node scripts/rastrearNotasCredito.js --csv salida.csv
+ *   node scripts/rastrearNotasCredito.js --tipo 33  # notas de débito
  */
 require('dotenv').config();
 const fs = require('fs');
@@ -27,6 +29,8 @@ const args = process.argv.slice(2);
 const sinEstatus = args.includes('--sin-estatus');
 const csvIndex = args.indexOf('--csv');
 const csvPath = csvIndex !== -1 ? args[csvIndex + 1] : null;
+const tipoIndex = args.indexOf('--tipo');
+const tipo = tipoIndex !== -1 ? args[tipoIndex + 1] : '34';
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -68,16 +72,16 @@ const main = async () => {
     serverSelectionTimeoutMS: 30000,
   });
 
-  const rangos = await Comprobante.find({ tipo_comprobante: '34' })
+  const rangos = await Comprobante.find({ tipo_comprobante: tipo })
     .sort({ numero_inicial: 1 })
     .lean();
 
   if (rangos.length === 0) {
-    console.log('No hay rangos tipo 34 registrados.');
+    console.log(`No hay rangos tipo ${tipo} registrados.`);
     return;
   }
 
-  console.log(`\nRangos de Nota de Crédito (tipo 34): ${rangos.length}\n`);
+  console.log(`\nRangos tipo ${tipo}: ${rangos.length}\n`);
   const ncfs = [];
   for (const rango of rangos) {
     const prefijo = rango.prefijo || 'E';
@@ -88,11 +92,11 @@ const main = async () => {
         `autorizado ${new Date(rango.fecha_autorizacion).toISOString().slice(0, 10)}`,
     );
     for (let n = rango.numero_inicial; n <= ultimo; n += 1) {
-      ncfs.push(`${prefijo}34${String(n).padStart(10, '0')}`);
+      ncfs.push(`${prefijo}${tipo}${String(n).padStart(10, '0')}`);
     }
   }
 
-  console.log(`\nNCF tipo 34 consumidos: ${ncfs.length}\n`);
+  console.log(`\nNCF tipo ${tipo} consumidos: ${ncfs.length}\n`);
   if (ncfs.length === 0) return;
 
   if (sinEstatus) {

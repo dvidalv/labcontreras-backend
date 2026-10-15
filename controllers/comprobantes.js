@@ -1521,10 +1521,12 @@ const parsearFechaUTC = (fecha) => {
   return null;
 };
 
-// La FechaEmision de una Nota de Crédito es el día en que se emite, no la fecha
-// de la factura original (esa va en InformacionReferencia.FechaNCFModificado).
-const prepararNotaCredito = (facturaSimple) => {
-  if (facturaSimple?.factura?.tipo !== '34') return facturaSimple;
+// La FechaEmision de una Nota de Débito/Crédito es el día en que se emite, no la
+// fecha de la factura original (esa va en InformacionReferencia.FechaNCFModificado).
+const prepararNotaModificacion = (facturaSimple) => {
+  if (!['33', '34'].includes(facturaSimple?.factura?.tipo)) {
+    return facturaSimple;
+  }
   return {
     ...facturaSimple,
     factura: { ...facturaSimple.factura, fecha: fechaActualRD() },
@@ -2645,7 +2647,7 @@ const enviarFacturaElectronica = async (req, res) => {
     // Obtener token de autenticación
     const token = await obtenerTokenTheFactory();
 
-    const facturaEntrada = prepararNotaCredito(req.body);
+    const facturaEntrada = prepararNotaModificacion(req.body);
 
     // Transformar el JSON simplificado al formato completo
     const facturaCompleta = transformarFacturaParaTheFactory(
