@@ -1494,6 +1494,57 @@ const stringVacioANull = (valor) => {
   return typeof valor === 'string' ? valor.trim() || null : valor;
 };
 
+// Fecha actual en República Dominicana con formato DD-MM-YYYY
+const fechaActualRD = () =>
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Santo_Domingo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+    .format(new Date())
+    .replace(/\//g, '-');
+
+// Convierte DD-MM-YYYY, DD/MM/YYYY o YYYY-MM-DD a timestamp UTC (null si es inválida)
+const parsearFechaUTC = (fecha) => {
+  const texto = String(fecha || '').trim();
+  const ddmmyyyy = texto.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, dia, mes, anio] = ddmmyyyy;
+    return Date.UTC(Number(anio), Number(mes) - 1, Number(dia));
+  }
+  const yyyymmdd = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (yyyymmdd) {
+    const [, anio, mes, dia] = yyyymmdd;
+    return Date.UTC(Number(anio), Number(mes) - 1, Number(dia));
+  }
+  return null;
+};
+
+// La FechaEmision de una Nota de Crédito es el día en que se emite, no la fecha
+// de la factura original (esa va en InformacionReferencia.FechaNCFModificado).
+const prepararNotaCredito = (facturaSimple) => {
+  if (facturaSimple?.factura?.tipo !== '34') return facturaSimple;
+  return {
+    ...facturaSimple,
+    factura: { ...facturaSimple.factura, fecha: fechaActualRD() },
+  };
+};
+
+// DGII: 0 si la nota se emite ≤ 30 días calendario después del e-CF afectado, 1 si > 30
+// (con 1 la nota no da derecho a rebajar ITBIS).
+const calcularIndicadorNotaCredito = (fechaEmision, fechaNCFModificado) => {
+  const emision = parsearFechaUTC(fechaEmision);
+  const original = parsearFechaUTC(fechaNCFModificado);
+  if (emision === null || original === null) {
+    throw new Error(
+      `❌ Tipo 34: fecha inválida para calcular IndicadorNotaCredito (FechaEmision: "${fechaEmision}", FechaNCFModificado: "${fechaNCFModificado}"). Use el formato DD-MM-YYYY`,
+    );
+  }
+  const dias = Math.round((emision - original) / 86400000);
+  return dias > 30 ? '1' : '0';
+};
+
 // Función para transformar JSON simplificado al formato de TheFactoryHKA
 const transformarFacturaParaTheFactory = (facturaSimple, token) => {
   const {
@@ -2203,7 +2254,10 @@ const transformarFacturaParaTheFactory = (facturaSimple, token) => {
               // NO incluir FechaVencimientoSecuencia para tipo 34
               IndicadorMontoGravado:
                 parseFloat(montoGravadoCalculado) > 0 ? '1' : '0',
-              IndicadorNotaCredito: '0', // OBLIGATORIO para tipo 34
+              IndicadorNotaCredito: calcularIndicadorNotaCredito(
+                facturaAdaptada.fecha,
+                facturaAdaptada.fechaNCFModificado,
+              ),
               TipoIngresos: '01',
               TipoPago: '1',
             };
@@ -2591,8 +2645,13 @@ const enviarFacturaElectronica = async (req, res) => {
     // Obtener token de autenticación
     const token = await obtenerTokenTheFactory();
 
+    const facturaEntrada = prepararNotaCredito(req.body);
+
     // Transformar el JSON simplificado al formato completo
-    const facturaCompleta = transformarFacturaParaTheFactory(req.body, token);
+    const facturaCompleta = transformarFacturaParaTheFactory(
+      facturaEntrada,
+      token,
+    );
 
     console.log(
       'Factura transformada:',
@@ -2653,15 +2712,16 @@ const enviarFacturaElectronica = async (req, res) => {
     const estatusConsulta = await consultarEstatusInmediato(ncfGenerado);
 
     // 📱 Generar URL para QR Code de la DGII
-    const urlQR = generarUrlQR(response.data, req.body);
+    const urlQR = generarUrlQR(response.data, facturaEntrada);
 
     return res.status(httpStatus.OK).json({
       status: 'success',
       message: 'Factura electrónica enviada exitosamente',
       data: {
-        facturaOriginal: req.body,
+        facturaOriginal: facturaEntrada,
         respuestaTheFactory: response.data,
         ncfGenerado: ncfGenerado,
+        fechaEmision: facturaEntrada.factura.fecha,
         codigoSeguridad: response.data.codigoSeguridad,
         fechaFirma: response.data.fechaFirma,
         xmlBase64: response.data.xmlBase64,
