@@ -3,8 +3,27 @@
 # MongoDB Export Commands
 # Ejecutar cuando el cluster esté activo (no "Degraded")
 
-# Variables de configuración
-URI="mongodb+srv://<user>:<password>@cluster0.m2ufsic.mongodb.net/LPCR"
+# Variables de configuración. La URI se lee del entorno o de .env, nunca del repo.
+read_env_value() {
+  local key="$1"
+  local line
+  line="$(grep -E "^${key}=" .env 2>/dev/null | tail -1 || true)"
+  printf '%s' "${line#*=}"
+}
+
+URI="${ATLAS_URI:-${MONGODB_URI:-}}"
+if [ -z "$URI" ] && [ -f .env ]; then
+  URI="$(read_env_value ATLAS_URI)"
+  if [ -z "$URI" ]; then
+    URI="$(read_env_value MONGODB_URI)"
+  fi
+fi
+
+if [ -z "$URI" ]; then
+  echo "Define ATLAS_URI o MONGODB_URI en el entorno o en .env"
+  exit 1
+fi
+
 OUTPUT_DIR="./exports"
 
 # Crear directorio de exports si no existe

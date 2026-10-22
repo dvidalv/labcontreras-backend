@@ -1,17 +1,34 @@
 #!/bin/bash
 
-# Script para actualizar las credenciales correctas del nuevo cluster
+# Actualiza ATLAS_URI_2 en .env.
+# Uso: ./fix_env.sh "mongodb+srv://usuario:password@cluster.mongodb.net/LPCR"
+#   o: ATLAS_URI_2="mongodb+srv://..." ./fix_env.sh
 
-echo "🔧 Actualizando credenciales de ATLAS_URI_2..."
+set -euo pipefail
 
-# Hacer backup del .env actual
-cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+NEW_URI="${1:-${ATLAS_URI_2:-}}"
 
-# Actualizar ATLAS_URI_2 con las credenciales correctas
-sed -i.bak 's|ATLAS_URI_2=.*|ATLAS_URI_2=mongodb+srv://<user>:<password>@cluster1.hycui.mongodb.net/LPCR?retryWrites=true&w=majority&appName=Cluster1|' .env
+if [ -z "$NEW_URI" ]; then
+  echo "Pasa la URI como argumento o en ATLAS_URI_2."
+  echo "Uso: ./fix_env.sh \"mongodb+srv://usuario:password@cluster.mongodb.net/LPCR\""
+  exit 1
+fi
 
-echo "✅ ATLAS_URI_2 actualizada con credenciales funcionales"
-echo "📋 Nueva configuración:"
-grep ATLAS_URI_2 .env
-echo ""
-echo "🚀 Ahora puedes probar: npm run dev"
+if [ ! -f .env ]; then
+  echo "No existe .env"
+  exit 1
+fi
+
+cp .env ".env.backup.$(date +%Y%m%d_%H%M%S)"
+
+tmp="$(mktemp)"
+if grep -q '^ATLAS_URI_2=' .env; then
+  sed "s|^ATLAS_URI_2=.*|ATLAS_URI_2=${NEW_URI}|" .env > "$tmp"
+else
+  cat .env > "$tmp"
+  printf '\nATLAS_URI_2=%s\n' "$NEW_URI" >> "$tmp"
+fi
+mv "$tmp" .env
+
+echo "ATLAS_URI_2 actualizada en .env"
+echo "El respaldo .env.backup.* queda ignorado por git. No lo subas."

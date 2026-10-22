@@ -12,38 +12,33 @@ fi
 NEW_URI="$1"
 echo "🔄 Actualizando URI del cluster..."
 
-# Crear backup de archivos originales
-echo "💾 Creando backups..."
-cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
-cp export_commands.sh export_commands.sh.backup.$(date +%Y%m%d_%H%M%S)
-
-# Actualizar .env
-echo "📝 Actualizando .env..."
-if grep -q "ATLAS_URI=" .env; then
-    # Reemplazar URI existente
-    sed -i.bak "s|ATLAS_URI=.*|ATLAS_URI=$NEW_URI|" .env
-else
-    # Agregar nueva URI
-    echo "ATLAS_URI=$NEW_URI" >> .env
+if [ ! -f .env ]; then
+    echo "No existe .env"
+    exit 1
 fi
 
-# Actualizar export_commands.sh
-echo "📝 Actualizando export_commands.sh..."
-sed -i.bak "s|URI=\".*\"|URI=\"$NEW_URI\"|" export_commands.sh
+# Crear backup de .env. Queda cubierto por .gitignore.
+echo "💾 Creando backup de .env..."
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# Actualizar .env sin dejar un .env.bak con la URI anterior
+echo "📝 Actualizando .env..."
+tmp="$(mktemp)"
+if grep -q "^ATLAS_URI=" .env; then
+    sed "s|^ATLAS_URI=.*|ATLAS_URI=$NEW_URI|" .env > "$tmp"
+else
+    cat .env > "$tmp"
+    printf '\nATLAS_URI=%s\n' "$NEW_URI" >> "$tmp"
+fi
+mv "$tmp" .env
 
 echo "✅ Actualización completada!"
 echo ""
-echo "📋 Archivos actualizados:"
+echo "📋 Archivo actualizado:"
 echo "   - .env"
-echo "   - export_commands.sh"
 echo ""
-echo "💾 Backups creados:"
-echo "   - .env.backup.*"
-echo "   - export_commands.sh.backup.*"
+echo "export_commands.sh lee ATLAS_URI desde .env. No guarda la URI en el repo."
 echo ""
 echo "🚀 Ahora puedes:"
 echo "   1. Probar la conexión: npm run dev"
 echo "   2. Exportar datos: ./export_commands.sh"
-echo ""
-echo "🔗 Nueva URI configurada:"
-echo "   $NEW_URI"
