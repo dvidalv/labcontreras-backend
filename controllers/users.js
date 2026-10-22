@@ -4,6 +4,7 @@ const { User } = require('../models/user'); // Importamos el modelo de usuarios
 const bcrypt = require('bcryptjs'); // Importamos bcryptjs
 const { v2: cloudinary } = require('cloudinary'); // Importamos cloudinary v2
 const { sendEmail } = require('../api/api-mail_brevo');
+const { ensureConnection } = require('../lib/db');
 require('dotenv').config();
 
 const getCurrentUser = async (req, res) => {
@@ -356,6 +357,9 @@ const forgotPassword = async (req, res) => {
     const { email } = req.body;
     // console.log('🔍 Datos recibidos en forgotPassword:', req.body);
     // console.log('🔍 Email:', email);
+
+    // Asegurar que la conexión esté lista
+    await ensureConnection();
 
     // Validar que el email existe
     const user = await User.findOne({ email });
